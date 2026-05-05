@@ -33,6 +33,7 @@ nia.cache
 nlia.cache
 nra.cache
 native_compute_profile_*.data
+*.hs
 
 # generated timing files
 *.timing.diff
@@ -43,3 +44,11 @@ time-of-build-after.log
 time-of-build-before.log
 time-of-build-both.log
 time-of-build-pretty.log
+
+CoqMakefile.conf
+_opam
+_build
+makefile.coq
+._d/
+._ncdi/
+makefile.coq.conf
