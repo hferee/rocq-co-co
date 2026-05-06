@@ -9,6 +9,25 @@ From Equations Require Import Equations.
    - Every element is packaged with a normalisation cost and the
      complexity of its normal form. *)
 
+  (* Types will extensively be interpreted as some simple types, typically
+    using Scott Encodings. *)
+  Class InterpretableType (t : Type) := {
+    TI : SimpleType;
+    enc : t -> TI;
+    dec : TI -> t;
+    }.
+
+  Definition SimpleType_of t `{InterpretableType t} := TI.
+  Coercion SimpleType_of : Sortclass >-> Funclass.
+  Notation "§ A" := (SimpleType_of A) (at level 5).
+
+   Global Instance InterpretableFun t1 t2
+   `{InterpretableType t1} `{InterpretableType t2} : InterpretableType (t1 -> t2) := {
+    TI := SFun §t1 §t2;
+    enc := fun f x => enc (f (dec x));
+    dec := fun f x => dec (f (enc x));
+    }.
+
 (* Monad(?) to annotate inputs (in normal form) with their complexity bounds *)
 (* In theory, cost could be something else than nat. *)
 Record ℂI (A : Type) (CA : Type) := { val : A; icomp : CA }.
@@ -39,7 +58,7 @@ Fixpoint ℂT (t : SimpleType) : Type := match t with
 | SGround A => unit
 | SProd A B => ℂT A * ℂT B
 | SFun A B => ℂI A (ℂT A) -> ℂO B (ℂT B)
-| SPi F => forall (A : Type), ℂT (F A)
+| SPi F => forall (A : SimpleType), ℂT (F A)
 end.
 
 (* Immediate/ normalisation cost of an output *)
@@ -60,7 +79,7 @@ Equations ℂT_order t (b1 b2 : ℂT t) : Prop :=
   ℂT_order A (fst b1) (fst b2) /\ ℂT_order B (snd b1) (snd b2);
 ℂT_order (SFun A B) b1 b2 => forall ca, let b1' := b1 ca in let b2' := b2 ca in
   cost b1' <= cost b2' /\ ℂT_order B (ocomp b1') (ocomp b2');
-ℂT_order (SPi F) b1 b2 => forall A, ℂT_order (F A) (b1 A) (b2 A).
+ℂT_order (SPi F) b1 b2 => forall (A : SimpleType), ℂT_order (F A) (b1 A) (b2 A).
 
 Global Arguments ℂT_order {t} b1 b2.
 Global Transparent ℂT_order.
@@ -89,7 +108,6 @@ Qed.
 
 (* Some execution models can be equipped with a notion of complexity *)
 Module Type CostModel.
-
   (* An abstract notion of cost. This allows for multiple notions of cost
     (time, space, function calls, etc. *)
 
@@ -97,20 +115,23 @@ Module Type CostModel.
 
   (* The complexity of an abstract term defined as a relation. *)
   (* We may require that it is monotone in the future *)
-  Parameter has_complexity: forall {A : SimpleType}, A -> ℂT A -> Prop.
+  Parameter has_complexity: forall {t} `{InterpretableType t}, t -> ℂT (§ t) -> Prop.
+
+  Definition ext_eq' {t} `{InterpretableType t} a b := ext_eq (enc a) (enc b).
+Infix "=e" := ext_eq' (at level 50, no associativity).
 
  (* Complexity is a monotone property *)
-  Parameter has_complexity_ext_eq: forall {A},
-    Proper ((ext_eq) ==> (ℂT_order) ==> impl) (@has_complexity A).
+  Parameter has_complexity_ext_eq: forall {A : Type} {IA: InterpretableType A},
+    Proper ((ext_eq') ==> (ℂT_order) ==> impl) has_complexity.
   Global Existing Instance has_complexity_ext_eq.
 
   Infix "has_complexity!" := has_complexity (at level 40).
 
   (* As Forster & Künze, we record complexity results using typeclasses. *)
-  Class ComplexityBound A (f : Type_of_SimpleType A) c := {CB : has_complexity f c}.
+  Class ComplexityBound {t} `{InterpretableType t} (f : t) c := {CB : has_complexity f c}.
 
-  Global Instance ComplexityBound_proper {A}:
-    Proper ((ext_eq) ==> (ℂT_order) ==> (impl)) (ComplexityBound A).
+  Global Instance ComplexityBound_proper {t} `{InterpretableType t}:
+    Proper ((ext_eq') ==> (ℂT_order) ==> (impl)) ComplexityBound.
   Proof. intros ??????[?]. constructor. eapply has_complexity_ext_eq; eauto. Qed.
 
   (* Useful functions to express complexity bounds *)
@@ -144,35 +165,29 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   cost. These axioms are now the trust base, and users may not cheat, 
   or make mistakes anymore *)
 
-  (* Identity on ground types *)
-  (* TODO: compare with from coq-library-complexity. *)
-  Parameter id0_complexity : forall {A} `{GroundType A},
-    ComplexityBound $(A -> A) (@id A) (fun a => 1).
-  Existing Instance id0_complexity.
-
-  (* The complexity of the application function, i.e. identity on function types. *)
-  (* We can give a general, polymorphic bound!
+  (* Complexity of the Identity.
+    Note that we can give a general, polymorphic bound!
     A priori, this is not the case for coq-library-complexity. *)
   (* Note that the complexity of the identity is roughly the identity *)
-  Parameter id_complexity : forall {A B},
-    ComplexityBound $(SFun (SFun A B) (SFun A B)) (@id (A -> B))
-      (fun cf => (1, icomp cf)).
+
+  Parameter id_complexity : forall {A} `{InterpretableType A},
+    ComplexityBound (@id A) (fun a => 1 ⋉ icomp a).
   Existing Instance id_complexity.
 
-  (* Complexity of the application of a function to an argument *)
+(*   (* Complexity of the application of a function to an argument *)
   Parameter apply_complexity : forall {A B : SimpleType} {v : A} {f cv cf},
     ComplexityBound A v cv ->
     ComplexityBound $(A -> B) f cf ->
     ComplexityBound B (f v) (ocomp (cf (v ⋊ cv))).
-
-    (* TODO : notation for putting back v and cv together *)
+ *)
 
   (* Unary composition *)
   (* It produces a value whose complexity is obtained by composing the complexity
      of the three inputs ; the normalisation cost is obtained by two successive
      applications. *)
-  Parameter comp1_complexity : forall {A B C : SimpleType},
-  ComplexityBound $((B -> C) -> (A -> B) -> (A -> C)) compose
+  Parameter comp1_complexity : forall {A B C}
+  `{InterpretableType A, InterpretableType B, InterpretableType C},
+  ComplexityBound (@compose A B C)
     (fun cf => (1, fun cg => (1, fun ca =>
       1 + cost_apply cg ca + cost_apply cf (ℂI_apply cg ca)
       ⊕ icomp cf (ℂI_apply cg ca)))).
@@ -180,12 +195,17 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
 
   (* More convenient: the instantiation direct application of compose.
     TODO: do we need both? *)
-  Parameter compose_complexity : forall {A B C : SimpleType} f cf g cg,
-  ComplexityBound $(B -> C) f cf ->
-  ComplexityBound $(A -> B) g cg ->
-  ComplexityBound $(A -> C) (compose f g)
+  Program Definition compose_complexity : forall {A B C}
+  `{InterpretableType A, InterpretableType B, InterpretableType C}
+  (f : B -> C) cf (g : A -> B) cg,
+  let _ : InterpretableType (A -> B) := _ in
+  let _ : InterpretableType (B -> C) := _ in
+  let _ : InterpretableType (A -> C) := _ in
+  ComplexityBound f cf ->
+  ComplexityBound g cg ->
+  ComplexityBound (@compose A B C f g : A -> C)
     (fun ca =>
-      cost (cg ca) ⊕ cf (ℂI_apply (g ⋊ cg) ca)).
+      (* cost (cg ca) ⊕  *) cf (ℂI_apply _ ca)).
   Existing Instance compose_complexity.
 
 End BasicTimeCostModel.

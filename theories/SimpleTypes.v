@@ -45,7 +45,7 @@ Ltac simpletype A := match A with
 | ?a => exact a
 end.
 
-Notation "'$' t" := (ltac:((simpletype t))) (at level 5, only parsing).
+Notation "'$' t" := (ltac:((simpletype t))) (at level 5).
 
 Notation "A ⇝ B" := (SFun A B) (at level 80, right associativity).
 
