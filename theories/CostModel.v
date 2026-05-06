@@ -26,13 +26,12 @@ Global Arguments icomp {_} {_}.
 Definition ℂO (t : SimpleType) (CA : Type) : Type :=
 match t with
 | SGround A => nat
-| SFun A B => nat * CA
-| SProd A B => nat * CA
+| _ => nat * CA
 end.
 
 (* Annotate a complexity bound with a cost *)
 Definition ℂO_pair {t : SimpleType} {CA : Type} (n : nat) (c : CA) : ℂO t CA.
-Proof. destruct t; [exact n| |]; exact (n, c). Defined.
+Proof. destruct t. 1: exact n. all: exact (n, c). Defined.
 Infix "⋉" := ℂO_pair (at level 40).
 
 (* The type of complexity bounds for normal forms of a given simple type *)
@@ -40,15 +39,16 @@ Fixpoint ℂT (t : SimpleType) : Type := match t with
 | SGround A => unit
 | SProd A B => ℂT A * ℂT B
 | SFun A B => ℂI A (ℂT A) -> ℂO B (ℂT B)
+| SPi F => forall (A : Type), ℂT (F A)
 end.
 
 (* Immediate/ normalisation cost of an output *)
 Definition cost {t CA} (b : ℂO t CA) : nat.
-Proof. destruct t; [exact b| |]; exact (fst b). Defined.
+Proof. destruct t. 1: exact b. all: exact (fst b). Defined.
 
 (* Complexity of an output *)
 Definition ocomp {t} (b : ℂO t (ℂT t)) : ℂT t.
-Proof. destruct t; [exact tt| |]; exact (snd b). Defined.
+Proof. destruct t. 1: exact tt. all: exact (snd b). Defined.
 
 
 Global Arguments ℂT !t : simpl nomatch. (* TODO: this doesn't work, it's still unfolded *)
@@ -59,7 +59,8 @@ Equations ℂT_order t (b1 b2 : ℂT t) : Prop :=
 ℂT_order (SProd A B) b1 b2 =>
   ℂT_order A (fst b1) (fst b2) /\ ℂT_order B (snd b1) (snd b2);
 ℂT_order (SFun A B) b1 b2 => forall ca, let b1' := b1 ca in let b2' := b2 ca in
-  cost b1' <= cost b2' /\ ℂT_order B (ocomp b1') (ocomp b2').
+  cost b1' <= cost b2' /\ ℂT_order B (ocomp b1') (ocomp b2');
+ℂT_order (SPi F) b1 b2 => forall A, ℂT_order (F A) (b1 A) (b2 A).
 
 Global Arguments ℂT_order {t} b1 b2.
 Global Transparent ℂT_order.
@@ -76,14 +77,14 @@ Proof. induction t; intro x; autorewrite with ℂT_order; auto with *. Qed.
 
 Global Instance ℂT_order_trans t : Transitive (@ℂT_order t).
 Proof.
-induction t as [A| A HA B HB | A HA B HB];
-intros x y z.
+induction t; intros x y z.
 - trivial.
 - split; auto with *.
 - autorewrite with ℂT_order.
   fold ℂT. (* TODO: how do I prevent the unfolding of ℂT? *)
   split; auto with *.
   transitivity (cost (y ca)); auto with *.
+- autorewrite with ℂT_order. eauto with *.
 Qed.
 
 (* Some execution models can be equipped with a notion of complexity *)
@@ -126,13 +127,13 @@ Module Type CostModel.
 
   (* Adds a normalisation cost to a complexity bound *)
   Definition cost_add {t} (n : nat) (b : ℂO t (ℂT t)) : ℂO t (ℂT t).
-  Proof. destruct t; [exact (n + b)| |]; exact (n + fst b, snd b). Defined.
+  Proof. destruct t. 1: exact (n + b). all: exact (n + fst b, snd b). Defined.
 
   Global Infix "⊕" := cost_add (at level 60, right associativity).
 
   (* Complexity of producing a value *)
   Definition ovalue {t} (v : ℂT t) : ℂO t (ℂT t).
-  Proof. destruct t; [exact (1)| |]; exact (1, v). (* 1? could be 0 *) Defined.
+  Proof. destruct t. 1: exact 1. all: exact (1, v). (* 1? could be 0 *) Defined.
 End CostModel.
 
 (* A basic example of a cost model for call-by-value time complexity *)
