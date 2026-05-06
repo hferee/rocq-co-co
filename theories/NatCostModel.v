@@ -119,7 +119,7 @@ Module NatTimeExamples (Import CM : CostModel)
   Unshelve. simpl. auto.
   Qed.
 
-  Program Example plus_complexity:
+  Example plus_complexity:
     ComplexityBound $(nat -> nat -> nat) plus (fun n => (val n + 1, fun m => 1 + 3 * val n)).
   (* TODO: I can't really explain the 3 * n  there *)
   Proof.
@@ -141,7 +141,7 @@ Module NatTimeExamples (Import CM : CostModel)
   * intro m. split; trivial. induction n; trivial. simpl. lia.
   Qed.
 
-  Program Example plus_complexity':
+  Example plus_complexity':
     ComplexityBound $(nat -> nat -> nat) plus (fun n => (1, fun m => 2 + 3 * val n)).
   Proof.
   fold ℂT.
