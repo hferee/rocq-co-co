@@ -55,6 +55,12 @@ Defined.
 
 Infix "=ext" := ext_eq (at level 50, no associativity).
 
+Global Instance reflexive_ext_eq {A} : Reflexive (@ext_eq A).
+Proof.
+induction A as [G | A B | A B]; intros x; simpl; intuition.
+destruct x. intuition (auto with *).
+Qed.
+
 Global Instance symmetric_ext_eq {A} : Symmetric (@ext_eq A).
 Proof.
 induction A as [G | A B | A B]; intros x y; simpl; intuition.

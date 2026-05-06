@@ -9,13 +9,12 @@ From Equations Require Import Equations.
    - Every element is packaged with a normalisation cost and the
      complexity of its normal form. *)
 
-(* Complexity monad *)
-
-
 (* Monad(?) to annotate inputs (in normal form) with their complexity bounds *)
 (* In theory, cost could be something else than nat. *)
 Record ℂI (A : Type) (CA : Type) := { val : A; icomp : CA }.
 (* TODO: find better names, especially icomp *)
+(* TODO: Not sure that the use of a record improves things, especially for
+  ground types. Maybe do something like ℂO *)
 
 Infix "⋊" := (Build_ℂI _ _) (at level 40).
 
@@ -150,9 +149,9 @@ Module Type CostModel (Import EM : ExecutionModel).
 End CostModel.
 
 (* A basic example of a cost model ; here, time complexity on base type nat. *)
-
+(* It's a call-by-value time cost model *)
 Module Type BasicTimeCostModel
-  (Export EM : BasicExecutionModel)
+  (Export EM : BasicExecutionModel) (* TODO: I'm not sure we need realisers anymore *)
   (Export CM : CostModel EM).
 
   (* Assume we know the cost of some basic functions *)
@@ -320,9 +319,51 @@ Module BasicTimeExamples
   * intro m. split; trivial. induction n; trivial. simpl. lia.
   Qed.
 
-  (* TODO : better complexity for add *)
+  (* fixpoint over nat with 1 additional argument *)
+  Definition nat_fix1 (A B : Type) (v : A -> B) (g : nat -> A -> A) (F : nat -> A -> B -> B) :=
+    fix f (n : nat) (x : A) : B := match n with O => v x | S k => F k x (f k (g k x)) end.
+
+  (* A quite general complexity bound for fixpoints over nat with 1 additional
+    argument. Hopefully I got it right. *)
+  Parameter nat_fix1_complexity : forall (A B : SimpleType) v g F cv cg cF,
+  let f := nat_fix1 A B v g F in
+    ComplexityBound $(A -> B) v cv ->
+    ComplexityBound $(nat -> A -> A) g cg ->
+    ComplexityBound $(nat -> A -> B -> B) F cF ->
+    ComplexityBound ($(nat -> A -> B)) f
+      (fun cn => (1, fun cx => 
+      (fix cfix n (cx : ℂI A (ℂT A)) := 1 ⊕
+      match n with
+      | O => cv cx
+      | S k => let ck := k ⋊ tt in
+               let gkx := g k (val cx) in
+               let cgkx := ocomp (cg ck) cx in
+               let cx' := (gkx ⋊ ocomp cgkx) in
+               let fkg := f k gkx in
+               let cfkg := cfix k cx' in
+               (* TODO: streamline the cost of applying a function with multiple arguments *)
+               (cost (cg ck) + cost cgkx + cost cfkg + cost (cF ck) + cost (ocomp (cF ck) cx)) ⊕ 
+               ocomp (ocomp (cF ck) cx) (fkg ⋊ ocomp (cfix k cx'))
+      end) (val cn) cx)).
+
+  Program Example plus_complexity':
+    ComplexityBound $(nat -> nat -> nat) plus (fun n => (1, fun m => 2 + 3 * val n)).
+  Proof.
+  fold ℂT.
+  capply. apply nat_fix1_complexity.
+  - apply id0_complexity. 
+  - apply (@constant_complexity $nat). (* the type annotation is necessary *)
+    apply id0_complexity.
+  - apply (@constant_complexity $nat).
+    apply (@constant_complexity $nat).
+    apply S_complexity.
+  (* Now check the complexity bound. *)
+  Unshelve.
+  intros [n ()]. simpl. repeat split; trivial.
+  induction n as [|n].
+  + trivial.
+  + destruct ca as [a ()]; simpl.
+    repeat apply le_n_S. lia.
+  Qed.
+
 End BasicTimeExamples.
-
-(* A function f is a fixpoint if it is extensionally equal to some F f *)
-(* Definition is_fix {A} (f : Type_of_SimpleType A) (F : A -> A) := f =ext F f. *)
-
