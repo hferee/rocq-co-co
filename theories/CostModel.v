@@ -228,18 +228,37 @@ Module Type BasicTimeCostModel (Export CM : CostModel).
                                        ocomp (cf (k ⋊ tt))
                          (nat_rect _ v f k ⋊ ocomp gk)))) val).
   (* TODO: define more elegantly?... *)
-(* This covers add:
-    Definition my_add : nat -> nat -> nat :=
-    nat_rect _ (fun m => m) (fun k km m => S (km m)).
-
-    Even the tailrec version
-      Definition my_add_tr : nat -> nat -> nat :=
-    nat_rect _ (fun m => m) (fun k km m => km (S m)).
- *)
  
  (* TODO: are there (structural) fixpoints on nat that are not expressible this way?
   And can we write a tactic to turn most such functions into a nat_rect?
   And can we automatically prove they are extensionally equal? *)
+
+  (* A quite general complexity bound for fixpoints over nat with 1 additional
+    argument. Hopefully I got it right. *)
+  (* fixpoint over nat with 1 additional argument *)
+  Definition nat_fix1 (A B : Type) (v : A -> B) (g : nat -> A -> A) (F : nat -> A -> B -> B) :=
+    fix f (n : nat) (x : A) : B := match n with O => v x | S k => F k x (f k (g k x)) end.
+
+  Parameter nat_fix1_complexity : forall (A B : SimpleType) v g F cv cg cF,
+  let f := nat_fix1 A B v g F in
+    ComplexityBound $(A -> B) v cv ->
+    ComplexityBound $(nat -> A -> A) g cg ->
+    ComplexityBound $(nat -> A -> B -> B) F cF ->
+    ComplexityBound ($(nat -> A -> B)) f
+      (fun cn => (1, fun cx => 
+      (fix cfix n (cx : ℂI A (ℂT A)) := 1 ⊕
+      match n with
+      | O => cv cx
+      | S k => let ck := k ⋊ tt in
+               let gkx := g k (val cx) in
+               let cgkx := ocomp (cg ck) cx in
+               let cx' := (gkx ⋊ ocomp cgkx) in
+               let fkg := f k gkx in
+               let cfkg := cfix k cx' in
+               (* TODO: streamline the cost of applying a function with multiple arguments *)
+               (cost (cg ck) + cost cgkx + cost cfkg + cost (cF ck) + cost (ocomp (cF ck) cx)) ⊕ 
+               ocomp (ocomp (cF ck) cx) (fkg ⋊ ocomp (cfix k cx'))
+      end) (val cn) cx)).
 
   Parameter constant_complexity : forall {A B: SimpleType} {b cb},
     ComplexityBound B b cb ->
@@ -307,33 +326,6 @@ Module BasicTimeExamples (CM : CostModel) (Import B: BasicTimeCostModel CM).
   * induction n; simpl; lia.
   * intro m. split; trivial. induction n; trivial. simpl. lia.
   Qed.
-
-  (* fixpoint over nat with 1 additional argument *)
-  Definition nat_fix1 (A B : Type) (v : A -> B) (g : nat -> A -> A) (F : nat -> A -> B -> B) :=
-    fix f (n : nat) (x : A) : B := match n with O => v x | S k => F k x (f k (g k x)) end.
-
-  (* A quite general complexity bound for fixpoints over nat with 1 additional
-    argument. Hopefully I got it right. *)
-  Parameter nat_fix1_complexity : forall (A B : SimpleType) v g F cv cg cF,
-  let f := nat_fix1 A B v g F in
-    ComplexityBound $(A -> B) v cv ->
-    ComplexityBound $(nat -> A -> A) g cg ->
-    ComplexityBound $(nat -> A -> B -> B) F cF ->
-    ComplexityBound ($(nat -> A -> B)) f
-      (fun cn => (1, fun cx => 
-      (fix cfix n (cx : ℂI A (ℂT A)) := 1 ⊕
-      match n with
-      | O => cv cx
-      | S k => let ck := k ⋊ tt in
-               let gkx := g k (val cx) in
-               let cgkx := ocomp (cg ck) cx in
-               let cx' := (gkx ⋊ ocomp cgkx) in
-               let fkg := f k gkx in
-               let cfkg := cfix k cx' in
-               (* TODO: streamline the cost of applying a function with multiple arguments *)
-               (cost (cg ck) + cost cgkx + cost cfkg + cost (cF ck) + cost (ocomp (cF ck) cx)) ⊕ 
-               ocomp (ocomp (cF ck) cx) (fkg ⋊ ocomp (cfix k cx'))
-      end) (val cn) cx)).
 
   Program Example plus_complexity':
     ComplexityBound $(nat -> nat -> nat) plus (fun n => (1, fun m => 2 + 3 * val n)).
