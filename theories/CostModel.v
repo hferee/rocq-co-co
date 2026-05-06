@@ -87,36 +87,23 @@ intros x y z.
 Qed.
 
 (* Some execution models can be equipped with a notion of complexity *)
-Module Type CostModel (Import EM : ExecutionModel).
+Module Type CostModel.
 
   (* An abstract notion of cost. This allows for multiple notions of cost
-    (time, space, function calls, etc.
-    ℂ will often be nat. *)
+    (time, space, function calls, etc. *)
 
-  (* TODO: I'm fixing the type of complexity measures to nat here for now,
-    as I don't know how to use modules... *)
-  Parameter GTnat : GroundType nat.
-  Existing Instance GTnat. (* assume nat has ground Type *)
+  (* I'm fixing the type of complexity measures to nat here for now. *)
 
   (* The complexity of an abstract term defined as a relation. *)
   (* We may require that it is monotone in the future *)
-  Parameter is_complexity_bound: forall {A : SimpleType}, ⟨A⟩ -> ℂT A -> Prop.
+  Parameter has_complexity: forall {A : SimpleType}, A -> ℂT A -> Prop.
 
  (* Complexity is a monotone property *)
-  Parameter complexity_ext_eq: forall {A},
-    Proper ((eq) ==> (ℂT_order) ==> impl) (@is_complexity_bound A).
-  Global Existing Instance complexity_ext_eq.
+  Parameter has_complexity_ext_eq: forall {A},
+    Proper ((ext_eq) ==> (ℂT_order) ==> impl) (@has_complexity A).
+  Global Existing Instance has_complexity_ext_eq.
 
-  Definition has_complexity {A : SimpleType} (f : Type_of_SimpleType A) c:=
-    exists t, realises t f /\ is_complexity_bound t c.
   Infix "has_complexity!" := has_complexity (at level 40).
-
-  Global Instance has_complexity_ext_eq {A}:
-    Proper ((ext_eq) ==> (ℂT_order) ==> (impl)) (@has_complexity A).
-  Proof.
-  intros f g feqg c c' Hc. intros (t & Ht & Htc). exists t.
-  rewrite feqg in Ht. rewrite Hc in Htc. tauto.
-  Qed.
 
   (* As Forster & Künze, we record complexity results using typeclasses. *)
   Class ComplexityBound A (f : Type_of_SimpleType A) c := {CB : has_complexity f c}.
@@ -150,9 +137,7 @@ End CostModel.
 
 (* A basic example of a cost model ; here, time complexity on base type nat. *)
 (* It's a call-by-value time cost model *)
-Module Type BasicTimeCostModel
-  (Export EM : BasicExecutionModel) (* TODO: I'm not sure we need realisers anymore *)
-  (Export CM : CostModel EM).
+Module Type BasicTimeCostModel (Export CM : CostModel).
 
   (* Assume we know the cost of some basic functions *)
   (* General idea: we define a (complete) set of primitives and axiomatize their
@@ -204,6 +189,10 @@ Module Type BasicTimeCostModel
   Existing Instance compose_complexity.
 
   (* Axioms that are more specific to nat *)
+
+  Parameter GTnat : GroundType nat.
+  Existing Instance GTnat. (* assume nat has ground Type *)
+
   (* Constructors *)
   Parameter O_complexity : ComplexityBound $nat O tt. (* TODO: is this useful? *)
   Existing Instance O_complexity.
@@ -255,15 +244,21 @@ Module Type BasicTimeCostModel
   Parameter constant_complexity : forall {A B: SimpleType} {b cb},
     ComplexityBound B b cb ->
     ComplexityBound $(A -> B) (fun _ => b) (fun _ => 0 ⋉ cb).
+
+  (* Replaces the complexity bound with an evar.
+     The complexity bound goal will eventually need to be taken from the shelf. *)
+  Ltac capply := eapply (fun f => ComplexityBound_proper f f (ltac:(reflexivity))); [shelve|].
+
+  (* Tactic to replace the function with an extensionally equivalent one in
+    a [ComplexityBound] goal *)
+  Ltac change_fun_with f' := match goal with
+  | |- ComplexityBound ?a ?f ?c => 
+      eapply (@ComplexityBound_proper a f' f _ c c (ltac:(reflexivity)))
+  end.
 End BasicTimeCostModel.
 
-Module BasicTimeExamples
-  (EM : BasicExecutionModel) (CM : CostModel EM)
- (Import B: BasicTimeCostModel EM CM).
+Module BasicTimeExamples (CM : CostModel) (Import B: BasicTimeCostModel CM).
 
-  (* For ease of use *)
-  Ltac capply := eapply (fun f => ComplexityBound_proper f f (ltac:(reflexivity))); [shelve|].
-  
   Example plus2 (n : nat) := S (S n).
   Example plus2_complexity: ComplexityBound $(nat -> nat) plus2 (fun n => 4).
   Proof.
@@ -279,6 +274,7 @@ Module BasicTimeExamples
   (* also, explicit type annotations are annoying *)
   constructor; simpl; trivial.
   Qed.
+
   (* Better *)
   Example plus2_complexity': ComplexityBound $(nat -> nat) plus2 (fun n => 2).
   Proof.
@@ -292,13 +288,6 @@ Module BasicTimeExamples
   Unshelve.
   constructor; simpl; trivial.
   Qed.
-  
-  (* Tactic to replace the function with an extensionally equivalent one in
-    a [ComplexityBound] goal *)
-  Ltac change_fun_with f' := match goal with
-  | |- ComplexityBound ?a ?f ?c => 
-      eapply (@ComplexityBound_proper a f' f _ c c (ltac:(reflexivity)))
-  end.
 
   Program Example plus_complexity:
     ComplexityBound $(nat -> nat -> nat) plus (fun n => (val n + 1, fun m => 1 + 3 * val n)).
