@@ -34,27 +34,27 @@ Definition ℂO_pair {t : SimpleType} {CA : Type} (n : nat) (c : CA) : ℂO t CA
 Proof. destruct t. 1: exact n. all: exact (n, c). Defined.
 Infix "⋉" := ℂO_pair (at level 40).
 
-(* The type of complexity bounds for normal forms of a given simple type *)
+(* (* The type of complexity bounds for normal forms of a given simple type *)
 Fixpoint ℂT (t : SimpleType) : Type := match t with
 | SGround A => unit
 | SProd A B => ℂT A * ℂT B
 | SFun A B => ℂI A (ℂT A) -> ℂO B (ℂT B)
 | SPi F => forall (A : Type), ℂT (F A)
-end.
+end. *)
 
 (* Immediate/ normalisation cost of an output *)
 Definition cost {t CA} (b : ℂO t CA) : nat.
 Proof. destruct t. 1: exact b. all: exact (fst b). Defined.
 
-(* Complexity of an output *)
+(* (* Complexity of an output *)
 Definition ocomp {t} (b : ℂO t (ℂT t)) : ℂT t.
-Proof. destruct t. 1: exact tt. all: exact (snd b). Defined.
+Proof. destruct t. 1: exact tt. all: exact (snd b). Defined. *)
 
 
-Global Arguments ℂT !t : simpl nomatch. (* TODO: this doesn't work, it's still unfolded *)
+(* Global Arguments ℂT !t : simpl nomatch. (* TODO: this doesn't work, it's still unfolded *) *)
 
 (* Ordering on complexity bounds *)
-Equations ℂT_order t (b1 b2 : ℂT t) : Prop :=
+(* Equations ℂT_order t (b1 b2 : ℂT t) : Prop :=
 ℂT_order (SGround A) _ _ => True;
 ℂT_order (SProd A B) b1 b2 =>
   ℂT_order A (fst b1) (fst b2) /\ ℂT_order B (snd b1) (snd b2);
@@ -63,7 +63,7 @@ Equations ℂT_order t (b1 b2 : ℂT t) : Prop :=
 ℂT_order (SPi F) b1 b2 => forall A, ℂT_order (F A) (b1 A) (b2 A).
 
 Global Arguments ℂT_order {t} b1 b2.
-Global Transparent ℂT_order.
+Global Transparent ℂT_order. *)
 
 (* TODO: all this mess is to hopefully obtain nice complexity bounds
   - that are what we hope for first order functions ;
@@ -72,7 +72,7 @@ Global Transparent ℂT_order.
   - The complexity of polymorphic functions can be expressed polymorphically. *)
 
 
-Global Instance ℂT_order_refl t : Reflexive (@ℂT_order t).
+(* Global Instance ℂT_order_refl t : Reflexive (@ℂT_order t).
 Proof. induction t; intro x; autorewrite with ℂT_order; auto with *. Qed.
 
 Global Instance ℂT_order_trans t : Transitive (@ℂT_order t).
@@ -85,7 +85,7 @@ induction t; intros x y z.
   split; auto with *.
   transitivity (cost (y ca)); auto with *.
 - autorewrite with ℂT_order. eauto with *.
-Qed.
+Qed. *)
 
 (* Some execution models can be equipped with a notion of complexity *)
 Module Type CostModel.
@@ -97,7 +97,8 @@ Module Type CostModel.
 
   (* The complexity of an abstract term defined as a relation. *)
   (* We may require that it is monotone in the future *)
-  Parameter has_complexity: forall {A : SimpleType}, A -> ℂT A -> Prop.
+  Parameter complexity_type : Type -> Type -> Prop.
+  Parameter has_complexity: forall {A B : Type}, A -> B -> Prop.
 
  (* Complexity is a monotone property *)
   Parameter has_complexity_ext_eq: forall {A},
