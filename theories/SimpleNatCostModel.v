@@ -59,7 +59,6 @@ Module Type NatTimeCostModel
 
   Parameter nat_fix1_complexity : forall (A B CA CB : Type) `{CT A CA} `{CT B CB}
   (v : A -> B) (g : nat -> A -> A) (F : nat -> A -> B -> B) (cv : ℂI A -> ℂO CB) cg cF,
-  let T := fun_CT nat (A -> B -> B) in
   let f := nat_fix1 A B v g F in
     ComplexityBound v cv ->
     ComplexityBound g (cg : ℂI nat -> ℂO (ℂI A -> ℂO CA)) ->
@@ -73,53 +72,45 @@ Module Type NatTimeCostModel
                O>>=O (cx O>>=O ((k ⋊ tt) I>>=I (F ⋊ cF)))
       end) (ival cn) (ret cx) >>|) : ℂO CB).
 
-  Parameter constant_complexity : forall {A B CA CB} `{CT A CA}`{CT B CB} {b cb},
-    ComplexityBound (b : B) (cb : CB) ->
-    ComplexityBound (fun (_ : A) => b) (fun (_ : ℂI A) => 1 ⋉ cb).
 (* TODO HERE *)
-  (* Replaces the complexity bound with an evar.
-     The complexity bound goal will eventually need to be taken from the shelf. *)
-  Ltac capply := eapply (fun f => ComplexityBound_proper f f (ltac:(reflexivity))); [shelve|].
 
-  (* Tactic to replace the function with an extensionally equivalent one in
-    a [ComplexityBound] goal *)
-  Ltac change_fun_with f' := match goal with
-  | |- ComplexityBound ?a ?f ?c => 
-      eapply (@ComplexityBound_proper a f' f _ c c (ltac:(reflexivity)))
-  end.
 End NatTimeCostModel.
 
 Module NatTimeExamples (Import CM : CostModel)
   (Import BT : BasicTimeCostModel CM) (Import B: NatTimeCostModel CM BT).
 
   Example plus2 (n : nat) := S (S n).
-  Example plus2_complexity: ComplexityBound $(nat -> nat) plus2 (fun n => 4).
+  (* TODO: here *)
+
+  Example plus2_complexity: ComplexityBound plus2 (fun n => 2 ⋉ tt).
   Proof.
   (* We get 4 and not 2, as we go through compose S S  *)
   change plus2 with (compose S S).
   capply. (* replace the complexity bound with evars *)
-  eapply (apply_complexity (v := S : $(nat -> nat))); [apply S_complexity|].
+  eapply apply_complexity; [apply S_complexity|].
   (* annoying : need to type annotate with simple types *)
-  eapply (apply_complexity (v := S : $(nat -> nat))); [apply S_complexity|].
+  eapply apply_complexity; [apply S_complexity|].
   apply comp1_complexity.
-  Unshelve. reflexivity.
+  Unshelve. unfold ObindI, IbindI. simpl.
+  apply bound_order_ext_eq. intros. unfold OIbindO. simpl.
+  reflexivity.
   Qed.
+  
+  (* TODO: we will need axioms for bound_order and nat *)
 
-  (* Better *)
-  Example plus2_complexity': ComplexityBound $(nat -> nat) plus2 (fun n => 2).
+  (* Better? *)
+  Example plus2_complexity': ComplexityBound plus2 (fun n => 2 ⋉ tt).
   Proof.
   change plus2 with (compose S S).
   (* Let's have another go *)
   capply.
   (* TODO: explicit type annotations are annoying *)
-  eapply (compose_complexity (S : $(nat -> nat)) _ (S : $(nat -> nat))).
-  - apply S_complexity.
-  - apply S_complexity.
-  Unshelve. simpl. auto.
+  eapply compose_complexity; apply S_complexity.
+  Unshelve. apply bound_order_ext_eq. intros. unfold OIbindO. reflexivity.
   Qed.
-
+(* TODO: HERE
   Example plus_complexity:
-    ComplexityBound $(nat -> nat -> nat) plus (fun n => (val n + 1, fun m => 1 + 3 * val n)).
+    ComplexityBound plus (fun n => (val n + 1, fun m => 1 + 3 * val n)).
   (* TODO: I can't really explain the 3 * n  there *)
   Proof.
   change_fun_with (nat_rect _ id (fun k nk m => S (nk m))). Unshelve.
@@ -159,5 +150,5 @@ Module NatTimeExamples (Import CM : CostModel)
   + destruct ca as [a ()]; simpl.
     repeat apply le_n_S. lia.
   Qed.
-
+ *)
 End NatTimeExamples.

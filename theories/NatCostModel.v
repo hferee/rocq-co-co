@@ -1,4 +1,4 @@
-From Complexity Require Import CostModel.
+(* From Complexity Require Import CostModel.
 From Stdlib Require Import Program.Basics Lia.
 
 (* An example of a cost model for time complexity  *)
@@ -161,4 +161,4 @@ Module NatTimeExamples (Import CM : CostModel)
     repeat apply le_n_S. lia.
   Qed.
 
-End NatTimeExamples.
+End NatTimeExamples. *)

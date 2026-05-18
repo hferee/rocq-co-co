@@ -1,4 +1,4 @@
-From Complexity Require Export SimpleTypes.
+(* From Complexity Require Export SimpleTypes.
 From Stdlib Require Import Classes.Morphisms Program.Basics.
 From Equations Require Import Equations.
 
@@ -190,3 +190,4 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   Existing Instance compose_complexity.
 
 End BasicTimeCostModel.
+ *)

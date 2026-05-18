@@ -37,6 +37,23 @@ Module Type CostModel.
 
   (* As Forster & Künze, we record complexity results using typeclasses. *)
   Class ComplexityBound {A B} `{CT A B} (f : A) (c : B) := {CB : has_complexity f c}.
+
+  Global Instance ComplexityBound_ext_eq: forall {A B} `{H : CT A B},
+    Proper ((ext_eq) ==> (bound_order) ==> impl) (@ComplexityBound A B H).
+  Proof. intros ?????????[?]. constructor. eapply has_complexity_ext_eq; eauto. Qed.
+
+  (** Useful tactics *)
+  (* Replaces the complexity bound with an evar.
+   The complexity bound goal will eventually need to be taken from the shelf. *)
+  Ltac capply := eapply (fun f => ComplexityBound_ext_eq f f); [reflexivity|shelve|].
+
+  (* Tactic to replace the function with an extensionally equivalent one in
+    a [ComplexityBound] goal *)
+  Ltac change_fun_with f' := match goal with
+  | |- ComplexityBound ?a ?f ?c => 
+      eapply (@ComplexityBound_ext_eq a f' f _ c c (ltac:(reflexivity)))
+  end.
+
 End CostModel.
 
 (** ------------------------------------------------------------------------- *)
@@ -79,6 +96,10 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   Parameter fun_CT : forall A B {CA CB} `{CT A CA} `{CT B CB},
     CT (A -> B) (ℂI A -> ℂO CB).
   Global Existing Instance fun_CT.
+
+  (* The ordering on complexity bounds is compatible with the pointwise ordering *)
+  Parameter bound_order_ext_eq : forall {A B} {CA CB} `{CT A CA} `{CT B CB},
+    forall f g, (forall x, bound_order (f x) (g x)) -> @bound_order (ℂI A -> ℂO CB) f g.
 
 (*   (* Useful functions to express complexity bounds *)
   (* Cost of applying a function of (input) complexity cg to an argument
@@ -160,4 +181,9 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
                   (fun ca => ca I>>=I (g ⋊ cg) O>>=I (f ⋊ cf) >>|).
   Existing Instance compose_complexity.
 
+  Parameter constant_complexity : forall {A B CA CB} `{CT A CA}`{CT B CB} {b cb},
+  ComplexityBound (b : B) (cb : CB) ->
+  ComplexityBound (fun (_ : A) => b) (fun (_ : ℂI A) => 1 ⋉ cb).
+  (* TODO: should this 1 be kept? This will add overhead in many cases.
+    Same question for id *)
 End BasicTimeCostModel.

@@ -1,15 +1,23 @@
-From Complexity Require Import CostModel.
+From Complexity Require Import SimpleCostModel.
 From Stdlib Require Import Program.Basics Lia List.
 
 Module Type ListTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
+  (Import CM : CostModel) (Import BTM : BasicTimeCostModel CM).
 
-  (* Weird? set Type as a ground Type to allow polymorphic functions? *)
-  Parameter TypeGround : GroundType Type.
-  Existing Instance TypeGround.
+  (* The cost of a list is the list of costs.
+    Other possible cost models: the maxiumum cost or the sum of the costs. *)
+  Parameter CT_list: forall {A CA : Type} `{CT A CA}, CT (list A) (list CA).
+  Global Existing Instance CT_list.
 
+  (* The complexity of a list is exactly the complexity of its elements *)
+  Parameter ComplexityBound_list : forall {A CA} `{CT A CA} (l : list A) lc,
+    ComplexityBound l lc <-> Forall2 ComplexityBound l lc.
 
-  (* Scott encoding for lists. Useful? *)
+  Lemma ComplexityBound_list_length: forall {A CA} `{CT A CA} (l : list A) lc,
+    ComplexityBound l lc -> length l = length lc.
+  Proof. now intros * HC%ComplexityBound_list%Forall2_length. Qed.
+
+(*   (* Scott encoding for lists. Useful? *)
   Fixpoint enc {A : Type} (l : list A) 
   : forall {C}, C -> (A -> C -> C) -> C
   := fun {C} n c =>
@@ -17,14 +25,84 @@ Module Type ListTimeCostModel
   | nil => n
   | h :: t => c h (enc t n c)
   end.
+ *)
 
-  (* Contrary to coq-library-complexity, we can't
-  register arbitrary inductive types here.
-  Either hard-code them into SimpleTypes, or
-  try something similar (see Encodings branch) *)
-  (* List constructor *)
-(*   Parameter cons_complexity :
-    ComplexityBound _ cons (fun ca => (1, fun cl => 1
-  Existing Instance cons_complexity. *)
+  (* List constructors *)
+  Parameter nil_complexity: forall {A CA : Type} `{CT A CA},
+    ComplexityBound (@nil A) (@nil CA).
+  Global Existing Instance nil_complexity.
+
+  (* TODO: annoyingly, this is required for cons_complexity to find the typeclass instance *)
+  Global Instance CT_cons {A CA : Type} `{CT A CA}: CT (A -> list A -> list A)
+                        (ℂI A -> ℂO (ℂI (list A) -> ℂO (list CA))).
+  Proof. typeclasses eauto. Defined.
+
+  Parameter cons_complexity: forall {A CA : Type} `{CT A CA},
+    ComplexityBound (@cons A)
+                    (fun (h : ℂI A) => 1 ⋉ (fun (t : ℂI (list A)) => 1 ⋉ (icomp h :: icomp t))).
+  Global Existing Instance cons_complexity.
+
+  Parameter list_match_complexity:
+    forall {A CA : Type} `{CT A CA} {B CB} `{CT B CB} (v : B) (f : A -> list A -> B)
+    (cv : CB) (cf : ℂI A -> ℂO(ℂI (list A) -> ℂO CB)),
+    ComplexityBound v cv ->
+    ComplexityBound f cf ->
+    ComplexityBound 
+      (fun l => match l with
+                | nil => v
+                | h :: t => f h t
+                end)
+      (fun (lc : ℂI (list A)) => 1 ⊕ (* 1 for the match *)
+                match ival lc, icomp lc with
+                | h :: t, hc :: tc => 
+                    (ret (t ⋊ tc)) O>>=O ((h ⋊ hc) I>>=I (f ⋊ cf)) >>|
+                    (* TODO: maybe define this 2-ary monadic function application. *)
+                | nil, nil => ret cv
+                | _, _ => ret cv (* should not happen *)
+                end).
+  Global Existing Instance list_match_complexity.
+  (* TODO: Recursion operator *)
 
 End ListTimeCostModel.
+
+(* TODO: move *)
+(* Tries to solve known complexity bounds *)
+Ltac ctac := typeclasses eauto.
+
+(* Example of derived complexity bounds for list operators *)
+Module Type ListTimeExamples
+  (Import CM : CostModel)
+  (Import BTM : BasicTimeCostModel CM)
+  (Import LM : ListTimeCostModel CM BTM).
+
+  (** ** List tail *)
+  Instance complexity_tl {A CA} `{CT A CA} :
+    ComplexityBound (@tl A) (fun (lc : ℂI(list A)) => 3 ⋉ (tl (icomp lc))).
+  Proof.
+    unfold tl.
+    capply.
+    apply list_match_complexity.
+    - ctac.
+    - eapply constant_complexity.
+      apply id_complexity.
+    Unshelve. apply bound_order_ext_eq. intros [l lc].
+    unfold ObindO, IbindI. simpl.
+    (* TODO: bound_order is compatible with products *)
+    (* TODO in ℂI A, we need to know that the element has the given complexity.
+    In our case, we also need that the complexity of a list is exactly the complexity
+    of its elements *)
+    assert(HCl : ComplexityBound l lc) by admit. (* need to store this in ℂI *)
+    assert (Hlen := ComplexityBound_list_length l lc HCl).
+    case l as [|h t]; destruct lc as [|hc tc].
+    + admit. (* ok with some assumption on bound_order *)
+    + inversion Hlen.
+    + inversion Hlen.
+    +  admit. (* ok with some assumption on bound_order *)
+Admitted.
+
+  (** ** List tail *)
+  (* TODO: *)
+
+End ListTimeExamples.
+
+
