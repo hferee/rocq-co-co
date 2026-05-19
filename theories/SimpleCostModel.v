@@ -26,6 +26,9 @@ Module Type CostModel.
   Parameter ext_eq : forall {A}, A -> A -> Prop.
   Parameter ex_eq_rel : forall A, Equivalence (@ext_eq A).
   Global Existing Instance ex_eq_rel.
+  
+  Lemma ext_eq_eq : forall {A} (x y : A), x = y -> ext_eq x y.
+  Proof. intros; subst; reflexivity. Qed.
 
   Parameter bound_order : forall {B}, B -> B -> Prop.
   Parameter bound_order_po : forall B, PreOrder (@bound_order B).
@@ -49,9 +52,10 @@ Module Type CostModel.
 
   (* Tactic to replace the function with an extensionally equivalent one in
     a [ComplexityBound] goal *)
-  Ltac change_fun_with f' := match goal with
-  | |- ComplexityBound ?a ?f ?c => 
-      eapply (@ComplexityBound_ext_eq a f' f _ c c (ltac:(reflexivity)))
+    Ltac change_fun_with f' := match goal with
+  | |- @ComplexityBound ?A ?B ?H ?f ?c => 
+      eapply (@ComplexityBound_ext_eq A B H f' f (ltac:(try reflexivity))
+                                            c c (ltac:(try reflexivity)))
   end.
 
 End CostModel.
@@ -70,10 +74,11 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   (** For function types, their complexity is a function taking as input
     an input of the function, and its complexity.
     Contrary to Künze & Forster, we use a record ; we will see if this helps. *)
-  Record ℂI (A : Type) {CA} `{CT A CA} := { ival : A; icomp : CA }.
-  Infix "⋊" := (Build_ℂI _ _ _) (at level 40).
-  Global Arguments ival {_} {_} {_}.
-  Global Arguments icomp {_} {_} {_}.
+  Record ℂI (A : Type) {CA} `{!CT A CA} :=
+    { ival : A; icomp : CA; iproof: ComplexityBound ival icomp }.
+  Infix "⋊" := (Build_ℂI _ _ _ _) (at level 40).
+  Global Arguments ival {_} {_} {_} {_}.
+  Global Arguments icomp {_} {_} {_} {_}.
 
   (** Similarly, the complexity bound of a function outputs both a normalisation
   cost and the complexity of the output. *)
@@ -97,9 +102,20 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     CT (A -> B) (ℂI A -> ℂO CB).
   Global Existing Instance fun_CT.
 
+  (** Crucial property relating the complexity of a function and of its application *)
+  (* Complexity of the application of a function to an argument *)
+  Parameter apply_complexity : forall {A B CA CB} `{CT A CA} `{CT B CB}
+    {v : A} {f : A -> B} {cv : CA} (cf : ℂI A -> ℂO CB),
+    ComplexityBound v cv ->
+    ComplexityBound f cf ->
+    ComplexityBound (f v: B) (ocomp (cf (v ⋊ cv))).
+  
   (* The ordering on complexity bounds is compatible with the pointwise ordering *)
   Parameter bound_order_ext_eq : forall {A B} {CA CB} `{CT A CA} `{CT B CB},
     forall f g, (forall x, bound_order (f x) (g x)) -> @bound_order (ℂI A -> ℂO CB) f g.
+
+  Parameter ext_eq_fun : forall {A B} {CA CB} `{CT A CA} `{CT B CB},
+    forall (f g : A -> B), (forall x, ext_eq (f x) (g x)) -> ext_eq f g.
 
 (*   (* Useful functions to express complexity bounds *)
   (* Cost of applying a function of (input) complexity cg to an argument
@@ -111,11 +127,16 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     that we have a monad. *)
   Definition ret {A} : A -> ℂO A := fun ca => 0 ⋉ ca.
 
-  Definition IbindI {A B CA CB} `{CT A CA} `{CT B CB}
+  Program Definition IbindI {A B CA CB} `{HA : CT A CA} `{HB : CT B CB}
     (cx : ℂI A) (cg : ℂI (A -> B)) : ℂO (ℂI B) :=
-    {| ocost := ocost (icomp cg cx) ; ocomp :=
-       {| ival := ival cg (ival cx); icomp := ocomp (icomp cg cx) |}
+    {| ocost := ocost (@icomp (A -> B) _ _ cg cx) ; ocomp :=
+       {| ival := @ival (A -> B) _ _ cg (@ival A _ _ cx);
+          icomp := ocomp (@icomp (A -> B) _ _ cg cx);
+          iproof := _ |}
         : ℂI B |}.
+        Next Obligation. 
+        destruct cx as [x cx Hcx].
+        destruct cg as [g cg Hcg]. unfold icomp, ocomp. simpl.
 
 (*   Definition bind {A B CA CB} `{CT A CA} `{CT A CB}
     : ℂO (ℂI A) -> ℂO (ℂI A -> ℂO CB) -> ℂO (ℂI B) := fun oa f =>
@@ -141,14 +162,6 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   Parameter id_complexity : forall {A CA} `{CT A CA},
     ComplexityBound (@id A) (fun (ca : ℂI A) => 1 ⋉ icomp ca).
   Existing Instance id_complexity.
-
-
-  (* Complexity of the application of a function to an argument *)
-  Parameter apply_complexity : forall {A B CA CB} `{CT A CA} `{CT B CB}
-    {v : A} {f : A -> B} {cv : CA} (cf : ℂI A -> ℂO CB),
-    ComplexityBound v cv ->
-    ComplexityBound f cf ->
-    ComplexityBound (f v: B) (ocomp (cf (v ⋊ cv))).
 
   (** We will conveniently compute within the ℂO (ℂI A) monad where we have
     everything : cost, value and complexity, but we will eventually need to

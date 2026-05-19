@@ -35,7 +35,7 @@ Module Type NatTimeCostModel
   Existing Instance nat_match_complexity.
 
   (* Induction principle on nat, first for unary functions *)
-  Program Parameter nat_complexity_rect1: forall {A CA} `{CT A CA} (v : A) (f : nat -> A -> A)
+  Parameter nat_complexity_rect1: forall {A CA} `{CT A CA} (v : A) (f : nat -> A -> A)
     (cv : CA) (cf: ℂI nat -> ℂO (ℂI A -> ℂO CA)),
     let T := fun_CT nat A in
     let T := fun_CT nat (A -> A) in
@@ -72,8 +72,6 @@ Module Type NatTimeCostModel
                O>>=O (cx O>>=O ((k ⋊ tt) I>>=I (F ⋊ cF)))
       end) (ival cn) (ret cx) >>|) : ℂO CB).
 
-(* TODO HERE *)
-
 End NatTimeCostModel.
 
 Module NatTimeExamples (Import CM : CostModel)
@@ -108,47 +106,51 @@ Module NatTimeExamples (Import CM : CostModel)
   eapply compose_complexity; apply S_complexity.
   Unshelve. apply bound_order_ext_eq. intros. unfold OIbindO. reflexivity.
   Qed.
-(* TODO: HERE
+(* TODO: annoying: doesn't work without the type annotation. *)
   Example plus_complexity:
-    ComplexityBound plus (fun n => (val n + 1, fun m => 1 + 3 * val n)).
+    ComplexityBound plus ((fun cn => (ival cn + 1) ⋉ fun cm => (1 + 3 * ival cm) ⋉ tt) :
+      ℂI nat -> ℂO (ℂI nat -> ℂO unit)).
   (* TODO: I can't really explain the 3 * n  there *)
   Proof.
-  change_fun_with (nat_rect _ id (fun k nk m => S (nk m))). Unshelve.
+  change_fun_with (nat_rect _ id (fun k nk m => S (nk m))).
   capply.
   (* TODO: a tactic should handle this *)
-  eapply (nat_complexity_rect1 (id : $(nat -> nat)) (fun _ => compose S)).
-  - apply id0_complexity.
+  eapply nat_complexity_rect1.
+  - apply id_complexity.
   - apply @constant_complexity. (* TODO: why is this only working with @? *)
-    eapply (apply_complexity (v := S : $(nat -> nat))).
+    unshelve change_fun_with (fun (nk : nat -> nat) => compose S nk).
+    eapply apply_complexity.
     + apply S_complexity.
     + apply comp1_complexity.
-  - intro n. induction n; simpl; auto with *.
-  Unshelve. simpl. unfold compose.
-  unfold ℂT_order.
-  
-  intros [n ()]. simpl. split.
-  * induction n; simpl; lia.
-  * intro m. split; trivial. induction n; trivial. simpl. lia.
-  Qed.
+  Unshelve.
+  * apply ext_eq_fun. intro n. apply ext_eq_fun. intros m. apply  ext_eq_eq.
+    induction n; simpl; auto with*.
+  * (* TODO: ugly *)
+    apply bound_order_ext_eq. intros. unfold ret, OIbindO, IbindI. simpl.
+(*     intro m. split; trivial. induction n; trivial. simpl. lia. *)
+    admit.
+  Admitted.
 
   Example plus_complexity':
-    ComplexityBound $(nat -> nat -> nat) plus (fun n => (1, fun m => 2 + 3 * val n)).
+    ComplexityBound plus
+                    ((fun n => 1 ⋉ fun m => (2 + 3 * ival n) ⋉ tt)
+                    : ℂI nat -> ℂO (ℂI nat -> ℂO unit)).
   Proof.
   fold ℂT.
   capply. apply nat_fix1_complexity.
-  - apply id0_complexity. 
-  - apply (@constant_complexity $nat). (* the type annotation is necessary *)
-    apply id0_complexity.
-  - apply (@constant_complexity $nat).
-    apply (@constant_complexity $nat).
+  - apply id_complexity. 
+  - eapply constant_complexity. (* the type annotation is necessary *)
+    apply id_complexity.
+  - eapply constant_complexity.
+    eapply constant_complexity.
     apply S_complexity.
   (* Now check the complexity bound. *)
-  Unshelve.
+  Unshelve. apply bound_order_ext_eq.
   intros [n ()]. simpl. repeat split; trivial.
   induction n as [|n].
-  + trivial.
-  + destruct ca as [a ()]; simpl.
-    repeat apply le_n_S. lia.
-  Qed.
- *)
+  + simpl. admit.
+  + admit. (* destruct ca as [a ()]; simpl.
+    repeat apply le_n_S. lia. *)
+  Admitted.
+
 End NatTimeExamples.
