@@ -76,9 +76,9 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     Contrary to Künze & Forster, we use a record ; we will see if this helps. *)
   Record ℂI (A : Type) {CA} `{!CT A CA} :=
     { ival : A; icomp : CA; iproof: ComplexityBound ival icomp }.
-  Infix "⋊" := (Build_ℂI _ _ _ _) (at level 40).
-  Global Arguments ival {_} {_} {_} {_}.
-  Global Arguments icomp {_} {_} {_} {_}.
+  Infix "⋊" := (Build_ℂI _ _ _ (ltac:(typeclasses eauto))) (at level 40).
+  Global Arguments ival {_} {_} {_}.
+  Global Arguments icomp {_} {_} {_}.
 
   (** Similarly, the complexity bound of a function outputs both a normalisation
   cost and the complexity of the output. *)
@@ -102,13 +102,17 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     CT (A -> B) (ℂI A -> ℂO CB).
   Global Existing Instance fun_CT.
 
+  Definition ℂI_inj {A CA} `{CT A CA} {x : A} {cx : CA} (H : ComplexityBound x cx):
+    ℂI A := Build_ℂI A CA _ x cx _.
+
+
   (** Crucial property relating the complexity of a function and of its application *)
   (* Complexity of the application of a function to an argument *)
   Parameter apply_complexity : forall {A B CA CB} `{CT A CA} `{CT B CB}
-    {v : A} {f : A -> B} {cv : CA} (cf : ℂI A -> ℂO CB),
-    ComplexityBound v cv ->
+    {v : A} {f : A -> B} {cv : CA} (cf : ℂI A -> ℂO CB)
+    (Hv : ComplexityBound v cv),
     ComplexityBound f cf ->
-    ComplexityBound (f v: B) (ocomp (cf (v ⋊ cv))).
+    ComplexityBound (f v: B) (ocomp (cf (ℂI_inj Hv))).
   
   (* The ordering on complexity bounds is compatible with the pointwise ordering *)
   Parameter bound_order_ext_eq : forall {A B} {CA CB} `{CT A CA} `{CT B CB},
@@ -134,9 +138,10 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
           icomp := ocomp (@icomp (A -> B) _ _ cg cx);
           iproof := _ |}
         : ℂI B |}.
-        Next Obligation. 
-        destruct cx as [x cx Hcx].
-        destruct cg as [g cg Hcg]. unfold icomp, ocomp. simpl.
+  Next Obligation.
+  destruct cx as [x cx Hcx]. destruct cg as [g cg Hcg].
+  now apply apply_complexity.
+  Defined.
 
 (*   Definition bind {A B CA CB} `{CT A CA} `{CT A CB}
     : ℂO (ℂI A) -> ℂO (ℂI A -> ℂO CB) -> ℂO (ℂI B) := fun oa f =>
@@ -160,7 +165,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     A priori, this is not the case for coq-library-complexity. *)
   (* Note that the complexity of the identity is roughly the identity *)
   Parameter id_complexity : forall {A CA} `{CT A CA},
-    ComplexityBound (@id A) (fun (ca : ℂI A) => 1 ⋉ icomp ca).
+    ComplexityBound (@id A) (fun ca => 1 ⋉ icomp ca).
   Existing Instance id_complexity.
 
   (** We will conveniently compute within the ℂO (ℂI A) monad where we have
@@ -187,11 +192,11 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   (* More convenient: the instantiation direct application of compose.
     TODO: do we need both? *)
   Parameter compose_complexity : forall {A B C CA CB CC} `{CT A CA} `{CT B CB} `{CT C CC}
-  (f : B -> C) (cf : ℂI B -> ℂO CC) (g : A -> B) (cg : ℂI A -> ℂO CB),
-  ComplexityBound f cf ->
-  ComplexityBound g cg ->
+  (f : B -> C) (cf : ℂI B -> ℂO CC) (g : A -> B) (cg : ℂI A -> ℂO CB)
+  (Hf : ComplexityBound f cf)
+  (Hg : ComplexityBound g cg),
   ComplexityBound (compose f g : A -> C)
-                  (fun ca => ca I>>=I (g ⋊ cg) O>>=I (f ⋊ cf) >>|).
+                  (fun ca => ca I>>=I (ℂI_inj Hg) O>>=I (ℂI_inj Hf) >>|).
   Existing Instance compose_complexity.
 
   Parameter constant_complexity : forall {A B CA CB} `{CT A CA}`{CT B CB} {b cb},
