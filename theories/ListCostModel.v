@@ -6,45 +6,36 @@ Module Type ListTimeCostModel
 
   (* The cost of a list is the list of costs.
     Other possible cost models: the maxiumum cost or the sum of the costs. *)
-  Parameter CT_list: forall {A CA : Type} `{CT A CA}, CT (list A) (list CA).
-  Global Existing Instance CT_list.
+(*   Parameter CT_list: forall {A CA : Type} `{CT A CA}, CT (list A) (list CA).
+  Global Existing Instance CT_list. *)
 
   (* The complexity of a list is exactly the complexity of its elements *)
-  Parameter ComplexityBound_list : forall {A CA} `{CT A CA} (l : list A) lc,
+  Parameter ComplexityBound_list : forall {A CA} (l : list A) (lc : list CA),
     ComplexityBound l lc <-> Forall2 ComplexityBound l lc.
 
-  Lemma ComplexityBound_list_length: forall {A CA} `{CT A CA} (l : list A) lc,
+  Lemma ComplexityBound_list_length: forall {A CA} (l : list A) (lc : list CA),
     ComplexityBound l lc -> length l = length lc.
   Proof. now intros * HC%ComplexityBound_list%Forall2_length. Qed.
 
-(*   (* Scott encoding for lists. Useful? *)
-  Fixpoint enc {A : Type} (l : list A) 
-  : forall {C}, C -> (A -> C -> C) -> C
-  := fun {C} n c =>
-  match l with
-  | nil => n
-  | h :: t => c h (enc t n c)
-  end.
- *)
-
   (* List constructors *)
-  Parameter nil_complexity: forall {A CA : Type} `{CT A CA},
+  Parameter nil_complexity: forall {A CA : Type},
     ComplexityBound (@nil A) (@nil CA).
   Global Existing Instance nil_complexity.
 
   (* TODO: annoyingly, this is required for cons_complexity to find the typeclass instance *)
-  Global Instance CT_cons {A CA : Type} `{CT A CA}: CT (A -> list A -> list A)
+(*   Global Instance CT_cons {A CA : Type}: CT (A -> list A -> list A)
                         (ℂI A -> ℂO (ℂI (list A) -> ℂO (list CA))).
-  Proof. typeclasses eauto. Defined.
+  Proof. typeclasses eauto. Defined. *)
 
-  Parameter cons_complexity: forall {A CA : Type} `{CT A CA},
+  Parameter cons_complexity: forall {A CA : Type},
     ComplexityBound (@cons A)
-                    (fun (h : ℂI A) => 1 ⋉ (fun (t : ℂI (list A)) => 1 ⋉ (icomp h :: icomp t))).
+                    (fun (h : ℂI A CA) => 1 ⋉ (
+                     fun (t : ℂI (list A) (list CA)) => 1 ⋉ (icomp h :: icomp t))).
   Global Existing Instance cons_complexity.
 
   Parameter list_match_complexity:
-    forall {A CA : Type} `{CT A CA} {B CB} `{CT B CB} (v : B) (f : A -> list A -> B)
-    (cv : CB) (cf : ℂI A -> ℂO(ℂI (list A) -> ℂO CB)),
+    forall {A CA : Type} {B CB} (v : B) (f : A -> list A -> B)
+    (cv : CB) (cf : ℂI A CA -> ℂO(ℂI (list A) (list CA) -> ℂO CB)),
     ComplexityBound v cv ->
     ComplexityBound f cf ->
     ComplexityBound 
@@ -52,7 +43,7 @@ Module Type ListTimeCostModel
                 | nil => v
                 | h :: t => f h t
                 end)
-      (fun (lc : ℂI (list A)) => 1 ⊕ (* 1 for the match *)
+      (fun (lc : ℂI (list A) (list CA)) => 1 ⊕ (* 1 for the match *)
                 match ival lc, icomp lc with
                 | h :: t, hc :: tc => 
                     (ret (t ⋊ tc)) O>>=O ((h ⋊ hc) I>>=I (f ⋊ cf)) >>|
@@ -76,8 +67,8 @@ Module Type ListTimeExamples
   (Import LM : ListTimeCostModel CM BTM).
 
   (** ** List tail *)
-  Instance complexity_tl {A CA} `{CT A CA} :
-    ComplexityBound (@tl A) (fun (lc : ℂI(list A)) => 3 ⋉ (tl (icomp lc))).
+  Instance complexity_tl {A CA} :
+    ComplexityBound (@tl A) (fun (lc : ℂI (list A) (list CA)) => 3 ⋉ (tl (icomp lc))).
   Proof.
     unfold tl.
     capply.

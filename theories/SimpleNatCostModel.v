@@ -6,20 +6,18 @@ From Stdlib Require Import Program.Basics Lia.
 Module Type NatTimeCostModel
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
 
-  Parameter CT_nat: CT nat unit.
-  Existing Instance CT_nat.
+(*   Parameter CT_nat: CT nat unit.
+  Existing Instance CT_nat. *)
   
   (* Constructors *)
   Parameter O_complexity : ComplexityBound O tt. (* TODO: is this useful? *)
   Existing Instance O_complexity.
 
-  Parameter S_complexity : ComplexityBound S (fun (x : ℂI nat) => 1 ⋉ tt).
+  Parameter S_complexity : ComplexityBound S (fun (x : ℂI nat unit) => 1 ⋉ tt).
   Existing Instance S_complexity.
 
   (* Destructor *)
-  Parameter nat_match_complexity: forall {A CA} `{CT A CA} (v : A) (f : nat -> A)
-    (cv : CA) cf,
-    let T := fun_CT nat A in
+  Parameter nat_match_complexity: forall {A CA} (v : A) (f : nat -> A) (cv : CA) cf,
     ComplexityBound v cv ->
     ComplexityBound f cf ->
     ComplexityBound 
@@ -27,25 +25,26 @@ Module Type NatTimeCostModel
                 | O => v
                 | S k => f k
                 end)
-      (fun n => 1 ⊕ (* 1 for the match *)
+      (fun (n : ℂI nat unit) => 1 ⊕ (* 1 for the match *)
                 match ival n with
                 | O => ret cv
                 | S k => cf (k ⋊ tt)
                 end).
   Existing Instance nat_match_complexity.
 
+  Definition ℂI_nat_inj (n : nat) := n ⋊ tt.
+  Coercion ℂI_nat_inj : nat >-> ℂI.
+
   (* Induction principle on nat, first for unary functions *)
-  Program Parameter nat_complexity_rect1: forall {A CA} `{CT A CA} (v : A) (f : nat -> A -> A)
-    (cv : CA) (cf: ℂI nat -> ℂO (ℂI A -> ℂO CA)),
-    let T := fun_CT nat A in
-    let T := fun_CT nat (A -> A) in
+  Parameter nat_complexity_rect1: forall {A CA} (v : A) (f : nat -> A -> A)
+    (cv : CA) (cf: ℂI nat unit -> ℂO (ℂI A CA -> ℂO CA)),
     ComplexityBound v cv ->
     ComplexityBound f cf ->
     let g := nat_rect _ v f in
     ComplexityBound g
-      (fun cn => (nat_rect (fun n => ℂO (ℂI A)) (ret (v ⋊ cv))
+      (fun (cn : ℂI nat unit) => (nat_rect (fun n => ℂO (ℂI A CA)) (ret (v ⋊ cv))
                   (fun k gk =>
-                    gk O>>=O (((k ⋊ tt) I>>=I (f ⋊ cf)))) (ival cn)) >>|).
+                    gk O>>=O ((k ⋊ tt I>>=I (f ⋊ cf)))) (ival cn)) >>|).
 
  (* TODO: are there (structural) fixpoints on nat that are not expressible this way?
   And can we write a tactic to turn most such functions into a nat_rect?
@@ -57,22 +56,26 @@ Module Type NatTimeCostModel
   Definition nat_fix1 (A B : Type) (v : A -> B) (g : nat -> A -> A) (F : nat -> A -> B -> B) :=
     fix f (n : nat) (x : A) : B := match n with O => v x | S k => F k x (f k (g k x)) end.
 
-  Parameter nat_fix1_complexity : forall (A B CA CB : Type) `{CT A CA} `{CT B CB}
-  (v : A -> B) (g : nat -> A -> A) (F : nat -> A -> B -> B) (cv : ℂI A -> ℂO CB) cg cF,
+  Parameter nat_fix1_complexity : forall {A B CA CB : Type}
+  (v : A -> B) (g : nat -> A -> A) (F : nat -> A -> B -> B) (cv : ℂI A CA -> ℂO CB) cg cF,
   let f := nat_fix1 A B v g F in
     ComplexityBound v cv ->
-    ComplexityBound g (cg : ℂI nat -> ℂO (ℂI A -> ℂO CA)) ->
-    ComplexityBound F (cF : ℂI nat -> ℂO (ℂI A -> ℂO (ℂI B -> ℂO CB))) ->
+    ComplexityBound g (cg : ℂI nat unit -> ℂO (ℂI A CA -> ℂO CA)) ->
+    ComplexityBound F (cF : ℂI nat unit -> ℂO (ℂI A CA -> ℂO (ℂI B CB -> ℂO CB))) ->
     ComplexityBound (f : nat -> A -> B)
-      (fun (cn : ℂI nat) => 1 ⋉ fun (cx : ℂI A) => 
-      ((fix cfix n (cx : ℂO (ℂI A)) : ℂO (ℂI B) := 1 ⊕
+      (fun (cn : ℂI nat unit) => 1 ⋉ fun (cx : ℂI A CA) => 
+      ((fix cfix n (cx : ℂO (ℂI A CA)) : ℂO (ℂI B CB) := 1 ⊕
         match n with
       | O => cx O>>=I (v ⋊ cv)
-      | S k => (cfix k (cx O>>=O ((k ⋊ tt) I>>=I (g ⋊ cg))))
-               O>>=O (cx O>>=O ((k ⋊ tt) I>>=I (F ⋊ cF)))
+      | S k => (cfix k (cx O>>=O (k I>>=I (g ⋊ cg))))
+               O>>=O (cx O>>=O (k I>>=I (F ⋊ cF)))
       end) (ival cn) (ret cx) >>|) : ℂO CB).
 
-(* TODO HERE *)
+(* TODO check the costs above. *)
+(* TODO: define binary and ternary applications *)
+
+  Parameter bound_order_nat : forall (n m : nat),
+    bound_order n m <-> n <= m.
 
 End NatTimeCostModel.
 
@@ -82,7 +85,7 @@ Module NatTimeExamples (Import CM : CostModel)
   Example plus2 (n : nat) := S (S n).
   (* TODO: here *)
 
-  Example plus2_complexity: ComplexityBound plus2 (fun n => 2 ⋉ tt).
+  Example plus2_complexity: ComplexityBound plus2 (fun (n : ℂI nat unit) => 2 ⋉ tt).
   Proof.
   (* We get 4 and not 2, as we go through compose S S  *)
   change plus2 with (compose S S).
@@ -99,7 +102,7 @@ Module NatTimeExamples (Import CM : CostModel)
   (* TODO: we will need axioms for bound_order and nat *)
 
   (* Better? *)
-  Example plus2_complexity': ComplexityBound plus2 (fun n => 2 ⋉ tt).
+  Example plus2_complexity': ComplexityBound plus2 (fun (n : ℂI nat unit) => 2 ⋉ tt).
   Proof.
   change plus2 with (compose S S).
   (* Let's have another go *)
@@ -108,47 +111,55 @@ Module NatTimeExamples (Import CM : CostModel)
   eapply compose_complexity; apply S_complexity.
   Unshelve. apply bound_order_ext_eq. intros. unfold OIbindO. reflexivity.
   Qed.
-(* TODO: HERE
-  Example plus_complexity:
-    ComplexityBound plus (fun n => (val n + 1, fun m => 1 + 3 * val n)).
+
+   Example plus_complexity:
+    ComplexityBound plus (fun (n : ℂI nat unit) => 2 ⋉
+                          fun (m : ℂI nat unit) => (ival n + 1) ⋉ tt).
   (* TODO: I can't really explain the 3 * n  there *)
   Proof.
-  change_fun_with (nat_rect _ id (fun k nk m => S (nk m))). Unshelve.
+  change_fun_with (nat_rect _ id (fun k => compose S)).
   capply.
   (* TODO: a tactic should handle this *)
-  eapply (nat_complexity_rect1 (id : $(nat -> nat)) (fun _ => compose S)).
-  - apply id0_complexity.
-  - apply @constant_complexity. (* TODO: why is this only working with @? *)
-    eapply (apply_complexity (v := S : $(nat -> nat))).
+  apply nat_complexity_rect1.
+  - eapply id_complexity.
+  - eapply constant_complexity.
+    eapply apply_complexity.
     + apply S_complexity.
     + apply comp1_complexity.
-  - intro n. induction n; simpl; auto with *.
-  Unshelve. simpl. unfold compose.
-  unfold ℂT_order.
-  
-  intros [n ()]. simpl. split.
-  * induction n; simpl; lia.
-  * intro m. split; trivial. induction n; trivial. simpl. lia.
+  Unshelve.
+  * apply ext_eq_dep_fun. intro n. apply ext_eq_dep_fun.
+    intros m. apply ext_eq_eq. revert m; induction n; 
+    unfold compose; simpl; auto with *.
+  * (* TODO: automate this *)
+    apply bound_order_ext_eq. intros. apply bound_order_output; split.
+    -- simpl. induction (ival x); simpl; lia.
+    -- simpl. apply bound_order_ext_eq. intro. 
+       apply bound_order_output. split.
+       ++ simpl. induction (ival x); simpl; lia.
+       ++ apply bound_order_unit.
   Qed.
 
+(* TODO: something is wrong with nat_fix1_complexity as plus shouldn't have
+  linear complexity *)
   Example plus_complexity':
-    ComplexityBound $(nat -> nat -> nat) plus (fun n => (1, fun m => 2 + 3 * val n)).
+    ComplexityBound plus (fun (n : ℂI nat unit) => 1 ⋉ fun (m : ℂI nat unit) => 3 ⋉ tt).
   Proof.
-  fold ℂT.
-  capply. apply nat_fix1_complexity.
-  - apply id0_complexity. 
-  - apply (@constant_complexity $nat). (* the type annotation is necessary *)
-    apply id0_complexity.
-  - apply (@constant_complexity $nat).
-    apply (@constant_complexity $nat).
+  unfold Nat.add.
+  capply. eapply (nat_fix1_complexity id).
+  - apply id_complexity. 
+  - apply (@constant_complexity). (* @ is necessary *)
+    apply id_complexity.
+  - apply (@constant_complexity).
+    apply (@constant_complexity).
     apply S_complexity.
   (* Now check the complexity bound. *)
-  Unshelve.
-  intros [n ()]. simpl. repeat split; trivial.
-  induction n as [|n].
-  + trivial.
-  + destruct ca as [a ()]; simpl.
-    repeat apply le_n_S. lia.
+  Unshelve. 
+  (* TODO: automate this *)
+  apply bound_order_ext_eq; intro cn.
+  apply bound_order_output; split; simpl; [trivial|].
+  apply bound_order_ext_eq; intro cm.
+  apply bound_order_output; split; simpl.
+  + induction (ival cn); simpl; trivial.
+  + apply bound_order_unit.
   Qed.
- *)
 End NatTimeExamples.

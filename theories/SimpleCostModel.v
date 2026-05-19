@@ -11,13 +11,13 @@ Module Type CostModel.
     partial function. *)
 
   (** Such type relations will be stored in a typeclass. *)
-  Class CT A B := {is_complexity_type : complexity_type A B}.
+(*   Class CT A B := {is_complexity_type : complexity_type A B}. *)
 
   (* Extract the type of complexity bounds from a typeclass instance. *)
-  Definition ℂT A {B} `{CT A B} := B.
+(*   Definition ℂT A {B} `{CT A B} := B. *)
 
   (** There is a notion of complexity terms to complexity bounds. *)
-  Parameter has_complexity  : forall {A B : Type} `{CT A B}, A -> ℂT A -> Prop.
+  Parameter has_complexity  : forall {A B : Type}, A -> B -> Prop.
   (* TODO: for now, we require [has_complexity] to relate elements whose
     types are related by CT. We'll see if this is required. *)
 
@@ -31,16 +31,16 @@ Module Type CostModel.
   Parameter bound_order_po : forall B, PreOrder (@bound_order B).
   Global Existing Instance bound_order_po.
 
-  Parameter has_complexity_ext_eq: forall {A B} `{H : CT A B},
-    Proper ((ext_eq) ==> (bound_order) ==> impl) (@has_complexity A B H).
+  Parameter has_complexity_ext_eq: forall {A B},
+    Proper ((ext_eq) ==> (bound_order) ==> impl) (@has_complexity A B).
   Global Existing Instance has_complexity_ext_eq.
 
   (* As Forster & Künze, we record complexity results using typeclasses. *)
-  Class ComplexityBound {A B} `{CT A B} (f : A) (c : B) := {CB : has_complexity f c}.
+  Class ComplexityBound {A B} (f : A) (c : B) := {CB : has_complexity f c}.
 
-  Global Instance ComplexityBound_ext_eq: forall {A B} `{H : CT A B},
-    Proper ((ext_eq) ==> (bound_order) ==> impl) (@ComplexityBound A B H).
-  Proof. intros ?????????[?]. constructor. eapply has_complexity_ext_eq; eauto. Qed.
+  Global Instance ComplexityBound_ext_eq: forall {A B},
+    Proper ((ext_eq) ==> (bound_order) ==> impl) (@ComplexityBound A B).
+  Proof. intros ????????[?]. constructor. eapply has_complexity_ext_eq; eauto. Qed.
 
   (** Useful tactics *)
   (* Replaces the complexity bound with an evar.
@@ -49,9 +49,9 @@ Module Type CostModel.
 
   (* Tactic to replace the function with an extensionally equivalent one in
     a [ComplexityBound] goal *)
-  Ltac change_fun_with f' := match goal with
-  | |- ComplexityBound ?a ?f ?c => 
-      eapply (@ComplexityBound_ext_eq a f' f _ c c (ltac:(reflexivity)))
+    Ltac change_fun_with f' := match goal with
+  | |- ComplexityBound ?f ?c => 
+      eapply (ComplexityBound_ext_eq f' f _ c c (ltac:(reflexivity)))
   end.
 
 End CostModel.
@@ -70,10 +70,10 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   (** For function types, their complexity is a function taking as input
     an input of the function, and its complexity.
     Contrary to Künze & Forster, we use a record ; we will see if this helps. *)
-  Record ℂI (A : Type) {CA} `{CT A CA} := { ival : A; icomp : CA }.
-  Infix "⋊" := (Build_ℂI _ _ _) (at level 40).
-  Global Arguments ival {_} {_} {_}.
-  Global Arguments icomp {_} {_} {_}.
+  Record ℂI (A CA : Type) := { ival : A; icomp : CA}.
+  Infix "⋊" := (Build_ℂI _ _) (at level 40).
+  Global Arguments ival {_} {_}.
+  Global Arguments icomp {_} {_}.
 
   (** Similarly, the complexity bound of a function outputs both a normalisation
   cost and the complexity of the output. *)
@@ -93,13 +93,13 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     and an output annotated with its complexity.
     This is slightly different from coq-library-complexity, where the output
     value is not kept. *)
-  Parameter fun_CT : forall A B {CA CB} `{CT A CA} `{CT B CB},
+(*   Parameter fun_CT : forall A B {CA CB} `{CT A CA} `{CT B CB},
     CT (A -> B) (ℂI A -> ℂO CB).
-  Global Existing Instance fun_CT.
+  Global Existing Instance fun_CT. *)
 
   (* The ordering on complexity bounds is compatible with the pointwise ordering *)
-  Parameter bound_order_ext_eq : forall {A B} {CA CB} `{CT A CA} `{CT B CB},
-    forall f g, (forall x, bound_order (f x) (g x)) -> @bound_order (ℂI A -> ℂO CB) f g.
+  Parameter bound_order_ext_eq : forall {A B},
+    forall (f g : A -> B), (forall x, bound_order (f x) (g x)) -> @bound_order (A -> B) f g.
 
 (*   (* Useful functions to express complexity bounds *)
   (* Cost of applying a function of (input) complexity cg to an argument
@@ -111,11 +111,11 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     that we have a monad. *)
   Definition ret {A} : A -> ℂO A := fun ca => 0 ⋉ ca.
 
-  Definition IbindI {A B CA CB} `{CT A CA} `{CT B CB}
-    (cx : ℂI A) (cg : ℂI (A -> B)) : ℂO (ℂI B) :=
+  Definition IbindI {A B CA CB}
+    (cx : ℂI A CA) (cg : ℂI (A -> B) (ℂI A CA -> ℂO CB)) : ℂO (ℂI B CB) :=
     {| ocost := ocost (icomp cg cx) ; ocomp :=
        {| ival := ival cg (ival cx); icomp := ocomp (icomp cg cx) |}
-        : ℂI B |}.
+    |}.
 
 (*   Definition bind {A B CA CB} `{CT A CA} `{CT A CB}
     : ℂO (ℂI A) -> ℂO (ℂI A -> ℂO CB) -> ℂO (ℂI B) := fun oa f =>
@@ -124,13 +124,13 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     
   Global Infix "I>>=I" := (IbindI) (at level 40).
   
-  Definition ObindI {A B CA CB} `{CT A CA} `{CT B CB}
-    (cx : ℂO (ℂI A)) (cg : ℂI (A -> B)) : ℂO (ℂI B) :=
+  Definition ObindI {A B CA CB}
+    (cx : ℂO (ℂI A CA)) (cg : ℂI (A -> B) _) : ℂO (ℂI B CB) :=
       ocost cx ⊕ IbindI (ocomp cx) cg.
   Global Infix "O>>=I" := (ObindI) (at level 40).
 
-  Definition ObindO {A B CA CB} `{CT A CA} `{CT B CB}
-    (cx : ℂO (ℂI A)) (cg : ℂO(ℂI (A -> B))) : ℂO (ℂI B) :=
+  Definition ObindO {A B CA CB}
+    (cx : ℂO (ℂI A CA)) (cg : ℂO(ℂI (A -> B) _)) : ℂO (ℂI B CB) :=
     (ocost cx + ocost cg) ⊕ IbindI (ocomp cx) (ocomp cg).
   Global Infix "O>>=O" := (ObindO) (at level 40).
 
@@ -138,14 +138,14 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   (* We can give a general, polymorphic bound!
     A priori, this is not the case for coq-library-complexity. *)
   (* Note that the complexity of the identity is roughly the identity *)
-  Parameter id_complexity : forall {A CA} `{CT A CA},
-    ComplexityBound (@id A) (fun (ca : ℂI A) => 1 ⋉ icomp ca).
+  Parameter id_complexity : forall {A CA},
+    ComplexityBound (@id A) (fun (ca : ℂI A CA) => (1 ⋉ icomp ca) : ℂO CA).
   Existing Instance id_complexity.
 
 
   (* Complexity of the application of a function to an argument *)
-  Parameter apply_complexity : forall {A B CA CB} `{CT A CA} `{CT B CB}
-    {v : A} {f : A -> B} {cv : CA} (cf : ℂI A -> ℂO CB),
+  Parameter apply_complexity : forall {A B CA CB}
+    {v : A} {f : A -> B} {cv : CA} (cf : ℂI A CA -> ℂO CB),
     ComplexityBound v cv ->
     ComplexityBound f cf ->
     ComplexityBound (f v: B) (ocomp (cf (v ⋊ cv))).
@@ -154,7 +154,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     everything : cost, value and complexity, but we will eventually need to
     escape it into ℂO CA. *)
   (** TODO: terrible naming. And we probably don't need all these bind. *)
-  Definition OIbindO {A CA} `{CT A CA} (cx : ℂO (ℂI A)) : ℂO CA :=
+  Definition OIbindO {A CA} (cx : ℂO (ℂI A CA)) : ℂO CA :=
     ocost cx ⋉ icomp (ocomp cx).
   Global Notation "a '>>|'" := (OIbindO a) (at level 150).
 
@@ -162,28 +162,45 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   (* It produces a value whose complexity is obtained by composing the complexity
      of the three inputs ; the normalisation cost is obtained by two successive
      applications. *)
-  Parameter comp1_complexity : forall {A B C CA CB CC} `{CT A CA} `{CT B CB} `{CT C CC},
-  let T := fun_CT (B -> C) ((A -> B) -> (A -> C)) in
-  (* TODO: why can't the typeclass system work here? *)
+  Parameter comp1_complexity : forall {A B C CA CB CC},
   ComplexityBound (@compose A B C)
-    (fun cf => 1 ⋉ fun cg => 1 ⋉ fun ca =>
+    (fun (cf : ℂI (B -> C) (ℂI B CB -> ℂO CC)) => 1 ⋉
+     fun (cg : ℂI (A -> B) (ℂI A CA -> ℂO CB)) => 1 ⋉ fun (ca : ℂI A CA) =>
       (1 ⋉ ca) O>>=I cg O>>=I cf >>|
     ).
   (* TODO: fancy notation for complexity type of A -> B? *)
 
   (* More convenient: the instantiation direct application of compose.
     TODO: do we need both? *)
-  Parameter compose_complexity : forall {A B C CA CB CC} `{CT A CA} `{CT B CB} `{CT C CC}
-  (f : B -> C) (cf : ℂI B -> ℂO CC) (g : A -> B) (cg : ℂI A -> ℂO CB),
+  Parameter compose_complexity : forall {A B C CA CB CC}
+  (f : B -> C) (cf : ℂI B CB -> ℂO CC) (g : A -> B) (cg : ℂI A CA -> ℂO CB),
   ComplexityBound f cf ->
   ComplexityBound g cg ->
   ComplexityBound (compose f g : A -> C)
                   (fun ca => ca I>>=I (g ⋊ cg) O>>=I (f ⋊ cf) >>|).
   Existing Instance compose_complexity.
 
-  Parameter constant_complexity : forall {A B CA CB} `{CT A CA}`{CT B CB} {b cb},
+  Parameter constant_complexity : forall {A B CA CB} {b cb},
   ComplexityBound (b : B) (cb : CB) ->
-  ComplexityBound (fun (_ : A) => b) (fun (_ : ℂI A) => 1 ⋉ cb).
+  ComplexityBound (fun (_ : A) => b) (fun (_ : ℂI A CA) => 1 ⋉ cb).
   (* TODO: should this 1 be kept? This will add overhead in many cases.
     Same question for id *)
+  
+  (* Parameter ext_eq_fun : forall {A B} (f g : A -> B),
+    (forall x, ext_eq (f x) (g x)) -> ext_eq f g. *)
+  Parameter ext_eq_dep_fun : forall {A B} (f g : forall a : A, B a),
+    (forall x, ext_eq (f x) (g x)) -> ext_eq f g.
+
+  Lemma ext_eq_eq {A} (a b : A): a = b -> ext_eq a b.
+  Proof. intros; subst. reflexivity. Qed.
+
+  Parameter bound_order_output: forall {A} (a b : ℂO A),
+    bound_order a b <-> (ocost a <= ocost b /\ bound_order (ocomp a) (ocomp b)).
+
+  Lemma bound_order_eq {A} (a b : A): a = b -> bound_order a b.
+  Proof. intros; subst. reflexivity. Qed.
+  
+  Lemma bound_order_unit (a b : unit) : bound_order a b.
+  Proof. destruct a, b. reflexivity. Qed.
+  
 End BasicTimeCostModel.
