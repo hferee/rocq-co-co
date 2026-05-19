@@ -76,7 +76,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     Contrary to Künze & Forster, we use a record ; we will see if this helps. *)
   Record ℂI (A : Type) {CA} `{!CT A CA} :=
     { ival : A; icomp : CA; iproof: ComplexityBound ival icomp }.
-  Infix "⋊" := (Build_ℂI _ _ _ (ltac:(typeclasses eauto))) (at level 40).
+(*   Infix "⋊" := (Build_ℂI _ _ _ (ltac:(typeclasses eauto))) (at level 40). *)
   Global Arguments ival {_} {_} {_}.
   Global Arguments icomp {_} {_} {_}.
 
@@ -147,13 +147,18 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     : ℂO (ℂI A) -> ℂO (ℂI A -> ℂO CB) -> ℂO (ℂI B) := fun oa f =>
     (ocost f + ocost oa) ⊕ ocomp f (ocomp oa).
     (* cost of evaluation the input, plus cost of applying f to it *) *)
-    
+
   Global Infix "I>>=I" := (IbindI) (at level 40).
-  
+
   Definition ObindI {A B CA CB} `{CT A CA} `{CT B CB}
     (cx : ℂO (ℂI A)) (cg : ℂI (A -> B)) : ℂO (ℂI B) :=
       ocost cx ⊕ IbindI (ocomp cx) cg.
   Global Infix "O>>=I" := (ObindI) (at level 40).
+
+  Definition IbindO {A B CA CB} `{CT A CA} `{CT B CB}
+    (cx : ℂI A) (cg : ℂO (ℂI (A -> B))) : ℂO (ℂI B) :=
+      ocost cg ⊕ IbindI cx (ocomp cg).
+  Global Infix "I>>=O" := (IbindO) (at level 40).
 
   Definition ObindO {A B CA CB} `{CT A CA} `{CT B CB}
     (cx : ℂO (ℂI A)) (cg : ℂO(ℂI (A -> B))) : ℂO (ℂI B) :=
