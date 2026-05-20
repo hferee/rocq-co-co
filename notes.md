@@ -19,4 +19,7 @@ The complexity bounds for functions of type (A -> B) is ℂI A -> ℂO B, where:
 4. It feels like ℂO should also contain the output value and the related
    complexity proof, because of 2. and to allow composition of functions.
    So maybe ℂO B should really be nat * ℂI B.
-5. 
+
+# First-order bounds
+It might be possible to build a cost model that only applies to first-order
+functions, so that complexity bounds for ground-types can safely be ignored.

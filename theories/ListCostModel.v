@@ -87,10 +87,14 @@ Module Type ListTimeExamples
     assert(HCl : ComplexityBound l lc) by admit. (* need to store this in ℂI *)
     assert (Hlen := ComplexityBound_list_length l lc HCl).
     case l as [|h t]; destruct lc as [|hc tc].
-    + admit. (* ok with some assumption on bound_order *)
+    + apply bound_order_output; split; simpl.
+      * lia.
+      * reflexivity.
     + inversion Hlen.
     + inversion Hlen.
-    +  admit. (* ok with some assumption on bound_order *)
+    + apply bound_order_output; split; simpl.
+      * trivial.
+      * reflexivity.
 Admitted.
 
   (** ** List tail *)
