@@ -23,6 +23,8 @@ Module Type CostModel.
 
   (** Complexity bounds are preserved by some equivalence relation (on terms)
     and pre-order (on complexity bounds). *)
+  (* TODO: maybe we can assume an intentional notion of complexity and define
+    an extensional one on top of it *)
   Parameter ext_eq : forall {A}, A -> A -> Prop.
   Parameter ex_eq_rel : forall A, Equivalence (@ext_eq A).
   Global Existing Instance ex_eq_rel.
@@ -84,7 +86,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
 
   (* Adds a normalisation cost to a complexity bound *)
   Definition cost_add {C} (n : nat) (b : ℂO C) : ℂO C :=
-    {| ocost := S (ocost b) ; ocomp := ocomp b |}.
+    {| ocost := n + ocost b ; ocomp := ocomp b |}.
 
   Global Infix "⊕" := cost_add (at level 60, right associativity).
 
@@ -111,6 +113,9 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     that we have a monad. *)
   Definition ret {A} : A -> ℂO A := fun ca => 0 ⋉ ca.
 
+  (** Apply a function -- annotated with its complexity -- to an argument
+    -- also annotated with its complexity -- and get a cost together with
+    the output -- annotated with its complexity *)
   Definition IbindI {A B CA CB}
     (cx : ℂI A CA) (cg : ℂI (A -> B) (ℂI A CA -> ℂO CB)) : ℂO (ℂI B CB) :=
     {| ocost := ocost (icomp cg cx) ; ocomp :=
@@ -121,13 +126,18 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     : ℂO (ℂI A) -> ℂO (ℂI A -> ℂO CB) -> ℂO (ℂI B) := fun oa f =>
     (ocost f + ocost oa) ⊕ ocomp f (ocomp oa).
     (* cost of evaluation the input, plus cost of applying f to it *) *)
-    
+ 
   Global Infix "I>>=I" := (IbindI) (at level 40).
   
   Definition ObindI {A B CA CB}
     (cx : ℂO (ℂI A CA)) (cg : ℂI (A -> B) _) : ℂO (ℂI B CB) :=
       ocost cx ⊕ IbindI (ocomp cx) cg.
   Global Infix "O>>=I" := (ObindI) (at level 40).
+
+  Definition IbindO {A B CA CB}
+    (cx : ℂI A CA) (cg : ℂO (ℂI (A -> B) _)) : ℂO (ℂI B CB) :=
+      ocost cg ⊕ IbindI cx (ocomp cg).
+  Global Infix "I>>=O" := (IbindO) (at level 40).
 
   Definition ObindO {A B CA CB}
     (cx : ℂO (ℂI A CA)) (cg : ℂO(ℂI (A -> B) _)) : ℂO (ℂI B CB) :=

@@ -36,6 +36,7 @@ Module Type NatTimeCostModel
   Coercion ℂI_nat_inj : nat >-> ℂI.
 
   (* Induction principle on nat, first for unary functions *)
+  (* TODO: this should be derivable from nat_fix1_complexity below *)
   Parameter nat_complexity_rect1: forall {A CA} (v : A) (f : nat -> A -> A)
     (cv : CA) (cf: ℂI nat unit -> ℂO (ℂI A CA -> ℂO CA)),
     ComplexityBound v cv ->
@@ -63,13 +64,20 @@ Module Type NatTimeCostModel
     ComplexityBound g (cg : ℂI nat unit -> ℂO (ℂI A CA -> ℂO CA)) ->
     ComplexityBound F (cF : ℂI nat unit -> ℂO (ℂI A CA -> ℂO (ℂI B CB -> ℂO CB))) ->
     ComplexityBound (f : nat -> A -> B)
-      (fun (cn : ℂI nat unit) => 1 ⋉ fun (cx : ℂI A CA) => 
-      ((fix cfix n (cx : ℂO (ℂI A CA)) : ℂO (ℂI B CB) := 1 ⊕
+      (fun (cn : ℂI nat unit) => 1 ⋉ fun (cx : ℂI A CA) =>
+      (* The cost is accumumated in the output. This might not be the most convenient
+      for later proofs *)
+      ((fix cfix n (cx : ℂI A CA) : ℂO (ℂI B CB) := 1 ⊕
         match n with
-      | O => cx O>>=I (v ⋊ cv)
-      | S k => (cfix k (cx O>>=O (k I>>=I (g ⋊ cg))))
-               O>>=O (cx O>>=O (k I>>=I (F ⋊ cF)))
-      end) (ival cn) (ret cx) >>|) : ℂO CB).
+      | O => cx I>>=I (v ⋊ cv)
+      | S k => (* F k x (f k (g k x))*)
+              (* the recursive call *)
+              match (cx I>>=O (k I>>=I (g ⋊ cg))) with
+              | {| ocost := cc; ocomp := call|} =>
+              cc ⊕ (cfix k call)
+               O>>=O (cx I>>=O (k ⋊ tt I>>=I (F ⋊ cF)))
+              end
+      end) (ival cn) cx >>|) : ℂO CB).
 
 (* TODO check the costs above. *)
 (* TODO: define binary and ternary applications *)
@@ -85,10 +93,10 @@ Module NatTimeExamples (Import CM : CostModel)
   Example plus2 (n : nat) := S (S n).
   (* TODO: here *)
 
-  Example plus2_complexity: ComplexityBound plus2 (fun (n : ℂI nat unit) => 2 ⋉ tt).
+  Example plus2_complexity: ComplexityBound plus2 (fun (n : ℂI nat unit) => 3 ⋉ tt).
   Proof.
   (* We get 4 and not 2, as we go through compose S S  *)
-  change plus2 with (compose S S).
+  change plus2 with (compose S S). (* NOTE: extensionality used here *)
   capply. (* replace the complexity bound with evars *)
   eapply apply_complexity; [apply S_complexity|].
   (* annoying : need to type annotate with simple types *)
@@ -104,8 +112,7 @@ Module NatTimeExamples (Import CM : CostModel)
   (* Better? *)
   Example plus2_complexity': ComplexityBound plus2 (fun (n : ℂI nat unit) => 2 ⋉ tt).
   Proof.
-  change plus2 with (compose S S).
-  (* Let's have another go *)
+  (* Another try, simpler, without extensionality *)
   capply.
   (* TODO: explicit type annotations are annoying *)
   eapply compose_complexity; apply S_complexity.
@@ -113,9 +120,9 @@ Module NatTimeExamples (Import CM : CostModel)
   Qed.
 
    Example plus_complexity:
-    ComplexityBound plus (fun (n : ℂI nat unit) => 2 ⋉
-                          fun (m : ℂI nat unit) => (ival n + 1) ⋉ tt).
-  (* TODO: I can't really explain the 3 * n  there *)
+    ComplexityBound plus (fun (n : ℂI nat unit) => 2 * ival n ⋉
+                          fun (m : ℂI nat unit) => (1 + 2 * ival n) ⋉ tt).
+  (* TODO: Weirdly, n appears in both bounds (should only appear on the first? *)
   Proof.
   change_fun_with (nat_rect _ id (fun k => compose S)).
   capply.
@@ -139,13 +146,12 @@ Module NatTimeExamples (Import CM : CostModel)
        ++ apply bound_order_unit.
   Qed.
 
-(* TODO: something is wrong with nat_fix1_complexity as plus shouldn't have
-  linear complexity *)
   Example plus_complexity':
-    ComplexityBound plus (fun (n : ℂI nat unit) => 1 ⋉ fun (m : ℂI nat unit) => 3 ⋉ tt).
+    ComplexityBound plus (fun (n : ℂI nat unit) => 1 ⋉
+                          fun (m : ℂI nat unit) => (6 * ival n + 2) ⋉ tt).
   Proof.
   unfold Nat.add.
-  capply. eapply (nat_fix1_complexity id).
+  capply. apply nat_fix1_complexity.
   - apply id_complexity. 
   - apply (@constant_complexity). (* @ is necessary *)
     apply id_complexity.
@@ -159,7 +165,10 @@ Module NatTimeExamples (Import CM : CostModel)
   apply bound_order_output; split; simpl; [trivial|].
   apply bound_order_ext_eq; intro cm.
   apply bound_order_output; split; simpl.
-  + induction (ival cn); simpl; trivial.
+  + (* TODO: make this readable. *)
+    destruct cn as [n ()]. simpl.
+    destruct cm as [m ()]. simpl. fold plus.
+    induction n as [|n]; simpl; lia.
   + apply bound_order_unit.
   Qed.
 End NatTimeExamples.
