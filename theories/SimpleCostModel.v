@@ -25,23 +25,23 @@ Module Type CostModel.
     and pre-order (on complexity bounds). *)
   (* TODO: maybe we can assume an intentional notion of complexity and define
     an extensional one on top of it *)
-  Parameter ext_eq : forall {A}, A -> A -> Prop.
+(*   Parameter ext_eq : forall {A}, A -> A -> Prop.
   Parameter ex_eq_rel : forall A, Equivalence (@ext_eq A).
-  Global Existing Instance ex_eq_rel.
+  Global Existing Instance ex_eq_rel. *)
 
   Parameter bound_order : forall {B}, B -> B -> Prop.
   Parameter bound_order_po : forall B, PreOrder (@bound_order B).
   Global Existing Instance bound_order_po.
 
   Parameter has_complexity_ext_eq: forall {A B},
-    Proper ((ext_eq) ==> (bound_order) ==> impl) (@has_complexity A B).
+    Proper ((eq) ==> (bound_order) ==> impl) (@has_complexity A B).
   Global Existing Instance has_complexity_ext_eq.
 
   (* As Forster & Künze, we record complexity results using typeclasses. *)
   Class ComplexityBound {A B} (f : A) (c : B) := {CB : has_complexity f c}.
 
   Global Instance ComplexityBound_ext_eq: forall {A B},
-    Proper ((ext_eq) ==> (bound_order) ==> impl) (@ComplexityBound A B).
+    Proper ((eq) ==> (bound_order) ==> impl) (@ComplexityBound A B).
   Proof. intros ????????[?]. constructor. eapply has_complexity_ext_eq; eauto. Qed.
 
   (** Useful tactics *)
@@ -202,11 +202,11 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   
   (* Parameter ext_eq_fun : forall {A B} (f g : A -> B),
     (forall x, ext_eq (f x) (g x)) -> ext_eq f g. *)
-  Parameter ext_eq_dep_fun : forall {A B} (f g : forall a : A, B a),
+(*   Parameter ext_eq_dep_fun : forall {A B} (f g : forall a : A, B a),
     (forall x, ext_eq (f x) (g x)) -> ext_eq f g.
 
   Lemma ext_eq_eq {A} (a b : A): a = b -> ext_eq a b.
-  Proof. intros; subst. reflexivity. Qed.
+  Proof. intros; subst. reflexivity. Qed. *)
 
   Parameter bound_order_output: forall {A} (a b : ℂO A),
     bound_order a b <-> (ocost a <= ocost b /\ bound_order (ocomp a) (ocomp b)).

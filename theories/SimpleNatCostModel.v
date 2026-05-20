@@ -112,26 +112,8 @@ Module NatTimeExamples (Import CM : CostModel)
   (Import BT : BasicTimeCostModel CM) (Import B: NatTimeCostModel CM BT).
 
   Example plus2 (n : nat) := S (S n).
-  (* TODO: here *)
 
-  Example plus2_complexity: ComplexityBound plus2 (fun (n : ℂI nat unit) => 3 ⋉ tt).
-  Proof.
-  (* We get 4 and not 2, as we go through compose S S  *)
-  change plus2 with (compose S S). (* NOTE: extensionality used here *)
-  capply. (* replace the complexity bound with evars *)
-  eapply apply_complexity; [apply S_complexity|].
-  (* annoying : need to type annotate with simple types *)
-  eapply apply_complexity; [apply S_complexity|].
-  apply comp1_complexity.
-  Unshelve. unfold ObindI, IbindI. simpl.
-  apply bound_order_ext_eq. intros. unfold OIbindO. simpl.
-  reflexivity.
-  Qed.
-  
-  (* TODO: we will need axioms for bound_order and nat *)
-
-  (* Better? *)
-  Example plus2_complexity': ComplexityBound plus2 (fun (n : ℂI nat unit) => 2 ⋉ tt).
+  Example plus2_complexity: ComplexityBound plus2 (fun (n : ℂI nat unit) => 2 ⋉ tt).
   Proof.
   (* Another try, simpler, without extensionality *)
   capply.
