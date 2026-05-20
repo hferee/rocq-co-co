@@ -10,6 +10,8 @@ Module Type ListTimeCostModel
   Global Existing Instance CT_list. *)
 
   (* The complexity of a list is exactly the complexity of its elements *)
+  (* This mostly makes sense for lists containing functions, not ground types *)
+  (* See GroundListCostModel for a simpler one *)
   Parameter ComplexityBound_list : forall {A CA} (l : list A) (lc : list CA),
     ComplexityBound l lc <-> Forall2 ComplexityBound l lc.
 

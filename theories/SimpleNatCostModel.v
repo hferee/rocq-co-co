@@ -10,7 +10,8 @@ Module Type NatTimeCostModel
   Existing Instance CT_nat. *)
   
   (* Constructors *)
-  Parameter O_complexity : ComplexityBound O tt. (* TODO: is this useful? *)
+  (* TODO: is this useful? One could even have forall n, ComplexityBound n tt*)
+  Parameter O_complexity : ComplexityBound O tt.
   Existing Instance O_complexity.
 
   Parameter S_complexity : ComplexityBound S (fun (x : ℂI nat unit) => 1 ⋉ tt).
@@ -97,6 +98,7 @@ Module Type NatTimeCostModel
                O>>=O (cx I>>=O (k ⋊ tt I>>=I (F ⋊ cF)))
               end
       end) (ival cn) cx >>|) : ℂO CB).
+  Global Existing Instance nat_fix1_complexity.
 
 (* TODO check the costs above. *)
 (* TODO: define binary and ternary applications *)
@@ -142,14 +144,8 @@ Module NatTimeExamples (Import CM : CostModel)
     ComplexityBound plus (fun (n : ℂI nat unit) => 1 ⋉
                           fun (m : ℂI nat unit) => (6 * ival n + 2) ⋉ tt).
   Proof.
-  unfold Nat.add.
-  capply. apply nat_fix1_complexity.
-  - apply id_complexity. 
-  - apply (@constant_complexity). (* @ is necessary *)
-    apply id_complexity.
-  - apply (@constant_complexity).
-    apply (@constant_complexity).
-    apply S_complexity.
+  capply.
+  ctac. (* applies nat_fix1_complexity,constant_complexity, id_complexity, S_complexity *)
   (* Now check the complexity bound. *)
   Unshelve. 
   (* TODO: automate this *)

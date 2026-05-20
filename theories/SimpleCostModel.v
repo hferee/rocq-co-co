@@ -149,8 +149,11 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     A priori, this is not the case for coq-library-complexity. *)
   (* Note that the complexity of the identity is roughly the identity *)
   Parameter id_complexity : forall {A CA},
-    ComplexityBound (@id A) (fun (ca : ℂI A CA) => (1 ⋉ icomp ca) : ℂO CA).
-  Existing Instance id_complexity.
+    ComplexityBound (fun (x : A) => x) (fun (ca : ℂI A CA) => (1 ⋉ icomp ca) : ℂO CA).
+  Global Existing Instance id_complexity.
+  
+  (* Note : we are using the unfolding of [@id A] here so that typeclass
+    resolution works *)
 
 
   (* Complexity of the application of a function to an argument *)
@@ -188,13 +191,14 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   ComplexityBound g cg ->
   ComplexityBound (compose f g : A -> C)
                   (fun ca => ca I>>=I (g ⋊ cg) O>>=I (f ⋊ cf) >>|).
-  Existing Instance compose_complexity.
+  Global Existing Instance compose_complexity.
 
-  Parameter constant_complexity : forall {A B CA CB} {b cb},
+  Parameter constant_complexity : forall {A B CA CB} b {cb},
   ComplexityBound (b : B) (cb : CB) ->
   ComplexityBound (fun (_ : A) => b) (fun (_ : ℂI A CA) => 1 ⋉ cb).
   (* TODO: should this 1 be kept? This will add overhead in many cases.
     Same question for id *)
+  Global Existing Instance constant_complexity.
   
   (* Parameter ext_eq_fun : forall {A B} (f g : A -> B),
     (forall x, ext_eq (f x) (g x)) -> ext_eq f g. *)
@@ -212,5 +216,8 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   
   Lemma bound_order_unit (a b : unit) : bound_order a b.
   Proof. destruct a, b. reflexivity. Qed.
-  
+
+  (* Simple tactic that will be used to prove ComplexityBound goals.
+    Maybe elaborated later. *)
+  Ltac ctac := typeclasses eauto.
 End BasicTimeCostModel.
