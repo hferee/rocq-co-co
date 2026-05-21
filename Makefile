@@ -1,3 +1,6 @@
+SUBDIR_ROOTS := theories
+DIRS := $(shell find $(SUBDIR_ROOTS) -type d). $(shell find $(SUBDIR_ROOTS) -type d)
+BUILD_PATTERNS := *.vok *.vos *.glob *.vo
 BUILD_FILES := $(foreach DIR,$(DIRS),$(addprefix $(DIR)/,$(BUILD_PATTERNS)))
 
 _: makefile.coq

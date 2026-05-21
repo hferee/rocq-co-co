@@ -1,4 +1,4 @@
-From Complexity Require Import SimpleCostModel.
+From Complexity Require Import CostModel HOCostModel.
 From Stdlib Require Import Program.Basics Lia List.
 
 Module Type ListTimeCostModel

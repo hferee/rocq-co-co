@@ -1,64 +1,7 @@
-From Stdlib Require Import Classes.Morphisms Classes.RelationClasses Program.Basics.
+From Complexity Require Import CostModel.
 
-(** We axiomatize a notion of complexity and will import it via the module system. *)
-Module Type CostModel.
-
-  (** There is a relation between types representing terms and types representing
-    complexity bounds over the latter type. *)
-  Parameter complexity_type : Type -> Type -> Prop.
-
-  (* TODO: we might later need to know that this is relation describes a
-    partial function. *)
-
-  (** Such type relations will be stored in a typeclass. *)
-(*   Class CT A B := {is_complexity_type : complexity_type A B}. *)
-
-  (* Extract the type of complexity bounds from a typeclass instance. *)
-(*   Definition ℂT A {B} `{CT A B} := B. *)
-
-  (** There is a notion of complexity terms to complexity bounds. *)
-  Parameter has_complexity  : forall {A B : Type}, A -> B -> Prop.
-  (* TODO: for now, we require [has_complexity] to relate elements whose
-    types are related by CT. We'll see if this is required. *)
-
-  (** Complexity bounds are preserved by some equivalence relation (on terms)
-    and pre-order (on complexity bounds). *)
-  (* TODO: maybe we can assume an intentional notion of complexity and define
-    an extensional one on top of it *)
-(*   Parameter ext_eq : forall {A}, A -> A -> Prop.
-  Parameter ex_eq_rel : forall A, Equivalence (@ext_eq A).
-  Global Existing Instance ex_eq_rel. *)
-
-  Parameter bound_order : forall {B}, B -> B -> Prop.
-  Parameter bound_order_po : forall B, PreOrder (@bound_order B).
-  Global Existing Instance bound_order_po.
-
-  Parameter has_complexity_ext_eq: forall {A B},
-    Proper ((eq) ==> (bound_order) ==> impl) (@has_complexity A B).
-  Global Existing Instance has_complexity_ext_eq.
-
-  (* As Forster & Künze, we record complexity results using typeclasses. *)
-  Class ComplexityBound {A B} (f : A) (c : B) := {CB : has_complexity f c}.
-
-  Global Instance ComplexityBound_ext_eq: forall {A B},
-    Proper ((eq) ==> (bound_order) ==> impl) (@ComplexityBound A B).
-  Proof. intros ????????[?]. constructor. eapply has_complexity_ext_eq; eauto. Qed.
-
-  (** Useful tactics *)
-  (* Replaces the complexity bound with an evar.
-   The complexity bound goal will eventually need to be taken from the shelf. *)
-  Ltac capply := eapply (fun f => ComplexityBound_ext_eq f f); [reflexivity|shelve|].
-
-  (* Tactic to replace the function with an extensionally equivalent one in
-    a [ComplexityBound] goal *)
-    Ltac change_fun_with f' := match goal with
-  | |- ComplexityBound ?f ?c => 
-      eapply (ComplexityBound_ext_eq f' f _ c c (ltac:(reflexivity)))
-  end.
-
-End CostModel.
-
-(** ------------------------------------------------------------------------- *)
+(** * A Cost model for higher order-order functions, heavily inspired by
+  Forster & Künze's coq-library-complexity. *)
 
 (** An example of specialization of the cost model to handle time complexity of
   higher-order functions. *)
