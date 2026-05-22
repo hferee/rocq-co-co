@@ -129,26 +129,23 @@ Module NatTimeExamples (Import CM : CostModel) (Import B: NatTimeCostModel CM).
   apply fo_compose_complexity; apply S_complexity.
   Unshelve. apply bound_order_ext_eq. intros. reflexivity.
   Qed.
-  
+
+(* Tactic for bounds *)
+Ltac btac cf:= 
+  match goal with |- bound_order ?f _ => remember f as cf;
+    repeat (apply bound_order_ext_eq; intro); try apply bound_order_nat
+  end.
 
   Example plus_complexity:
     ComplexityBound Nat.add (fun (n m : nat) => 3 * n + 2).
   Proof.
   capply. ctac.
   (* Now check the complexity bound. *)
-  Unshelve. 
-  (* TODO: automate this *)
-  apply bound_order_ext_eq; intro cn.
-  apply bound_order_ext_eq; intro cm.
-  apply bound_order_nat.
-  induction cn as [|n].
-  + reflexivity.
-  + (* this could be automated for readability:
-    remember (fix cf (n0 a : nat) {struct n0} : nat :=
-            1 +  match n0 with
-              | 0 => 1
-              | S k => 1 + cf k a + 1
-              end) as foo. *)
+  Unshelve. btac cplus.
+  induction x as [|n].
+  + subst cplus. reflexivity.
+  + subst cplus. (* the remember in btac followed by a subst sounds silly, but
+    inbetween, one can more easily inspect the goal to find the right bound *)
     lia.
   Qed.
   Existing Instance plus_complexity.
@@ -159,13 +156,10 @@ Module NatTimeExamples (Import CM : CostModel) (Import B: NatTimeCostModel CM).
   capply. (* ctac. *)
   apply nat_fix1_complexity; ctac.
   (* Now check the complexity bound. *)
-  Unshelve. 
-  (* TODO: automate this *)
-  apply bound_order_ext_eq; intro n.
-  apply bound_order_ext_eq; intro m.
-  apply bound_order_nat.
-  + induction n as [|n].
-    * simpl. lia.
-    * lia. (* trivial once you have the right bound *)
+  Unshelve. btac cmul.
+  + induction x as [|n].
+    * simpl. subst; lia.
+    * subst; lia. (* trivial once you have the right bound *)
   Qed.
+  Existing Instance mult_complexity.
 End NatTimeExamples.
