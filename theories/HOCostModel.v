@@ -42,9 +42,6 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     CT (A -> B) (ℂI A -> ℂO CB).
   Global Existing Instance fun_CT. *)
 
-  (* The ordering on complexity bounds is compatible with the pointwise ordering *)
-  Parameter bound_order_ext_eq : forall {A B},
-    forall (f g : A -> B), (forall x, bound_order (f x) (g x)) -> @bound_order (A -> B) f g.
 
 (*   (* Useful functions to express complexity bounds *)
   (* Cost of applying a function of (input) complexity cg to an argument
@@ -94,6 +91,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   Parameter id_complexity : forall {A CA},
     ComplexityBound (fun (x : A) => x) (fun (ca : ℂI A CA) => (1 ⋉ icomp ca) : ℂO CA).
   Global Existing Instance id_complexity.
+  (* Should this 1 cost stay there? *)
   
   (* Note : we are using the unfolding of [@id A] here so that typeclass
     resolution works *)
@@ -118,12 +116,12 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   (* It produces a value whose complexity is obtained by composing the complexity
      of the three inputs ; the normalisation cost is obtained by two successive
      applications. *)
-  Parameter comp1_complexity : forall {A B C CA CB CC},
+(*   Parameter comp1_complexity : forall {A B C CA CB CC},
   ComplexityBound (@compose A B C)
     (fun (cf : ℂI (B -> C) (ℂI B CB -> ℂO CC)) => 1 ⋉
      fun (cg : ℂI (A -> B) (ℂI A CA -> ℂO CB)) => 1 ⋉ fun (ca : ℂI A CA) =>
       (1 ⋉ ca) O>>=I cg O>>=I cf >>|
-    ).
+    ). *)
   (* TODO: fancy notation for complexity type of A -> B? *)
 
   (* More convenient: the instantiation direct application of compose.
@@ -140,7 +138,8 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   ComplexityBound (b : B) (cb : CB) ->
   ComplexityBound (fun (_ : A) => b) (fun (_ : ℂI A CA) => 1 ⋉ cb).
   (* TODO: should this 1 be kept? This will add overhead in many cases.
-    Same question for id *)
+    Same question for id. They are the only two functions here that really add
+    a cost. *)
   Global Existing Instance constant_complexity.
   
   (* Parameter ext_eq_fun : forall {A B} (f g : A -> B),

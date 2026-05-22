@@ -30,4 +30,8 @@ Module Type CostModel.
   (* Replaces the complexity bound with an evar.
    The complexity bound goal will eventually need to be taken from the shelf. *)
   Ltac capply := eapply ComplexityBound_ext_eq; [shelve|].
+
+  (* The ordering on complexity bounds is compatible with the pointwise ordering *)
+  Parameter bound_order_ext_eq : forall {A B},
+    forall (f g : A -> B), (forall x, bound_order (f x) (g x)) -> bound_order f g.
 End CostModel.
