@@ -1,5 +1,14 @@
-From Complexity Require Import CostModel HOCostModel.
+From Complexity Require Import CostModel HOCostModel Combinators Compile
+  CombinatorCostModel UnitCostModel.
 From Stdlib Require Import Program.Basics Lia List.
+
+(** ** Case combinator (see [Combinators]) *)
+
+Definition list_case {X A : Type} (z : unit -> A) (c : X -> list X -> A) (l : list X) : A :=
+  match l with nil => z tt | cons h t => c h t end.
+
+#[global] Typeclasses Opaque list_case.
+#[global] Hint Unfold list_case : comb.
 
 Module Type ListTimeCostModel
   (Import CM : CostModel) (Import BTM : BasicTimeCostModel CM).
@@ -25,24 +34,19 @@ Module Type ListTimeCostModel
                      fun (t : ℂI (list A) unit) => 1 ⋉ tt)).
   Global Existing Instance cons_complexity.
 
-  Parameter list_match_complexity:
-    forall {A : Type} {B CB} (v : B) (f : A -> list A -> B)
-    (cv : CB) (cf : ℂI A unit -> ℂO(ℂI (list A) unit -> ℂO CB)),
-    ComplexityBound v cv ->
-    ComplexityBound f cf ->
-    ComplexityBound 
-      (fun l => match l with
-                | nil => v
-                | h :: t => f h t
-                end)
-      (fun (lc : ℂI (list A) unit) => 1 ⊕ (* 1 for the match *)
-                match ival lc with
-                | h :: t =>
-                    (t ⋊ tt) I>>=O ((h ⋊ tt) I>>=I (f ⋊ cf)) >>|
-                | nil => ret cv
-                end).
-  Global Existing Instance list_match_complexity.
-  (* TODO: Recursion operator *)
+
+  (** Case analysis, as a higher-order constant: matches on any expression,
+      with branches using other variables, are compiled to it ([Compile]). *)
+  Parameter list_case_complexity : forall {X A CA},
+    ComplexityBound (@list_case X A)
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
+       fun cc : ℂI (X -> list X -> A) (ℂI X unit -> ℂO (ℂI (list X) unit -> ℂO CA)) => 0 ⋉
+       fun cl : ℂI (list X) unit => 1 ⊕
+         match ival cl with
+         | nil => icomp cz (tt ⋊ tt)
+         | cons h t => ((t ⋊ tt) I>>=O ((h ⋊ tt) I>>=I cc)) >>|
+         end).
+  Global Existing Instance list_case_complexity.
 
 End ListTimeCostModel.
 
@@ -50,32 +54,15 @@ End ListTimeCostModel.
 Module Type ListTimeExamples
   (Import CM : CostModel)
   (Import BTM : BasicTimeCostModel CM)
-  (Import LM : ListTimeCostModel CM BTM).
-
-
-Ltac ctac := typeclasses eauto.
+  (Import LM : ListTimeCostModel CM BTM)
+  (Import CB : CombinatorTimeCostModel CM BTM) (Import UN : UnitTimeCostModel CM).
 
   (** ** List tail *)
   Instance complexity_tl {A} :
-    ComplexityBound (@tl A) (fun (lc : ℂI (list A) unit) => 3 ⋉ tt).
+    ComplexityBound (@tl A) (fun (lc : ℂI (list A) unit) => 1 ⋉ tt).
   Proof.
-    unfold tl.
-    capply. ctac. (* uses list_match_complexity, constant_complexity *)
-    Unshelve. apply bound_order_ext_eq. intros [l lc].
-    unfold ObindO, IbindI. simpl.
-    case l as [|h t].
-    + (* TODO: automation *)
-      apply bound_order_output; split; simpl.
-      * lia.
-      * reflexivity.
-    + apply bound_order_output; split; simpl.
-      * trivial.
-      * reflexivity.
-Qed.
-
-  (** ** List tail *)
-  (* TODO: *)
+    capply. unfold tl. cbc.
+    Unshelve. bo_split; destr_inputs; destruct lc; cbn; lia.
+  Qed.
 
 End ListTimeExamples.
-
-

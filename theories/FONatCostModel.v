@@ -3,16 +3,16 @@ applied ; no higher-order functions required. *)
 
 From Complexity Require Import CostModel.
 (* In particular, we don't rely on HOCostModel. *)
-From Stdlib Require Import Program.Basics Lia.
+From Stdlib Require Import Program.Basics Lia Arith Ring String.
+
+Ltac ctac := typeclasses eauto.
 
 (* An example of a cost model for time complexity  *)
 (* It's a call-by-value time cost model *)
 Module Type NatTimeCostModel
   (Import CM : CostModel).
 
-(*   Parameter CT_nat: CT nat unit.
-  Existing Instance CT_nat. *)
-  
+
   (* Constructors *)
   (* TODO: This is used in Nat.mul for instance. *)
   Parameter O_complexity : ComplexityBound O 1.
@@ -22,24 +22,7 @@ Module Type NatTimeCostModel
   Global Existing Instance S_complexity.
 
   (** ** Destructor *)
-  (* It seems that one could derive this bound from nat_fix1_complexity,
-    but that would require an extentional notion of complexity. *)
-(*   Parameter nat_match_complexity: forall {A} (v : A) (f : nat -> A) (cv : nat) cf,
-    ComplexityBound v cv ->
-    ComplexityBound f cf ->
-    ComplexityBound 
-      (fun n => match n with
-                | O => v
-                | S k => f k
-                end)
-      (fun (n : nat) => 1 + (* 1 for the match *)
-                match n with
-                | O => cv
-                | S k => cf k
-                end).
-  Existing Instance nat_match_complexity. *)
-  (* A slightly stronger version, where the matched integer is still bound in 
-    the subcases. Required for pred. *)
+  (* The matched integer is still bound in the subcases. Required for pred. *)
   Parameter nat_match_complexity': forall {A} (v : nat -> A) (f : nat -> nat -> A)
     (cv : nat -> nat) cf,
     ComplexityBound v cv ->
@@ -56,12 +39,8 @@ Module Type NatTimeCostModel
                 end).
   Existing Instance nat_match_complexity'.
 
- (* TODO: are there (structural) fixpoints on nat that are not expressible this way?
-  And can we write a tactic to turn most such functions into a nat_rect?
-  And can we automatically prove they are extensionally equal? *)
-
   (* Simple recursion with no additional argument *)
-  Definition nat_fix0 (B : Type) (v : B) (F : nat -> B -> B) :=
+  (*   Definition nat_fix0 (B : Type) (v : B) (F : nat -> B -> B) :=
     fix f (n : nat) : B := match n with O => v | S k => F k (f k) end.
 
   Parameter nat_fix0_complexity : forall {B : Type}
@@ -75,7 +54,7 @@ Module Type NatTimeCostModel
       | O => cv
       | S k => (* the recursive call *)
               cfix k (cF k)
-      end).
+      end). *)
 
   (* A quite general complexity bound for fixpoints over nat with 1 additional
     argument. Hopefully I got it right. *)
@@ -150,8 +129,16 @@ Parameter fo_compose_complexity : forall {A B C}
   Global Existing Instance first_arg_complexity.
 
   (* Experimental *)
+  (* TODO: move this to its own module type *)
   (* Curryfication may be necessary to handle arbitrarily many arguments
     and ignore arguments order *)
+  Parameter match_prod_complexity: forall {A B C A' B' C'} (f : A -> B -> C)
+    (cf : A' -> B' -> C'),
+    ComplexityBound f cf ->
+    ComplexityBound (fun (p : A * B) => let (x, y) := p in f x y)
+                    (fun (p : A' * B') => let (x, y) := p in cf x y).
+  Global Existing Instance match_prod_complexity.
+
   Parameter curry_complexity: forall {A B C A' B' C'} (f : A * B -> C)
     (cf : A' * B' -> C'),
     ComplexityBound f cf -> ComplexityBound (curry f) (curry cf).
@@ -161,19 +148,39 @@ Parameter fo_compose_complexity : forall {A B C}
     (cf : A' * B' -> C'),
     ComplexityBound (curry f) (curry cf) -> ComplexityBound f cf.
   Global Existing Instance curry_complexity'.
-  
+
+(*   (* This is only working with A B Ground *)
   Parameter fst_complexity: forall {A B},
     ComplexityBound (@fst A B) (fun (_ : A * B) => 1).
   Global Existing Instance fst_complexity.
 
   Parameter snd_complexity: forall {A B},
     ComplexityBound (@snd A B) (fun (_ : A * B) => 1).
-  Global Existing Instance snd_complexity.
+  Proof. intros A B. apply curry_complexity'. unfold curry. simpl.
+  capply. apply constant_complexity. apply id_complexity.
+  Global Existing Instance snd_complexity. *)
+
+(* Tactic for bounds *)
+Ltac btac cf:= 
+  match goal with |- bound_order ?f _ => remember f as cf;
+    repeat (apply bound_order_ext_eq; intro); try apply bound_order_nat
+  end.
+
 End NatTimeCostModel.
+
 
 Module NatTimeExamples (Import CM : CostModel) (Import B: NatTimeCostModel CM).
 
-  Ltac ctac := typeclasses eauto.
+(* The complexity of a constant function is the constant function given by
+  the size of the constant. *)
+  Global Instance nat_constant_complexity (n : nat):
+    ComplexityBound (fun (_ : nat) => n) (fun (_ : nat) => S n).
+  Proof.
+  induction n.
+  - ctac.
+  - capply. apply fo_compose_complexity; ctac.
+  Unshelve. btac cf; subst; lia.
+  Qed.
 
   Example plus2 (n : nat) := S (S n).
 
@@ -185,12 +192,6 @@ Module NatTimeExamples (Import CM : CostModel) (Import B: NatTimeCostModel CM).
   apply fo_compose_complexity; apply S_complexity.
   Unshelve. apply bound_order_ext_eq. intros. reflexivity.
   Qed.
-
-(* Tactic for bounds *)
-Ltac btac cf:= 
-  match goal with |- bound_order ?f _ => remember f as cf;
-    repeat (apply bound_order_ext_eq; intro); try apply bound_order_nat
-  end.
 
   Example plus_complexity:
     ComplexityBound Nat.add (fun (n m : nat) => 3 * n + 2).
@@ -235,20 +236,42 @@ Ltac btac cf:=
   Unshelve. simpl. btac cpred. subst. lia.
   Qed.
 
+  (* Fliping arguments. *)
+  Example flip_complexity {A B C A' B' C'} (f : A -> B -> C) (cf: A' -> B' -> C'):
+    ComplexityBound (flip f) (flip cf) -> ComplexityBound f cf.
+  Proof.
+  intro Ht. change f with (curry (uncurry f)).
+  change cf with (curry (uncurry cf)).
+  change (flip f) with (curry (uncurry (flip f))) in Ht.
+  change (flip cf) with (curry (uncurry (flip cf))) in Ht. 
+  apply curry_complexity.
+  apply curry_complexity' in Ht. unfold uncurry, flip in *.
+  apply match_prod_complexity.
+  Admitted.
+
+(* Variation of Nat.sub that doesn't bind n under the match ;
+  and whose recursive call is directly expressed w.r.t. m *)
 Definition mysub :=
 (fix sub (n m : nat) {struct n} : nat :=
      match n with
      | 0 => 0
-     | S k => match m with
+     | S k => (* below is a (higher-order!) function of (sub k) and m *)
+              match m with
               | 0 => (S k)
-              | S l => sub k l
+              | S l => sub k (pred m)
               end
      end).
 
   Example sub_complexity:
-    ComplexityBound mysub (fun n => n * 3 + 4).
+    ComplexityBound mysub (fun n m => n * 3 + 7 * m + 4).
   Proof.
-  unfold mysub. capply.
+  unfold mysub. capply. (* ctac fails *)
+  apply (nat_fix1_complexity (fun (x : nat) => 0)
+                              (fun (k : nat) x => pred x)
+                              (fun (k m : nat) (r : nat) => 
+                              match m with | O => S k | _ => r end)).
+  ctac. ctac.
+  apply flip_complexity. unfold flip.
   (* Difficulties: as for pred, sub still binds n after matching over it.
     Furthermore, it doesn't always make a recursive call when n = S k *)
   Abort.
@@ -267,7 +290,8 @@ Definition mysub :=
 
   Example even_complexity:
     ComplexityBound Nat.even (fun n => S n).
-  Proof. unfold Nat.even. capply. Abort.
+  Proof. unfold Nat.even. capply.
+      Abort.
 
 (* TODO: flipping arguments will not work under fix. *)  
 (* Goal ((fix add (n m : nat) {struct n} : nat :=
@@ -284,27 +308,27 @@ Definition mysub :=
   (* Difficulty : match is not standard (base case 1).
     Recursive call is made on "n - 2". *)
 
-  (* Flip *)
-(*   Definition add_flip n m := Nat.add m n. *)
-  Example flip_complexity {A B C A' B' C'} (f : A -> B -> C) (cf: A' -> B' -> C'):
-    ComplexityBound (flip f) (flip cf) -> ComplexityBound f cf.
+(* Nat.pow is a structural fixpoint on its second argument ; which we can't
+  handle yet. Let's first try its flipped version pow' which is already hard enough *)
+Fixpoint  pow' m n {struct m} : nat :=
+  match m with
+  | 0 => 1
+  | S m0 => n * pow' m0 n
+  end.
+Axiom cf : nat -> nat -> nat.
+Axiom cst : string -> nat.
+  Example pow'_complexity:
+    ComplexityBound pow' (fun m n => 3 + 4 * m * (S n) + (3 *cst "a" + cst "b" * n + cst "c" * n) * pow' m n).
   Proof.
-  (* TODO: We might need match on pairs for this.*)
-  (* This will add a constant cost, to lookup subterms *)
-(*   replace (flip f) with (curry (fun ab => f (snd ab) (fst ab))) by reflexivity.
-  replace (flip cf) with (curry (fun ab => cf (snd ab) (fst ab))) by reflexivity.
-  intros Hc%curry_complexity'.
-  apply (curry_complexity (uncurry f) (uncurry cf)). *)
-  replace (uncurry f) with (fun p => (flip f) (snd p) (fst p)) .
-  Abort.
+  capply. unfold pow'. ctac. (* uses nat_fix1_complexity nat_constant_complexity *)
+  Unshelve. btac cf'. induction x.
+  - subst. lia.
+  - rewrite Heqcf'. rewrite <- Heqcf'.
+    replace (nat_fix1 nat nat (fun _ : nat => 1) (fun _ x1 : nat => x1)
+     (fun _ : nat => Nat.mul) x x0) with (pow' x x0)
+    by (clear IHx cf' Heqcf'; induction x; simpl; lia).
+    simpl pow'. Abort.
 
-  Example pow_complexity:
-    ComplexityBound Nat.pow (fun n m => n * m + 1).
-  Proof.
-  capply.
-   Abort.
-  (* Difficulty: recursion is made on the second argument.
-    Similar to Nat.div. *)
 
   (* Tail add has the same time complexity as add. Space complexity should be
     different though. *)
@@ -325,7 +349,7 @@ Definition mysub :=
   * simpl. subst; lia.
   * simpl. specialize (IHn (S x0)). subst. lia.
   Qed.
-  
+
   Example square_complexity:
     ComplexityBound Nat.square (fun n => 4 + n * (4 + 3 * n)).
   Proof. unfold Nat.square. capply. ctac.
