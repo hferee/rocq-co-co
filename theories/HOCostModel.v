@@ -5,8 +5,8 @@ From Complexity Require Import CostModel.
 
 (** An example of specialization of the cost model to handle time complexity of
   higher-order functions. *)
-Module Type BasicTimeCostModel (Import CM : CostModel).
-
+Module Type BasicTimeCostModel (Import CM : CostModel). 
+ 
   (* Assume we know the cost of some basic functions *)
   (* General idea: we define a (complete) set of primitives and axiomatize their
   cost. These axioms are now the trust base, and users may not cheat, 
@@ -110,7 +110,9 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   (** TODO: terrible naming. And we probably don't need all these bind. *)
   Definition OIbindO {A CA} (cx : ℂO (ℂI A CA)) : ℂO CA :=
     ocost cx ⋉ icomp (ocomp cx).
-  Global Notation "a '>>|'" := (OIbindO a) (at level 150).
+  (* Level 150 (rather than 1) so that [>>|] applies to a whole bind chain. *)
+  #[warnings="-postfix-notation-not-level-1"]
+  Global Notation "a '>>|'" := (OIbindO a) (at level 150, left associativity).
 
   (* Unary composition *)
   (* It produces a value whose complexity is obtained by composing the complexity
