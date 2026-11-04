@@ -21,19 +21,22 @@
     terminate. *)
 
 From Complexity Require Export Arity.
-From Complexity Require Import CostModel HOCostModel Compile.
+From Complexity Require Import CostModel HOCostModel Compile CombinatorCostModel.
 
+(** The functional of a recursive function is compiled with the combinators
+    ([crec] leaves it to [cbc]): this module type depends on their model. *)
 Module Type FixTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
+  (Import CB : CombinatorTimeCostModel CM BT).
 
-  Parameter fix_complexity : forall {A B CA CB} (ar : Arity B) (f : A -> B)
+  Parameter fix_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB}
+    (ar : Arity B) (f : A -> B)
     (F : (A -> B) -> A -> B)
     (cF : ℂI (A -> B) (ℂI A CA -> ℂO CB) -> ℂO (ℂI A CA -> ℂO CB))
     (cf : ℂI A CA -> ℂO CB),
     is_fixpoint ar F f ->
     ComplexityBound F cF ->
-    (forall ca : ℂI A CA,
-       bound_order (1 ⊕ ((ca I>>=O ((f ⋊ cf) I>>=I (F ⋊ cF))) >>|)) (cf ca)) ->
+    bound_order (fun ca : ℂI A CA => 1 ⊕ pot <$> (F ⋊ cF) · (f ⋊ cf) · ca) cf ->
     ComplexityBound f cf.
 
   (** In a goal [ComplexityBound f cf] where [f] is a recursive function,
@@ -46,4 +49,15 @@ Module Type FixTimeCostModel
     eq; intro H; eapply (fix_complexity _ _ _ _ _ H); clear H.
   Ltac crec := crec_with fix_equation.
   Ltac crec_mutual := crec_with fix_equation_mutual.
+
+  (** ** Proofs of bounds
+
+      [cbound] ([CombinatorCostModel]) extended to recursive functions: if
+      the function is recursive, its functional is compiled and the
+      recurrence of [fix_complexity] is reduced to inequalities between
+      costs. This [cbound] shadows the one of [CombinatorCostModel] when
+      both are imported. [cbound_mutual] does the same for mutually
+      recursive functions (see [crec_mutual]). *)
+  Ltac cbound := (tryif crec then [> cbc | idtac] else cstart); cfinish.
+  Ltac cbound_mutual := crec_mutual; [cbc | cfinish].
 End FixTimeCostModel.

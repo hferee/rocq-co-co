@@ -14,16 +14,19 @@ Module Type BoolTimeCostModel
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
 
   (** Booleans are ground data. *)
+  Parameter Repr_bool : Ground bool.
+  Global Existing Instance Repr_bool.
+
   Parameter bool_complexity : forall b : bool, ComplexityBound b tt.
   Global Existing Instance bool_complexity.
 
   (** Case analysis, with the branches as thunks: only the selected branch is
       evaluated. [if] and every match on a boolean are compiled to it. *)
-  Parameter bool_case_complexity : forall {A CA},
+  Parameter bool_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@bool_case A)
-      (fun ct : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
-       fun cf : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
+      (fun ct : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cf : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
        fun cb : ℂI bool unit => 1 ⊕
-         if ival cb then icomp ct (tt ⋊ tt) else icomp cf (tt ⋊ tt)).
+         if val cb then pot ct (tt ⋊ tt) else pot cf (tt ⋊ tt)).
   Global Existing Instance bool_case_complexity.
 End BoolTimeCostModel.

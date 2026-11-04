@@ -16,18 +16,20 @@ Definition prod_case {X Y A : Type} (f : X -> Y -> A) (p : X * Y) : A :=
 Module Type ProdTimeCostModel
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
 
-  Parameter prod_complexity : forall {A B} (p : A * B), ComplexityBound p tt.
-  Global Existing Instance prod_complexity.
+  Parameter Repr_prod : forall {A B}, Ground A -> Ground B -> Ground (A * B).
+  Global Existing Instance Repr_prod.
 
-  Parameter pair_complexity : forall {A B},
+  (* Pairs are built with [pair]. *)
+
+  Parameter pair_complexity : forall {A B} `{Ground A} `{Ground B},
     ComplexityBound (@pair A B) (fun _ : ℂI A unit => 1 ⋉ fun _ : ℂI B unit => 1 ⋉ tt).
   Global Existing Instance pair_complexity.
 
-  Parameter prod_case_complexity : forall {X Y A CA},
+  Parameter prod_case_complexity : forall {X Y A CA} `{Ground X} `{Ground Y} `{Repr A CA},
     ComplexityBound (@prod_case X Y A)
-      (fun cf : ℂI (X -> Y -> A) (ℂI X unit -> ℂO (ℂI Y unit -> ℂO CA)) => 0 ⋉
+      (fun cf : ℂI (X -> Y -> A) (ℂI X unit -> ℂO (ℂI Y unit -> ℂO CA)) => 1 ⋉
        fun cp : ℂI (X * Y) unit => 1 ⊕
-         let (x, y) := ival cp in
-         ((y ⋊ tt) I>>=O ((x ⋊ tt) I>>=I (ival cf ⋊ icomp cf))) >>|).
+         let (x, y) := val cp in
+         pot <$> cf · (x ⋊ tt) · (y ⋊ tt)).
   Global Existing Instance prod_case_complexity.
 End ProdTimeCostModel.

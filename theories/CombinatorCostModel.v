@@ -2,15 +2,13 @@
 
     [Compile.compile] turns every lambda-term (and [match], through the case
     combinators of the datatype models) into a convertible term built from
-    [Kc], [Ic], [compose], [Cc], [Sc], the lazy closure [Lc] and the closure
-    marker [Lm]. The combinators are higher-order constants: their
-    complexities take the complexities of their (functional) arguments, so
-    that typeclass search finds the complexity of a compiled term by
-    following its structure ([cbc]). The costs are those of a closure
-    machine (see below). *)
+    [Kc], [Ic], [compose], [Cc] and [Sc]. The combinators are higher-order
+    constants: their complexities take the complexities of their
+    (functional) arguments, so that typeclass search finds the complexity of
+    a compiled term by following its structure ([cbc]). *)
 
 From Complexity Require Import CostModel HOCostModel Combinators Compile.
-From Stdlib Require Import Program.Basics Lia.
+From Stdlib Require Import Program.Basics PArith Arith Lia.
 
 Module Type CombinatorTimeCostModel
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
@@ -22,122 +20,91 @@ Module Type CombinatorTimeCostModel
 
   (** ** Costs
 
-      A step costs one when it may duplicate work: a beta-step (entering the
-      closure [Lc g x]), the duplication of an argument ([Sc]), and, in the
-      models of the datatypes, a case analysis, an unfolding of a fixpoint
-      and the constructors. The other steps only route values, as the
-      environment of a closure machine: partial applications (building
-      closures), and the affine combinators [Kc], [Ic], [Lm], [compose],
-      [Cc] and those below. They are free: a term made of free steps does at
-      most as much work as its size, so that the real work of an evaluation
-      is bounded by its cost times the size of the program. *)
+      Every application costs at least one, as a beta-step of the
+      call-by-value lambda-calculus L (Forster & Kunze): partial applications
+      (building closures), and full applications of the combinators and, in
+      the models of the datatypes, of the case combinators, of the
+      constructors and of the unfoldings of fixpoints. Each step of the
+      evaluation of a compiled term does a constant amount of work, so that
+      the real work is bounded by a constant times the cost.
 
-  Parameter Kc_complexity : forall {A B CA CB},
-    ComplexityBound (@Kc A B) (fun ca : ℂI A CA => 0 ⋉ (fun _ : ℂI B CB => 0 ⋉ icomp ca)).
+      Free steps would break this bound, even when they are affine: with a
+      free [compose], a closure duplicated once (and charged once) can be
+      executed exponentially many times at no cost ([tower] in [Examples]). *)
+
+  Parameter Kc_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@Kc A B) (fun ca : ℂI A CA => 1 ⋉ (fun _ : ℂI B CB => 1 ⋉ pot ca)).
   Global Existing Instance Kc_complexity.
 
-  Parameter Ic_complexity : forall {A CA},
-    ComplexityBound (@Ic A) (fun ca : ℂI A CA => 0 ⋉ icomp ca).
+  Parameter Ic_complexity : forall {A CA} `{Repr A CA},
+    ComplexityBound (@Ic A) (fun ca : ℂI A CA => 1 ⋉ pot ca).
   Global Existing Instance Ic_complexity.
 
-  (** [Lm c] is the closure [c]. *)
-  Parameter Lm_complexity : forall {A CA},
-    ComplexityBound (@Lm A) (fun ca : ℂI A CA => 0 ⋉ icomp ca).
-  Global Existing Instance Lm_complexity.
-
-  (** [compose] as a constant, whereas [compose_complexity] requires fixed
+  (** [compose] (B) as a constant, whereas [compose_complexity] requires fixed
       arguments. *)
-  Parameter compose_hcomplexity : forall {A B C CA CB CC},
+  Parameter compose_hcomplexity : forall {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC},
     ComplexityBound (@compose A B C)
-      (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 0 ⋉
-       fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => 0 ⋉
-       fun ca : ℂI A CA => (ca I>>=I cg O>>=I cf >>|)).
+      (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 1 ⋉
+       fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => 1 ⋉
+       fun ca : ℂI A CA => 1 ⊕ pot <$> cf · (cg · ca)).
   Global Existing Instance compose_hcomplexity.
 
   (** [Cc f a x = f x a]. *)
-  Parameter Cc_complexity : forall {X A B CX CA CB},
+  Parameter Cc_complexity : forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Cc X A B)
-      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 0 ⋉
-       fun ca : ℂI A CA => 0 ⋉
-       fun cx : ℂI X CX => ((ca I>>=O (cx I>>=I cf)) >>|)).
+      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
+       fun ca : ℂI A CA => 1 ⋉
+       fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · ca).
   Global Existing Instance Cc_complexity.
 
   (** [Sc f g x = f x (g x)]: the bound variable is used twice. *)
-  Parameter Sc_complexity : forall {X A B CX CA CB},
+  Parameter Sc_complexity : forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Sc X A B)
-      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 0 ⋉
-       fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => 0 ⋉
-       fun cx : ℂI X CX => 1 ⊕ (((cx I>>=I cg) O>>=O (cx I>>=I cf)) >>|)).
+      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
+       fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => 1 ⋉
+       fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · (cg · cx)).
   Global Existing Instance Sc_complexity.
 
-  (** [Lc g x] is a closure: [g x] is evaluated when the next argument is
-      supplied, which is a beta-step. *)
-  Parameter Lc_complexity : forall {X A B CX CA CB},
-    ComplexityBound (@Lc X A B)
-      (fun cg : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 0 ⋉
-       fun cx : ℂI X CX => 0 ⋉
-       fun ca : ℂI A CA => 1 ⊕ ((ca I>>=O (cx I>>=I cg)) >>|)).
-  Global Existing Instance Lc_complexity.
+  (** ** Proofs of bounds
 
-  (** Branch binders ([Lf], [Lfc]) and delayed computations ([Dl], [Rc],
-      [Rc2], [Su]) are affine: they are free. *)
-  Parameter Lf_complexity : forall {A CA},
-    ComplexityBound (@Lf A) (fun ca : ℂI A CA => 0 ⋉ icomp ca).
-  Global Existing Instance Lf_complexity.
+      [cbound] proves a goal [ComplexityBound f c], where [c] is the claimed
+      bound and [f] a definition (recursive functions: [FixCostModel]). It
+      compiles the body of [f], finds the complexity of the compiled term by
+      typeclass search, and reduces its comparison with [c] to inequalities
+      between costs ([cfinish]), one for each case of the values of the
+      inputs, which are named as in [c]. It proves them with [lia] or [nia].
 
-  Parameter Lfc_complexity : forall {X A B CX CA CB},
-    ComplexityBound (@Lfc X A B)
-      (fun cg : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 0 ⋉
-       fun cx : ℂI X CX => 0 ⋉
-       fun ca : ℂI A CA => ((ca I>>=O (cx I>>=I cg)) >>|)).
-  Global Existing Instance Lfc_complexity.
+      The inequalities left are [found <= claimed], with both sides
+      normalised: they show which costs the claimed bound must cover, or
+      which facts on the values are missing. *)
 
-  Parameter Dl_complexity : forall {X B CX CB},
-    ComplexityBound (@Dl X B)
-      (fun ch : ℂI (unit -> B) (ℂI unit unit -> ℂO CB) => 0 ⋉
-       fun _ : ℂI X CX => icomp ch (tt ⋊ tt)).
-  Global Existing Instance Dl_complexity.
+  (** Compute the costs ([cbv], as the complexities found by typeclass
+      search are large terms) and the values (combinators). *)
+  Ltac csimpl :=
+    cbv beta iota zeta delta [app cost_add fmap ret_I ret bind cost res val pot];
+    unfold_comb.
 
-  Parameter Rc_complexity : forall {X A B CX CA CB},
-    ComplexityBound (@Rc X A B)
-      (fun ch : ℂI (unit -> A -> B) (ℂI unit unit -> ℂO (ℂI A CA -> ℂO CB)) => 0 ⋉
-       fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => 0 ⋉
-       fun cx : ℂI X CX => (((cx I>>=I cg) O>>=O ((tt ⋊ tt) I>>=I ch)) >>|)).
-  Global Existing Instance Rc_complexity.
+  (** Compute the functions of the claimed bound on constructors, but
+      neither multiplication nor the tests on values. *)
+  Ltac cnorm := cbn -[Nat.mul Nat.eqb Nat.leb Nat.ltb Pos.to_nat].
 
-  Parameter Rc2_complexity : forall {X A B CX CA CB},
-    ComplexityBound (@Rc2 X A B)
-      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 0 ⋉
-       fun ch : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
-       fun cx : ℂI X CX => ((((tt ⋊ tt) I>>=I ch) O>>=O (cx I>>=I cf)) >>|)).
-  Global Existing Instance Rc2_complexity.
+  (** Case analysis of the values matched in the costs (those of the
+      claimed bound are not unfolded: a recursive function of the bound,
+      unfolded on a successor, would match again). *)
+  Ltac ccases :=
+    repeat (csimpl;
+      lazymatch goal with
+      | |- context [match ?x with _ => _ end] =>
+          tryif is_var x then destruct x else (let E := fresh "E" in destruct x eqn:E)
+      end);
+    csimpl; cnorm.
 
-  Parameter Su_complexity : forall {A B CA CB},
-    ComplexityBound (@Su A B)
-      (fun cf : ℂI (unit -> A -> B) (ℂI unit unit -> ℂO (ℂI A CA -> ℂO CB)) => 0 ⋉
-       fun cg : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
-       fun cu : ℂI unit unit => (((cu I>>=I cg) O>>=O (cu I>>=I cf)) >>|)).
-  Global Existing Instance Su_complexity.
+  (** From a goal [bound_order c_found c_claimed] to inequalities. *)
+  Ltac cfinish :=
+    bo_split; destr_inputs; ccases; try solve [lia | nia]; try ring_simplify.
 
-  (** Decompose [bound_order] goals into inequalities between costs. The
-      arguments of functions are named as in the right-hand side (usually
-      the claimed bound). *)
-  Ltac bo_split :=
-    repeat match goal with
-    | |- @bound_order (ℂO _) _ _ => apply bound_order_output; split
-    | |- @bound_order (_ -> _) _ _ => ext_intro constr:(@bound_order_ext_eq)
-    | |- @bound_order unit _ _ => apply bound_order_unit
-    end.
+  (** From a goal [ComplexityBound f c] to [bound_order c_found c]. *)
+  Ltac cstart := eapply ComplexityBound_ext_eq; [idtac | unfold_fun; cbc].
 
-  (** Destruct the complexities of the inputs of ground type: [c : ℂI A unit]
-      becomes the value of the input, still named [c]. *)
-  Ltac destr_inputs :=
-    repeat match goal with
-    | c : ℂI _ unit |- _ => let v := fresh "v" in destruct c as [v []]; rename v into c
-    end.
-
-  (** Compile the function of a [ComplexityBound] goal and search for its
-      complexity. Complexity types left undetermined (those of unused
-      arguments) can be anything. *)
-  Ltac cbc := unshelve (compile_goal; typeclasses eauto); try exact unit.
+  Ltac cbound := cstart; cfinish.
 End CombinatorTimeCostModel.

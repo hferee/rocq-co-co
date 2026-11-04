@@ -21,14 +21,18 @@ Module Type ListTimeCostModel
   (* The complexity of a list is exactly the complexity of its elements *)
   (* This mostly makes sense for lists containing functions, not ground types *)
   (* See GroundListCostModel for a simpler one *)
-  Parameter ComplexityBound_list : forall {A} (l : list A), ComplexityBound l tt.
-  Existing Instance ComplexityBound_list.
+  Parameter Repr_list : forall {A}, Ground A -> Ground (list A).
+  Global Existing Instance Repr_list.
+
+  (** The empty list is a value; the other lists are built with [cons]. *)
+  Parameter nil_complexity : forall {A} `{Ground A}, ComplexityBound (@nil A) tt.
+  Global Existing Instance nil_complexity.
   (* TODO: annoyingly, this is required for cons_complexity to find the typeclass instance *)
 (*   Global Instance CT_cons {A CA : Type}: CT (A -> list A -> list A)
                         (ℂI A -> ℂO (ℂI (list A) -> ℂO (list CA))).
   Proof. typeclasses eauto. Defined. *)
 
-  Parameter cons_complexity: forall {A : Type},
+  Parameter cons_complexity: forall {A : Type} `{Ground A},
     ComplexityBound (@cons A)
                     (fun (h : ℂI A unit) => 1 ⋉ ( (* we may not need so many 1s *)
                      fun (t : ℂI (list A) unit) => 1 ⋉ tt)).
@@ -37,14 +41,14 @@ Module Type ListTimeCostModel
 
   (** Case analysis, as a higher-order constant: matches on any expression,
       with branches using other variables, are compiled to it ([Compile]). *)
-  Parameter list_case_complexity : forall {X A CA},
+  Parameter list_case_complexity : forall {X A CA} `{Ground X} `{Repr A CA},
     ComplexityBound (@list_case X A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
-       fun cc : ℂI (X -> list X -> A) (ℂI X unit -> ℂO (ℂI (list X) unit -> ℂO CA)) => 0 ⋉
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cc : ℂI (X -> list X -> A) (ℂI X unit -> ℂO (ℂI (list X) unit -> ℂO CA)) => 1 ⋉
        fun cl : ℂI (list X) unit => 1 ⊕
-         match ival cl with
-         | nil => icomp cz (tt ⋊ tt)
-         | cons h t => ((t ⋊ tt) I>>=O ((h ⋊ tt) I>>=I cc)) >>|
+         match val cl with
+         | nil => pot cz (tt ⋊ tt)
+         | cons h t => pot <$> cc · (h ⋊ tt) · (t ⋊ tt)
          end).
   Global Existing Instance list_case_complexity.
 
@@ -58,11 +62,8 @@ Module Type ListTimeExamples
   (Import CB : CombinatorTimeCostModel CM BTM) (Import UN : UnitTimeCostModel CM).
 
   (** ** List tail *)
-  Instance complexity_tl {A} :
-    ComplexityBound (@tl A) (fun (lc : ℂI (list A) unit) => 1 ⋉ tt).
-  Proof.
-    capply. unfold tl. cbc.
-    Unshelve. bo_split; destr_inputs; destruct lc; cbn; lia.
-  Qed.
+  Instance complexity_tl {A} `{Ground A} :
+    ComplexityBound (@tl A) (fun (lc : ℂI (list A) unit) => 3 ⋉ tt).
+  Proof. cbound. Qed.
 
 End ListTimeExamples.

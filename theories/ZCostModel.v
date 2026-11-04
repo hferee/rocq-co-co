@@ -29,6 +29,13 @@ Module Type ZTimeCostModel
 
   (** ** Values, constructors, case analysis *)
 
+  Parameter Repr_positive : Ground positive.
+  Parameter Repr_N : Ground N.
+  Parameter Repr_Z : Ground Z.
+  Parameter Repr_Q : Ground Q.
+  Parameter Repr_comparison : Ground comparison.
+  Global Existing Instances Repr_positive Repr_N Repr_Z Repr_Q Repr_comparison.
+
   Parameter positive_complexity : forall p : positive, ComplexityBound p tt.
   Global Existing Instance positive_complexity.
   Parameter N_complexity : forall n : N, ComplexityBound n tt.
@@ -54,59 +61,59 @@ Module Type ZTimeCostModel
     ComplexityBound Qmake (fun _ : ℂI Z unit => 1 ⋉ fun _ : ℂI positive unit => 1 ⋉ tt).
   Global Existing Instance Qmake_complexity.
 
-  Parameter positive_case_complexity : forall {A CA},
+  Parameter positive_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@positive_case A)
-      (fun cI : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 0 ⋉
-       fun cO : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 0 ⋉
-       fun cH : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
+      (fun cI : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
+       fun cO : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
+       fun cH : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
        fun cp : ℂI positive unit => 1 ⊕
-         match ival cp with
-         | xI q => icomp cI (q ⋊ tt)
-         | xO q => icomp cO (q ⋊ tt)
-         | xH => icomp cH (tt ⋊ tt)
+         match val cp with
+         | xI q => pot cI (q ⋊ tt)
+         | xO q => pot cO (q ⋊ tt)
+         | xH => pot cH (tt ⋊ tt)
          end).
   Global Existing Instance positive_case_complexity.
 
-  Parameter N_case_complexity : forall {A CA},
+  Parameter N_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@N_case A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
-       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 0 ⋉
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
        fun cn : ℂI N unit => 1 ⊕
-         match ival cn with N0 => icomp cz (tt ⋊ tt) | Npos p => icomp cp (p ⋊ tt) end).
+         match val cn with N0 => pot cz (tt ⋊ tt) | Npos p => pot cp (p ⋊ tt) end).
   Global Existing Instance N_case_complexity.
 
-  Parameter Z_case_complexity : forall {A CA},
+  Parameter Z_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@Z_case A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
-       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 0 ⋉
-       fun cn : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 0 ⋉
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
+       fun cn : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
        fun cx : ℂI Z unit => 1 ⊕
-         match ival cx with
-         | Z0 => icomp cz (tt ⋊ tt)
-         | Zpos p => icomp cp (p ⋊ tt)
-         | Zneg p => icomp cn (p ⋊ tt)
+         match val cx with
+         | Z0 => pot cz (tt ⋊ tt)
+         | Zpos p => pot cp (p ⋊ tt)
+         | Zneg p => pot cn (p ⋊ tt)
          end).
   Global Existing Instance Z_case_complexity.
 
-  Parameter comparison_case_complexity : forall {A CA},
+  Parameter comparison_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@comparison_case A)
-      (fun ce : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
-       fun cl : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
-       fun cg : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 0 ⋉
+      (fun ce : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cl : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cg : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
        fun cc : ℂI comparison unit => 1 ⊕
-         match ival cc with
-         | Eq => icomp ce (tt ⋊ tt)
-         | Lt => icomp cl (tt ⋊ tt)
-         | Gt => icomp cg (tt ⋊ tt)
+         match val cc with
+         | Eq => pot ce (tt ⋊ tt)
+         | Lt => pot cl (tt ⋊ tt)
+         | Gt => pot cg (tt ⋊ tt)
          end).
   Global Existing Instance comparison_case_complexity.
 
-  Parameter Q_case_complexity : forall {A CA},
+  Parameter Q_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@Q_case A)
-      (fun cf : ℂI (Z -> positive -> A) (ℂI Z unit -> ℂO (ℂI positive unit -> ℂO CA)) => 0 ⋉
+      (fun cf : ℂI (Z -> positive -> A) (ℂI Z unit -> ℂO (ℂI positive unit -> ℂO CA)) => 1 ⋉
        fun cq : ℂI Q unit => 1 ⊕
-         match ival cq with
-         | Qmake n d => ((d ⋊ tt) I>>=O ((n ⋊ tt) I>>=I cf)) >>|
+         match val cq with
+         | Qmake n d => pot <$> cf · (n ⋊ tt) · (d ⋊ tt)
          end).
   Global Existing Instance Q_case_complexity.
 End ZTimeCostModel.

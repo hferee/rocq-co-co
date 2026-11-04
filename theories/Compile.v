@@ -13,7 +13,7 @@ From Stdlib Require Import Program.Basics PArith NArith ZArith QArith.
 From Complexity Require Import Combinators Arity.
 Import Constr.Unsafe.
 
-Ltac2 fail_msg (s : string) := Control.throw (Tactic_failure (Some (Message.of_string s))).
+Ltac2 fail_msg (s : string) := Control.zero (Tactic_failure (Some (Message.of_string s))).
 
 Ltac2 hole () := open_constr:(_ : Type).
 Ltac2 holes (n : int) : constr list := List.init n (fun _ => hole ()).
@@ -65,9 +65,7 @@ Ltac2 rec type_params (t : constr) : int :=
 (** Combinators: number of type arguments and of other arguments. *)
 Ltac2 comb_info (f : constr) : (int * int) option :=
   if Bool.or (List.exist (fun c => Constr.equal f c)
-                [constr:(@Kc); constr:(@Ic); constr:(@Sc); constr:(@Cc); constr:(@Lc);
-                 constr:(@Lm); constr:(@compose); constr:(@Lf); constr:(@Lfc);
-                 constr:(@Dl); constr:(@Rc); constr:(@Rc2); constr:(@Su)])
+                [constr:(@Kc); constr:(@Ic); constr:(@Sc); constr:(@Cc); constr:(@compose)])
        (is_case_comb f)
   then
     let t := Constr.type f in
@@ -75,15 +73,12 @@ Ltac2 comb_info (f : constr) : (int * int) option :=
     Some (n, Int.sub (count_prods t) n)
   else None.
 
-Ltac2 is_closure_marker (f : constr) : bool :=
-  Bool.or (Constr.equal f constr:(@Lm)) (Constr.equal f constr:(@Lf)).
-
 (** Under call-by-value, the body of a closure is only evaluated when the
     closure is applied. Bracket abstraction must not evaluate computations
     of the body when the closure is built: it only hoists out of a closure
     the terms that do not depend on its bound variables, and are values
-    (variables, closures, partial applications of combinators to values,
-    instantiations of type arguments) or closed terms. In particular, a
+    (variables, closures, i.e. partial applications of combinators to
+    values, instantiations of type arguments) or closed terms. In particular, a
     recursive call is evaluated only when the closure containing it is
     applied. *)
 Ltac2 rec hoistable (t : constr) : bool :=
@@ -91,8 +86,7 @@ Ltac2 rec hoistable (t : constr) : bool :=
   match kind t with
   | Rel _ => true
   | App f args =>
-      if is_closure_marker f then true
-      else match comb_info f with
+      match comb_info f with
       | Some (n, m) =>
           Bool.and (Int.lt (Int.sub (Array.length args) n) m)
             (Array.for_all hoistable (Array.sub args n (Int.sub (Array.length args) n)))
@@ -108,54 +102,27 @@ Ltac2 hoist (t : constr) : bool :=
   if occurs1 t then false else hoistable (lower t).
 
 (** [abs t] is a combinator term [u] with no [Rel 1], such that [u x] is
-    convertible to [t] where [Rel 1] is replaced by [x]. [t] is a compiled
-    term: no lambda, except marked closures [Lm c] and [Lf c]. Evaluating
-    [u] only evaluates values and closed terms. [Sc] is only used when both
-    parts of an application use [x]; computations that do not use [x] are
-    delayed by [absu]. *)
+    convertible to [t] where [Rel 1] is replaced by [x]: Turner's bracket
+    abstraction, by value (see [Combinators]). [t] is a compiled term: it
+    has no lambda. Evaluating [u] (building the closure) only evaluates
+    values and closed terms: they are the only terms abstracted with [Kc];
+    the other ones are abstracted structurally, even when they do not use
+    [x], and are thus evaluated when [x] is given. *)
 Ltac2 rec abs (t : constr) : constr :=
   if hoist t then mkapp constr:(@Kc) [| hole (); hole (); lower t |]
-  else if Bool.neg (occurs1 t) then mkapp constr:(@Dl) [| hole (); hole (); absu t |]
   else match kind t with
   | Rel _ => mkapp constr:(@Ic) [| hole () |]
   | App f args =>
       let n := Array.length args in
-      if Bool.and (Constr.equal f constr:(@Lm)) (Int.equal n 2) then
-        (* laziness: the closure is only built when the argument is given *)
-        mkapp constr:(@Lc) [| hole (); hole (); hole (); abs (Array.get args 1) |]
-      else if Bool.and (Constr.equal f constr:(@Lf)) (Int.equal n 2) then
-        mkapp constr:(@Lfc) [| hole (); hole (); hole (); abs (Array.get args 1) |]
-      else
-        let last := Array.get args (Int.sub n 1) in
-        let init := mkapp f (Array.sub args 0 (Int.sub n 1)) in
-        if hoist init then
-          if is_rel1 last then lower init
-          else mkapp constr:(@compose) [| hole (); hole (); hole (); lower init; abs last |]
-        else if hoist last then
-          mkapp constr:(@Cc) [| hole (); hole (); hole (); abs init; lower last |]
-        else if Bool.neg (occurs1 init) then
-          mkapp constr:(@Rc) [| hole (); hole (); hole (); absu init; abs last |]
-        else if Bool.neg (occurs1 last) then
-          mkapp constr:(@Rc2) [| hole (); hole (); hole (); abs init; absu last |]
-        else mkapp constr:(@Sc) [| hole (); hole (); hole (); abs init; abs last |]
-  | _ => fail_msg "abs: unsupported term (local fixpoint, dependent match, ...)"
-  end
-
-(** [absu t], for [t] not using [Rel 1]: a term [u] such that [u tt] is
-    convertible to [t] (where [Rel 1] is removed), and evaluates [t]. *)
-with absu (t : constr) : constr :=
-  if hoistable (lower t) then mkapp constr:(@Kc) [| hole (); hole (); lower t |]
-  else match kind t with
-  | App f args =>
-      let n := Array.length args in
       let last := Array.get args (Int.sub n 1) in
       let init := mkapp f (Array.sub args 0 (Int.sub n 1)) in
-      if hoistable (lower init) then
-        mkapp constr:(@compose) [| hole (); hole (); hole (); lower init; absu last |]
-      else if hoistable (lower last) then
-        mkapp constr:(@Cc) [| hole (); hole (); hole (); absu init; lower last |]
-      else mkapp constr:(@Su) [| hole (); hole (); absu init; absu last |]
-  | _ => fail_msg "absu: unsupported term"
+      if hoist init then
+        if is_rel1 last then lower init
+        else mkapp constr:(@compose) [| hole (); hole (); hole (); lower init; abs last |]
+      else if hoist last then
+        mkapp constr:(@Cc) [| hole (); hole (); hole (); abs init; lower last |]
+      else mkapp constr:(@Sc) [| hole (); hole (); hole (); abs init; abs last |]
+  | _ => fail_msg "abs: unsupported term (local fixpoint, dependent match, ...)"
   end.
 
 (** A branch for a constant constructor becomes a thunk. *)
@@ -207,31 +174,19 @@ Ltac2 case_branches (ci : case) (branches : constr array) : (constr * int) list 
       if Int.equal a 0 then (thunk b, 1) else (b, a))
     (Array.to_list (Ind.constructor_nargs (Ind.data (Case.inductive ci)))).
 
-Ltac2 is_Lf_lambda (f : constr) (args : constr array) : bool :=
-  if Bool.and (Constr.equal f constr:(@Lf)) (Int.equal (Array.length args) 2) then
-    match kind (Array.get args 1) with Lambda _ _ => true | _ => false end
-  else false.
-
-(** [compile t]: a term convertible to [t], built from combinators, where
-    every lambda is compiled to a marked closure. A [match] becomes an
-    application of the case combinator, whose branches bind their variables
-    with [Lf] (they are not function calls). *)
+(** [compile t]: a term convertible to [t], built from combinators: every
+    lambda is abstracted, and a [match] becomes an application of the case
+    combinator, whose branches are closures. *)
 Ltac2 rec compile (t : constr) : constr :=
   match kind t with
-  | Lambda _ body => mkapp constr:(@Lm) [| hole (); abs (compile body) |]
-  | App f args =>
-      if is_Lf_lambda f args then
-        match kind (Array.get args 1) with
-        | Lambda _ body => mkapp constr:(@Lf) [| hole (); abs (compile body) |]
-        | _ => t
-        end
-      else mkapp (compile f) (Array.map compile args)
+  | Lambda _ body => abs (compile body)
+  | App f args => mkapp (compile f) (Array.map compile args)
   | LetIn b v body => compile (mkapp (mklam b body) [| v |])
   | Cast c _ _ => compile c
   | Case ci _ _ scrut branches =>
       let rec lams n body :=
         if Int.equal n 0 then compile body
-        else mkapp constr:(@Lf) [| hole (); abs (lams (Int.sub n 1) body) |] in
+        else abs (lams (Int.sub n 1) body) in
       let data := Ind.data (Case.inductive ci) in
       mkapp_l (case_comb_of (Case.inductive ci))
         (List.append (holes (Int.add (Ind.nparams data) 1))
@@ -241,9 +196,9 @@ Ltac2 rec compile (t : constr) : constr :=
   end.
 
 (** [lift_cases t]: [t] where each [match] is replaced by an application of
-    the case combinator, whose branches bind their variables with [Lf], and
-    the variables used in several branches are passed to the selected
-    branch, after the case analysis. The result is equal to [t] for all
+    the case combinator, whose branches are closures, and the variables used
+    in several branches are passed to the selected branch, after the case
+    analysis. The result is equal to [t] for all
     values of its free variables, but not convertible to it: it is only
     used for functionals of fixpoints ([fix_equation]), whose unfolding
     equation is proved by case analysis. *)
@@ -260,11 +215,10 @@ Ltac2 rec lift_cases (t : constr) : constr :=
                   Int.le 2 (List.length (List.filter (fun (b, _) => Bool.neg (noccurn k b)) brs)))
                   (List.init m (fun k => Int.add k 1)) in
       let r := List.length ks in
-      let lf_lam b body := mkapp constr:(@Lf) [| hole (); mklam b body |] in
       let mk (b, a) :=
         let (bs, body) := peel_b a b in
         let body := lift_cases (lift_vars a ks body) in
-        List.fold_right lf_lam (List.append bs (List.init r (fun _ => binder (hole ())))) body in
+        List.fold_right mklam (List.append bs (List.init r (fun _ => binder (hole ())))) body in
       let data := Ind.data (Case.inductive ci) in
       (* the result type takes the lifted variables *)
       let rec res n := if Int.equal n 0 then hole () else mkprod (binder (hole ())) (res (Int.sub n 1)) in
@@ -307,10 +261,13 @@ Ltac2 replace_goal_arg (i : int) (y : constr) :=
   | _ => fail_msg "replace_goal_arg: the goal is not an application"
   end.
 
-(** In a goal [@ComplexityBound A B f c], replace [f] by its compiled form. *)
+(** In a goal [@ComplexityBound A CA R f c], replace [f] (the argument before
+    last) by its compiled form. *)
 Ltac2 compile_goal () :=
   match kind (Control.goal ()) with
-  | App _ args => replace_goal_arg 2 (compile (Array.get args 2))
+  | App _ args =>
+      let i := Int.sub (Array.length args) 2 in
+      replace_goal_arg i (compile (Array.get args i))
   | _ => fail_msg "compile_goal: unexpected goal"
   end.
 
@@ -355,9 +312,17 @@ Ltac2 is_fix_app (t : constr) : bool :=
 
 (** Unfold the head constant of [t] until a fixpoint, possibly applied, shows
     up. *)
+Ltac2 head_is_constant (t : constr) : bool :=
+  match kind t with
+  | Constant _ _ => true
+  | App h _ => match kind h with Constant _ _ => true | _ => false end
+  | _ => false
+  end.
+
 Ltac2 rec unfold_to_fix (fuel : int) (t : constr) : constr :=
   if is_fix_app t then t
-  else if Int.equal fuel 0 then fail_msg "fix_equation: not a recursive function"
+  else if Bool.or (Int.equal fuel 0) (Bool.neg (head_is_constant t)) then
+    fail_msg "fix_equation: not a recursive function"
   else unfold_to_fix (Int.sub fuel 1) (Std.eval_red t).
 
 Ltac2 split_app (t : constr) : constr * constr array :=
@@ -437,7 +402,7 @@ Ltac2 add_premise (stmt : constr) (tac : unit -> unit) :=
 Ltac2 fix_equation () :=
   match kind (Control.goal ()) with
   | App _ gargs =>
-      let f := Array.get gargs 2 in
+      let f := Array.get gargs (Int.sub (Array.length gargs) 2) in
       let (ff, n, k) := fix_functional f in
       let ff' := lift_cases ff in
       let ar := mk_arity (Int.sub n 1) (codomain (Constr.type f)) in
@@ -489,7 +454,7 @@ Ltac2 mutual_functional (g : constr) : constr * int * int :=
 Ltac2 fix_equation_mutual () :=
   match kind (Control.goal ()) with
   | App _ gargs =>
-      let g := Array.get gargs 2 in
+      let g := Array.get gargs (Int.sub (Array.length gargs) 2) in
       let (gg, n, k) := mutual_functional g in
       let gg' := lift_cases gg in
       let ar := mk_arity n (codomain (Constr.type g)) in
@@ -501,37 +466,32 @@ Ltac2 fix_equation_mutual () :=
   | _ => fail_msg "fix_equation_mutual: unexpected goal"
   end.
 
-(** ** Naming
-
-    [ext_intro lem], in a goal [R f g] between functions, applies [lem]
-    (whose premise is [forall x, R (f x) (g x)]) and introduces [x] with the
-    name of the binder of [g] (once reduced to a lambda): the arguments of a
-    claimed complexity bound keep their names in the goals. The name is read
-    before [apply], which may beta-reduce [g x]. *)
-Ltac2 rhs_binder_name () : ident option :=
-  let (_, args) := split_app (Control.goal ()) in
-  let n := Array.length args in
-  if Int.equal n 0 then None else
-  match kind (Std.eval_hnf (Array.get args (Int.sub n 1))) with
-  | Lambda b _ =>
-      match Constr.Binder.name b with
-      | Some id => Some (Fresh.in_goal id)
-      | None => None
+(** In a goal [ComplexityBound f c] where [f] is a definition (possibly
+    applied to arguments), unfold it, so that [compile_goal] compiles its
+    body. *)
+Ltac2 unfold_fun () :=
+  match kind (Control.goal ()) with
+  | App _ args =>
+      let i := Int.sub (Array.length args) 2 in
+      let f := Array.get args i in
+      let (h, _) := split_app f in
+      match kind h with
+      | Constant _ _ => replace_goal_arg i (Std.eval_red f)
+      | _ => ()
       end
-  | _ => None
+  | _ => fail_msg "unfold_fun: unexpected goal"
   end.
-
-Ltac2 ext_intro (lem : constr) :=
-  let name := rhs_binder_name () in
-  Std.apply false false [fun () => (lem, Std.NoBindings)] None;
-  Std.intro name None.
 
 (** Ltac1 entry points. *)
 Ltac compile_goal := ltac2:(compile_goal ()).
 Ltac fix_equation := ltac2:(fix_equation ()).
-Ltac ext_intro lem :=
-  let tac := ltac2:(lem |- ext_intro (Option.get (Ltac1.to_constr lem))) in tac lem.
 Ltac fix_equation_mutual := ltac2:(fix_equation_mutual ()).
+Ltac unfold_fun := ltac2:(unfold_fun ()).
+
+(** Compile the function of a [ComplexityBound] goal and search for its
+    complexity. Complexity types left undetermined (those of unused
+    arguments) can be anything. *)
+Ltac cbc := unshelve (compile_goal; typeclasses eauto); try exact unit.
 
 (** Values computed by compiled terms appear in cost expressions as
     applications of combinators: [unfold_comb] turns them back into ordinary
