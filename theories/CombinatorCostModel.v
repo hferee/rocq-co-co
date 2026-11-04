@@ -2,10 +2,12 @@
 
     [Compile.compile] turns every lambda-term (and [match], through the case
     combinators of the datatype models) into a convertible term built from
-    [Kc], [Ic], [compose], [Cc] and [Sc]. The combinators are higher-order
-    constants: their complexities take the complexities of their
-    (functional) arguments, so that typeclass search finds the complexity of
-    a compiled term by following its structure ([cbc]). *)
+    the closure combinators [Lam], [ehd], [etl], [Kc], [Sc], [Cc] and
+    [compose] ([Ic] is only used by bracket abstraction, [BracketCompile]).
+    The combinators are higher-order constants: their complexities take the
+    complexities of their (functional) arguments, so that typeclass search
+    finds the complexity of a compiled term by following its structure
+    ([cbc]). *)
 
 From Complexity Require Import CostModel HOCostModel Combinators Compile.
 From Stdlib Require Import Program.Basics PArith Arith Lia.
@@ -32,38 +34,64 @@ Module Type CombinatorTimeCostModel
       free [compose], a closure duplicated once (and charged once) can be
       executed exponentially many times at no cost ([tower] in [Examples]). *)
 
-  Parameter Kc_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB},
-    ComplexityBound (@Kc A B) (fun ca : ℂI A CA => 1 ⋉ (fun _ : ℂI B CB => 1 ⋉ pot ca)).
-  Global Existing Instance Kc_complexity.
+  (** ** Environments
 
-  Parameter Ic_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@Ic A) (fun ca : ℂI A CA => 1 ⋉ pot ca).
-  Global Existing Instance Ic_complexity.
+      An environment is represented by the representations of its values:
+      its complexity is the list of their complexities. The empty
+      environment is [tt]. *)
+  #[global] Declare Instance Repr_env :
+    forall {E CE A CA}, Repr E CE -> Repr A CA -> Repr (env E A) (CE * CA).
+
+  #[global] Declare Instance ehd_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@ehd E A) (fun ce => 1 ⋉ snd (pot ce)).
+
+  #[global] Declare Instance etl_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@etl E A) (fun ce => 1 ⋉ fst (pot ce)).
+
+  (** ** Closures *)
+
+  (** [Lam c e] is the closure of code [c] and environment [e]; applying it
+      to [a] runs [c] in the environment [e] extended with [a]. *)
+  #[global] Declare Instance Lam_complexity :
+    forall {E CE A CA B CB} `{Repr E CE} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@Lam E A B)
+      (fun cc : ℂI (env E A -> B) (ℂI (env E A) (CE * CA) -> ℂO CB) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⋉
+       fun ca : ℂI A CA => 1 ⊕ pot <$> cc · (ECons (val ce) (val ca) ⋊ (pot ce, pot ca))).
+
+  (** ** Applications and constants *)
+
+  #[global] Declare Instance Kc_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@Kc A B) (fun ca => 1 ⋉ (fun _ => 1 ⋉ pot ca)).
+
+  (** Only used by bracket abstraction. *)
+  #[global] Declare Instance Ic_complexity : forall {A CA} `{Repr A CA},
+    ComplexityBound (@Ic A) (fun ca => 1 ⋉ pot ca).
 
   (** [compose] (B) as a constant, whereas [compose_complexity] requires fixed
       arguments. *)
-  Parameter compose_hcomplexity : forall {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC},
+  #[global] Declare Instance compose_hcomplexity :
+    forall {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC},
     ComplexityBound (@compose A B C)
       (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 1 ⋉
        fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => 1 ⋉
        fun ca : ℂI A CA => 1 ⊕ pot <$> cf · (cg · ca)).
-  Global Existing Instance compose_hcomplexity.
 
   (** [Cc f a x = f x a]. *)
-  Parameter Cc_complexity : forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
+  #[global] Declare Instance Cc_complexity :
+    forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Cc X A B)
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
        fun ca : ℂI A CA => 1 ⋉
        fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · ca).
-  Global Existing Instance Cc_complexity.
 
   (** [Sc f g x = f x (g x)]: the bound variable is used twice. *)
-  Parameter Sc_complexity : forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
+  #[global] Declare Instance Sc_complexity :
+    forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Sc X A B)
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
        fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => 1 ⋉
        fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · (cg · cx)).
-  Global Existing Instance Sc_complexity.
 
   (** ** Proofs of bounds
 
@@ -81,12 +109,16 @@ Module Type CombinatorTimeCostModel
   (** Compute the costs ([cbv], as the complexities found by typeclass
       search are large terms) and the values (combinators). *)
   Ltac csimpl :=
-    cbv beta iota zeta delta [app cost_add fmap ret_I ret bind cost res val pot];
+    cbv beta iota zeta delta [app cost_add fmap ret_I ret bind cost res val pot fst snd];
     unfold_comb.
 
   (** Compute the functions of the claimed bound on constructors, but
-      neither multiplication nor the tests on values. *)
-  Ltac cnorm := cbn -[Nat.mul Nat.eqb Nat.leb Nat.ltb Pos.to_nat].
+      neither multiplication nor the tests on values. The projections that
+      this reveals (from cost functions of the claimed bound) are unfolded
+      as in [csimpl], so that the same atoms compare equal. *)
+  Ltac cnorm :=
+    cbn -[Nat.mul Nat.eqb Nat.leb Nat.ltb Pos.to_nat];
+    cbv beta delta [cost res val pot].
 
   (** Case analysis of the values matched in the costs (those of the
       claimed bound are not unfolded: a recursive function of the bound,
@@ -99,9 +131,19 @@ Module Type CombinatorTimeCostModel
       end);
     csimpl; cnorm.
 
+  (** The complexities of ground values, given by potentials of functions
+      as [res (..)], are [tt]. *)
+  Ltac cunit :=
+    repeat match goal with
+    | |- context [?u] =>
+        lazymatch type of u with
+        | unit => lazymatch u with tt => fail | _ => destruct u end
+        end
+    end.
+
   (** From a goal [bound_order c_found c_claimed] to inequalities. *)
   Ltac cfinish :=
-    bo_split; destr_inputs; ccases; try solve [lia | nia]; try ring_simplify.
+    bo_split; destr_inputs; ccases; cunit; try solve [lia | nia]; try ring_simplify.
 
   (** From a goal [ComplexityBound f c] to [bound_order c_found c]. *)
   Ltac cstart := eapply ComplexityBound_ext_eq; [idtac | unfold_fun; cbc].

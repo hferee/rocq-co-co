@@ -1,9 +1,11 @@
 (** * Tactics for the analysis of terms
 
     - [compile t] rewrites the lambda-term [t] into a convertible term built
-      from the combinators of [Combinators] (bracket abstraction). Matches
-      become case combinators, closures are kept lazy. It only uses
-      conversion: the goal before and after is the same proposition.
+      from the combinators of [Combinators], by closure conversion: every
+      lambda becomes a closure, i.e. its code applied to the environment
+      where it is built. Matches become case combinators. It only uses
+      conversion: the goal before and after is the same proposition. (The
+      former compiler, by bracket abstraction, is in [BracketCompile].)
     - [fix_equation] and [fix_equation_mutual] state and prove the unfolding
       equation of a recursive function, as required by [fix_complexity]
       ([FixCostModel]). *)
@@ -31,7 +33,7 @@ Ltac2 lower (t : constr) : constr := substnl [dummy ()] 0 t.
 Ltac2 occurs1 (t : constr) : bool := Bool.neg (noccurn 1 t).
 Ltac2 is_rel1 (t : constr) : bool := match kind t with Rel n => Int.equal n 1 | _ => false end.
 
-(** ** Bracket abstraction *)
+(** ** Case analysis *)
 
 (** The name of a global reference. *)
 Ltac2 ref_name (r : Std.reference) : string :=
@@ -60,69 +62,6 @@ Ltac2 rec type_params (t : constr) : int :=
   match kind t with
   | Prod b body => if is_arity (Constr.Binder.type b) then Int.add 1 (type_params body) else 0
   | _ => 0
-  end.
-
-(** Combinators: number of type arguments and of other arguments. *)
-Ltac2 comb_info (f : constr) : (int * int) option :=
-  if Bool.or (List.exist (fun c => Constr.equal f c)
-                [constr:(@Kc); constr:(@Ic); constr:(@Sc); constr:(@Cc); constr:(@compose)])
-       (is_case_comb f)
-  then
-    let t := Constr.type f in
-    let n := type_params t in
-    Some (n, Int.sub (count_prods t) n)
-  else None.
-
-(** Under call-by-value, the body of a closure is only evaluated when the
-    closure is applied. Bracket abstraction must not evaluate computations
-    of the body when the closure is built: it only hoists out of a closure
-    the terms that do not depend on its bound variables, and are values
-    (variables, closures, i.e. partial applications of combinators to
-    values, instantiations of type arguments) or closed terms. In particular, a
-    recursive call is evaluated only when the closure containing it is
-    applied. *)
-Ltac2 rec hoistable (t : constr) : bool :=
-  if is_closed t then true else
-  match kind t with
-  | Rel _ => true
-  | App f args =>
-      match comb_info f with
-      | Some (n, m) =>
-          Bool.and (Int.lt (Int.sub (Array.length args) n) m)
-            (Array.for_all hoistable (Array.sub args n (Int.sub (Array.length args) n)))
-      | None =>
-          if is_closed f then Int.le (Array.length args) (type_params (Constr.type f))
-          else false
-      end
-  | _ => false
-  end.
-
-(** [hoist t]: [t] does not use [Rel 1] and can be hoisted. *)
-Ltac2 hoist (t : constr) : bool :=
-  if occurs1 t then false else hoistable (lower t).
-
-(** [abs t] is a combinator term [u] with no [Rel 1], such that [u x] is
-    convertible to [t] where [Rel 1] is replaced by [x]: Turner's bracket
-    abstraction, by value (see [Combinators]). [t] is a compiled term: it
-    has no lambda. Evaluating [u] (building the closure) only evaluates
-    values and closed terms: they are the only terms abstracted with [Kc];
-    the other ones are abstracted structurally, even when they do not use
-    [x], and are thus evaluated when [x] is given. *)
-Ltac2 rec abs (t : constr) : constr :=
-  if hoist t then mkapp constr:(@Kc) [| hole (); hole (); lower t |]
-  else match kind t with
-  | Rel _ => mkapp constr:(@Ic) [| hole () |]
-  | App f args =>
-      let n := Array.length args in
-      let last := Array.get args (Int.sub n 1) in
-      let init := mkapp f (Array.sub args 0 (Int.sub n 1)) in
-      if hoist init then
-        if is_rel1 last then lower init
-        else mkapp constr:(@compose) [| hole (); hole (); hole (); lower init; abs last |]
-      else if hoist last then
-        mkapp constr:(@Cc) [| hole (); hole (); hole (); abs init; lower last |]
-      else mkapp constr:(@Sc) [| hole (); hole (); hole (); abs init; abs last |]
-  | _ => fail_msg "abs: unsupported term (local fixpoint, dependent match, ...)"
   end.
 
 (** A branch for a constant constructor becomes a thunk. *)
@@ -174,26 +113,127 @@ Ltac2 case_branches (ci : case) (branches : constr array) : (constr * int) list 
       if Int.equal a 0 then (thunk b, 1) else (b, a))
     (Array.to_list (Ind.constructor_nargs (Ind.data (Case.inductive ci)))).
 
-(** [compile t]: a term convertible to [t], built from combinators: every
-    lambda is abstracted, and a [match] becomes an application of the case
-    combinator, whose branches are closures. *)
-Ltac2 rec compile (t : constr) : constr :=
+(** ** Closure conversion *)
+
+(** Matches become applications of the case combinators, whose branches are
+    functions of the arguments of the constructors (thunks for constant
+    constructors); let-ins become beta-redexes. *)
+Ltac2 rec decase (t : constr) : constr :=
   match kind t with
-  | Lambda _ body => abs (compile body)
-  | App f args => mkapp (compile f) (Array.map compile args)
-  | LetIn b v body => compile (mkapp (mklam b body) [| v |])
-  | Cast c _ _ => compile c
+  | Lambda b body => mklam b (decase body)
+  | App f args => mkapp (decase f) (Array.map decase args)
+  | LetIn b v body => decase (mkapp (mklam b body) [| v |])
+  | Cast c _ _ => decase c
   | Case ci _ _ scrut branches =>
-      let rec lams n body :=
-        if Int.equal n 0 then compile body
-        else abs (lams (Int.sub n 1) body) in
       let data := Ind.data (Case.inductive ci) in
       mkapp_l (case_comb_of (Case.inductive ci))
         (List.append (holes (Int.add (Ind.nparams data) 1))
-           (List.append (List.map (fun (b, a) => lams a (peel a b)) (case_branches ci branches))
-              [compile scrut]))
+           (List.append (List.map (fun (b, _) => decase b) (case_branches ci branches))
+              [decase scrut]))
   | _ => t
   end.
+
+(** The variable at position [p] of an environment: [ehd (etl^p e)]. *)
+Ltac2 rec access (p : int) : constr :=
+  if Int.equal p 0 then mkapp constr:(@ehd) [| hole (); hole () |]
+  else mkapp constr:(@compose)
+         [| hole (); hole (); hole (); access (Int.sub p 1); mkapp constr:(@etl) [| hole (); hole () |] |].
+
+(** The type of the bound variable of a lambda, if it is closed. *)
+Ltac2 binder_type (b : binder) : constr :=
+  let t := Constr.Binder.type b in if is_closed t then t else hole ().
+
+(** Combinators and case combinators: number of type arguments and of
+    other arguments. *)
+Ltac2 comb_arity (f : constr) : (int * int) option :=
+  if Bool.or (List.exist (fun c => Constr.equal f c)
+                [constr:(@Lam); constr:(@ehd); constr:(@etl); constr:(@Kc); constr:(@Sc);
+                 constr:(@Cc); constr:(@compose)])
+       (is_case_comb f)
+  then
+    let t := Constr.type f in
+    let n := type_params t in
+    Some (n, Int.sub (count_prods t) n)
+  else None.
+
+(** Values: variables, closed terms (which are evaluated once, see [conv]),
+    lambdas, and partial applications of combinators to values. *)
+Ltac2 rec is_value (t : constr) : bool :=
+  if is_closed t then true
+  else match kind t with
+  | Rel _ => true
+  | Lambda _ _ => true
+  | App f args =>
+      match comb_arity f with
+      | Some (n, m) =>
+          Bool.and (Int.lt (Int.sub (Array.length args) n) m)
+            (Array.for_all is_value (Array.sub args n (Int.sub (Array.length args) n)))
+      | None => false
+      end
+  | _ => false
+  end.
+
+(** A lambda that needs no closure: [fun x => v x] is [v] (eta) and
+    [fun _ => v] is [Kc v], for a value [v] that does not use [x]. *)
+Ltac2 simple_lambda (b : binder) (body : constr) : constr option :=
+  if Bool.neg (occurs1 body) then
+    (if is_value (lower body) then
+       Some (mkapp constr:(@Kc) [| hole (); binder_type b; lower body |])
+     else None)
+  else match kind body with
+  | App f args =>
+      let n := Array.length args in
+      let init := mkapp f (Array.sub args 0 (Int.sub n 1)) in
+      if Bool.and (is_rel1 (Array.get args (Int.sub n 1)))
+           (Bool.and (Bool.neg (occurs1 init)) (is_value (lower init)))
+      then Some (lower init) else None
+  | _ => None
+  end.
+
+(** [conv t]: a closed term [u] such that [u e] is convertible to [t] where
+    each variable [Rel i] is the value at position [i - 1] of the
+    environment [e] (the latest bound first). The terms that do not use [e]
+    are closed, and evaluated once ([Kc]); an application is [Sc], or
+    [compose] (B) and [Cc] when one of its parts is closed. A lambda becomes
+    a closure [Lam c e]: the environment [e] extended with the argument is
+    the one of its body [c] ([simple_lambda] needs no closure). *)
+Ltac2 rec conv (t : constr) : constr :=
+  if is_closed t then mkapp constr:(@Kc) [| hole (); hole (); closed t |]
+  else match kind t with
+  | Rel i => access (Int.sub i 1)
+  | App f args =>
+      let n := Array.length args in
+      let last := Array.get args (Int.sub n 1) in
+      let init := mkapp f (Array.sub args 0 (Int.sub n 1)) in
+      if is_closed init then
+        mkapp constr:(@compose) [| hole (); hole (); hole (); closed init; conv last |]
+      else if is_closed last then
+        mkapp constr:(@Cc) [| hole (); hole (); hole (); conv init; closed last |]
+      else mkapp constr:(@Sc) [| hole (); hole (); hole (); conv init; conv last |]
+  | Lambda b body =>
+      match simple_lambda b body with
+      | Some u => conv u
+      | None => mkapp constr:(@Lam) [| hole (); binder_type b; hole (); conv body |]
+      end
+  | _ => fail_msg "compile: unsupported term (local fixpoint, dependent match, ...)"
+  end
+
+(** [closed t], for a closed term [t]: its closed lambdas are closures with
+    the empty environment [tt]. *)
+with closed (t : constr) : constr :=
+  match kind t with
+  | Lambda b body =>
+      match simple_lambda b body with
+      | Some u => closed u
+      | None =>
+          mkapp constr:(@Lam) [| constr:(unit); binder_type b; hole (); conv body; constr:(tt) |]
+      end
+  | App f args => mkapp (closed f) (Array.map closed args)
+  | _ => t
+  end.
+
+(** [compile t]: a term convertible to [t], built from combinators. *)
+Ltac2 compile (t : constr) : constr := closed (decase t).
 
 (** [lift_cases t]: [t] where each [match] is replaced by an application of
     the case combinator, whose branches are closures, and the variables used
