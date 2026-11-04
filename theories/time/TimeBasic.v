@@ -1,11 +1,12 @@
+(** * The time cost model: application and basic functions
+
+    The first part of the time cost model ([TimeCostModel]), heavily
+    inspired by Forster & Künze's coq-library-complexity: the costs of the
+    identity, of application, of composition and of constant functions. The
+    complexities ([ℂI], [ℂO]) and the application [·] are defined in
+    [CostModel], independently of the resource. *)
+
 From Complexity Require Import CostModel.
-
-(** * A Cost model for higher order-order functions, heavily inspired by
-  Forster & Künze's coq-library-complexity. *)
-
-(** An example of specialization of the cost model to handle time complexity of
-  higher-order functions. The complexities ([ℂI], [ℂO]) and the application
-  [·] are defined in [CostModel]. *)
 Module Type BasicTimeCostModel (Import CM : CostModel).
 
   (* Assume we know the cost of some basic functions *)

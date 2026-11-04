@@ -9,7 +9,7 @@
     finds the complexity of a compiled term by following its structure
     ([cbc]). *)
 
-From Complexity Require Import CostModel HOCostModel Combinators Compile.
+From Complexity Require Import CostModel TimeBasic Combinators Compile.
 From Stdlib Require Import Program.Basics PArith Arith Lia.
 
 Module Type CombinatorTimeCostModel
@@ -96,7 +96,7 @@ Module Type CombinatorTimeCostModel
   (** ** Proofs of bounds
 
       [cbound] proves a goal [ComplexityBound f c], where [c] is the claimed
-      bound and [f] a definition (recursive functions: [FixCostModel]). It
+      bound and [f] a definition (recursive functions: [TimeFix]). It
       compiles the body of [f], finds the complexity of the compiled term by
       typeclass search, and reduces its comparison with [c] to inequalities
       between costs ([cfinish]), one for each case of the values of the

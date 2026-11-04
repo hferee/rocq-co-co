@@ -6,7 +6,7 @@
     function [f], with any number of arguments: each application of [f] to
     its next argument costs at most [g ss], where [ss] are the sizes of the
     arguments given so far. [PolynomialBound f] and [LinearBound f] state
-    that [g] is a polynomial in these sizes ([poly], from [HOPoly], where
+    that [g] is a polynomial in these sizes ([poly], from [Poly], where
     they are shown to be higher-order polynomials), of degree at most [1]
     for [LinearBound], as classes.
 
@@ -17,7 +17,7 @@
     [Bounds] is included in the module type [CostModel], so that its classes
     are shared by all the analyses over a cost model. *)
 
-From Complexity Require Import CostModelCore HOPoly.
+From Complexity Require Import CostModelCore Poly.
 From Stdlib Require Import Arith Lia List.
 Import ListNotations.
 From Ltac2 Require Import Ltac2.

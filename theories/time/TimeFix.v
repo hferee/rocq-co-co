@@ -21,7 +21,7 @@
     terminate. *)
 
 From Complexity Require Export Arity.
-From Complexity Require Import CostModel HOCostModel Compile CombinatorCostModel.
+From Complexity Require Import CostModel TimeBasic Compile TimeCombinators.
 
 (** The functional of a recursive function is compiled with the combinators
     ([crec] leaves it to [cbc]): this module type depends on their model. *)
@@ -52,10 +52,10 @@ Module Type FixTimeCostModel
 
   (** ** Proofs of bounds
 
-      [cbound] ([CombinatorCostModel]) extended to recursive functions: if
+      [cbound] ([TimeCombinators]) extended to recursive functions: if
       the function is recursive, its functional is compiled and the
       recurrence of [fix_complexity] is reduced to inequalities between
-      costs. This [cbound] shadows the one of [CombinatorCostModel] when
+      costs. This [cbound] shadows the one of [TimeCombinators] when
       both are imported. [cbound_mutual] does the same for mutually
       recursive functions (see [crec_mutual]). *)
   Ltac cbound := (tryif crec then [> cbc | idtac] else cstart); cfinish.

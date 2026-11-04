@@ -28,3 +28,17 @@ concatenating lists by composition
   - palindrome check
   - binary addition
   - function composition
+
+## parameterised cost constants
+Each constant (e.g. constructor allocation, combinator, etc.) could be a parameter, so they would explicitly appear in the complexity bounds (which would make the heavy).
+
+## To check
+
+Polynomial time is a mess.
+Check BFF as well: might need a deep embedding (or inductive predicate that a function is BFF).
+The complexity bound for R should have no hypothesis and be higher-order.
+
+
+## This is starting to be module hell.
+try and find a way to refactor this nicely.
+

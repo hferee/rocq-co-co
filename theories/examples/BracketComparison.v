@@ -2,7 +2,7 @@
 
     The same functions compiled by bracket abstraction ([BracketCompile],
     the former compiler), with the smallest constants. Their bounds with
-    closure conversion ([Compile]) are in [StdlibComplexity]: closures make
+    closure conversion ([Compile]) are in [stdlib]: closures make
     partial applications and functions of several arguments cheaper, and
     the recursion of one-argument functions dearer (the function is found
     deeper in the environment of its recursive call).
@@ -15,15 +15,11 @@
     | [length]    | [10 len + 8]        | [17 len + 9]        |
     | [Pos.succ]  | [11 size]           | [18 size]           | *)
 
-From Complexity Require Import CostModel HOCostModel DatatypesCostModel Combinators
-  Compile BracketCompile CombinatorCostModel FixCostModel.
+From Complexity Require Import TimeCostModel CostModel TimeBasic TimeDatatypes Combinators
+  Compile BracketCompile TimeCombinators TimeFix.
 From Stdlib Require Import Program.Basics List Arith PArith Lia.
 
-Module BracketComparison (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import NT : NatTimeCostModel CM BT) (Import CB : CombinatorTimeCostModel CM BT)
-  (Import BO : BoolTimeCostModel CM BT)
-  (Import LM : ListTimeCostModel CM BT) (Import ZM : ZTimeCostModel CM BT)
-  (Import FX : FixTimeCostModel CM BT CB).
+Module BracketComparison (Import M : TimeCostModel).
 
   (** [cbound] with bracket abstraction. *)
   Ltac bcbound :=

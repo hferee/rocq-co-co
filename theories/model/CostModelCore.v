@@ -147,7 +147,7 @@ Module Type CostModelCore.
     we do not want to contradict), pointwise-equal functions are equal and
     have the same bounds. For instance, [Nat.iter (2 ^ n) (fun x => x) n]
     has the bound of the identity (see [Examples]). [fix_complexity]
-    ([FixCostModel]) makes this extensionality provable without assuming
+    ([TimeFix]) makes this extensionality provable without assuming
     functional extensionality.
 
     Forster & Künze's approach is extensional in the same way:

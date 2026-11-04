@@ -4,12 +4,12 @@
     options and pairs of ground data, and binary numbers. Values are ground
     data, with sizes ([Size]); constructors and case analyses are primitive.
     Each case analysis is compiled to a case combinator ([Combinators]),
-    defined here with its datatype. Recursion is covered by [FixCostModel]:
+    defined here with its datatype. Recursion is covered by [TimeFix]:
     the functions of the standard library are analysed as they are defined
-    ([StdlibComplexity]). *)
+    ([stdlib]). *)
 
-From Complexity Require Import CostModel HOCostModel Combinators Compile
-  CombinatorCostModel FixCostModel.
+From Complexity Require Import CostModel TimeBasic Combinators Compile
+  TimeCombinators TimeFix.
 From Stdlib Require Import Program.Basics Lia List PArith NArith ZArith QArith.
 Local Open Scope nat_scope.
 
@@ -86,7 +86,7 @@ Module Type NatTimeCostModel
 
       [nat_case] is a higher-order constant: matches on any expression, with
       branches using other variables, are compiled to it ([Compile]).
-      Recursion is covered by the generic fixpoint axiom of [FixCostModel]. *)
+      Recursion is covered by the generic fixpoint axiom of [TimeFix]. *)
 
   #[global] Declare Instance nat_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@nat_case A)
@@ -334,19 +334,3 @@ Module Type ZTimeCostModel
          | Qmake n d => pot <$> cf · (n ⋊ tt) · (d ⋊ tt)
          end).
 End ZTimeCostModel.
-
-(** ** Examples *)
-
-(** Derived complexity bounds for list operators. *)
-Module Type ListTimeExamples
-  (Import CM : CostModel)
-  (Import BTM : BasicTimeCostModel CM)
-  (Import LM : ListTimeCostModel CM BTM)
-  (Import CB : CombinatorTimeCostModel CM BTM).
-
-  (** ** List tail *)
-  Instance complexity_tl {A} `{Ground A} :
-    ComplexityBound (@tl A) (fun lc => 4 ⋉ tt).
-  Proof. cbound. Qed.
-
-End ListTimeExamples.

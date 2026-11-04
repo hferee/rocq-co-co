@@ -1,7 +1,7 @@
 (** * Combinators for the analysis of lambda-terms
 
     This file only contains (transparent) definitions; their complexities are
-    axiomatised in [CombinatorCostModel]. The tactics of [Compile] rewrite a term into a
+    axiomatised in [TimeCombinators]. The tactics of [Compile] rewrite a term into a
     *convertible* term built from these combinators, whose complexity can then
     be found by plain first-order typeclass search. *)
 
@@ -32,7 +32,7 @@ From Stdlib Require Import Program.Basics.
     Science of Computer Programming 8(2):173-202, 1987. *)
 
 (** A dedicated type rather than [prod]: pairs are ground data
-    ([DatatypesCostModel]), whereas environments contain closures, whose
+    ([TimeDatatypes]), whereas environments contain closures, whose
     complexities they keep. *)
 Record env (E A : Type) := ECons { etl : E; ehd : A }.
 Arguments ECons {_ _}.
@@ -58,7 +58,7 @@ Create HintDb comb.
 
     The case combinator of an inductive type [I] is named [I_case] and is
     defined with the cost model of [I] (e.g. [nat_case] in
-    [DatatypesCostModel]). Its arguments are the type parameters of [I] and
+    [TimeDatatypes]). Its arguments are the type parameters of [I] and
     the type of the result, the branches in the order of the constructors,
     and the matched value. Branches are closures (thunks, taking [tt], for
     constant constructors), so that only the selected branch is evaluated.

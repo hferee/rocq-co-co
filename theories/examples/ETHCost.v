@@ -1,81 +1,63 @@
 (** * Cost analysis of the ETH algorithm ([ETHAlgorithm])
 
     The functions are analysed as they are written in [ETHAlgorithm], by
-    [cbound] ([FixCostModel]): the compiler only replaces terms by
+    [cbound] ([TimeFix]): the compiler only replaces terms by
     convertible ones. The constants are the smallest ones
     for the shape of each bound (see [NatComplexity]). This file is the start
     of the analysis; the remarks at the end list what is covered. *)
 
-From Complexity Require Import CostModel HOCostModel NatCostModel GroundListCostModel
-  Combinators Compile CombinatorCostModel UnitCostModel BoolCostModel FixCostModel
-  NatComplexity BoolComplexity ListComplexity ETHAlgorithm.
+From Complexity Require Import TimeCostModel CostModel TimeBasic TimeDatatypes Combinators
+  Compile TimeCombinators TimeFix.
+From Complexity Require Import TimeStdlib.
+From Complexity Require Import ETHAlgorithm.
 From Stdlib Require Import Program.Basics List Arith Lia.
 Import ListNotations.
 
-Module ETHCost (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import NT : NatTimeCostModel CM BT) (Import CB : CombinatorTimeCostModel CM BT)
-  (Import UN : UnitTimeCostModel CM) (Import BO : BoolTimeCostModel CM BT)
-  (Import LM : ListTimeCostModel CM BT) (Import FX : FixTimeCostModel CM BT CB).
+Module ETHCost (Import M : TimeStdlib).
 
-  Module NC := NatComplexity CM BT NT CB UN BO FX.
-  Module BC := BoolComplexity CM BT CB BO.
-  Module LC := ListComplexity CM BT NT CB UN BO LM FX.
-  Import NC BC LC.
 
   (** [memN x l]: recursive on its second argument. Each step compares with
       [Nat.eqb], whose cost is linear in [x] (unary numbers); [orb] evaluates
       both arguments. *)
-  Lemma memN_complexity : ComplexityBound memN
-    (fun cx : ℂI nat unit => 38 ⋉ fun cl : ℂI (list nat) unit =>
-       (length (val cl) * (54 * val cx + 105) + 2) ⋉ tt).
-  Proof. cbound. Qed.
-  Global Existing Instance memN_complexity.
+  Global Instance memN_complexity : ComplexityBound memN
+    (fun cx => 7 ⋉ fun cl =>
+       (length (val cl) * (37 * val cx + 71) + 2) ⋉ tt) := ltac:(cbound).
 
-  Lemma countN_complexity : ComplexityBound countN
-    (fun cx : ℂI nat unit => 40 ⋉ fun cl : ℂI (list nat) unit =>
-       (length (val cl) * (54 * val cx + 202) + 2) ⋉ tt).
-  Proof. cbound. Qed.
-  Global Existing Instance countN_complexity.
+  Global Instance countN_complexity : ComplexityBound countN
+    (fun cx => 7 ⋉ fun cl =>
+       (length (val cl) * (37 * val cx + 115) + 2) ⋉ tt) := ltac:(cbound).
 
   (** [eqbN a b]: recursive on its first argument, matches the second one. *)
-  Lemma eqbN_complexity : ComplexityBound eqbN
-    (fun ca : ℂI (list nat) unit => 37 ⋉ fun cb : ℂI (list nat) unit =>
-       (54 * list_sum (val ca) + 139 * length (val ca) + 9) ⋉ tt).
+  Global Instance eqbN_complexity : ComplexityBound eqbN
+    (fun ca => 5 ⋉ fun cb =>
+       (37 * list_sum (val ca) + 96 * length (val ca) + 15) ⋉ tt).
   Proof. cbound. all: unfold list_sum in *; lia. Qed.
-  Global Existing Instance eqbN_complexity.
 
   (** [insert_uniq x l]: the recursive call only happens in the last
       branch; its other branches return [l] itself. *)
-  Lemma insert_uniq_complexity : ComplexityBound insert_uniq
-    (fun cx : ℂI nat unit => 59 ⋉ fun cl : ℂI (list nat) unit =>
-       (length (val cl) * (95 * val cx + 311) + 11) ⋉ tt).
-  Proof. cbound. Qed.
-  Global Existing Instance insert_uniq_complexity.
+  Global Instance insert_uniq_complexity : ComplexityBound insert_uniq
+    (fun cx => 5 ⋉ fun cl =>
+       (length (val cl) * (76 * val cx + 207) + 18) ⋉ tt) := ltac:(cbound).
 
   (** [range n = seq 0 n]: not recursive, it follows from [seq]. *)
-  Lemma range_complexity : ComplexityBound range
-    (fun cn : ℂI nat unit => (46 * val cn + 2) ⋉ tt).
-  Proof. cbound. Qed.
-  Global Existing Instance range_complexity.
+  Global Instance range_complexity : ComplexityBound range
+    (fun cn => (29 * val cn + 2) ⋉ tt) := ltac:(cbound).
 
   (** [fold_left Nat.add]: the cost of each addition is linear in the
       accumulator, so the bound depends on the values. *)
-  Lemma fold_left_add_complexity : ComplexityBound (fold_left Nat.add)
-    (fun cl : ℂI (list nat) unit => 35 ⋉ fun ca : ℂI nat unit =>
-       (length (val cl) * (55 * (val ca + list_sum (val cl)) + 96) + 7) ⋉ tt).
+  Global Instance fold_left_add_complexity : ComplexityBound (fold_left Nat.add)
+    (fun cl => 5 ⋉ fun ca =>
+       (length (val cl) * (36 * (val ca + list_sum (val cl)) + 64) + 14) ⋉ tt).
   Proof. cbound. all: unfold list_sum in *; nia. Qed.
-  Global Existing Instance fold_left_add_complexity.
 
-  Lemma sumN_complexity : ComplexityBound sumN
-    (fun cl : ℂI (list nat) unit =>
-       (length (val cl) * (55 * list_sum (val cl) + 96) + 43) ⋉ tt).
-  Proof. cbound. Qed.
-  Global Existing Instance sumN_complexity.
+  Global Instance sumN_complexity : ComplexityBound sumN
+    (fun cl =>
+       (length (val cl) * (36 * list_sum (val cl) + 64) + 23) ⋉ tt) := ltac:(cbound).
 End ETHCost.
 
 (** * Coverage of [ETHAlgorithm] by the current models
 
-    With the generic fixpoint axiom ([FixCostModel]), every structurally
+    With the generic fixpoint axiom ([TimeFix]), every structurally
     recursive function can be analysed as written, whatever its number of
     arguments, the position of its recursive argument, the matches of its
     body (also on other arguments), the depth of its recursive calls, and

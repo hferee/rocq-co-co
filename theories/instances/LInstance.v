@@ -1,12 +1,12 @@
 (** * L is an instance of the cost model
 
-    The modules below implement all the module types of the cost model
+    The modules below implement all the parts of the time cost model
     ([CostModel], [BasicTimeCostModel], [CombinatorTimeCostModel],
     [FixTimeCostModel] and the models of the datatypes) with the
-    call-by-value lambda-calculus L. Rocq checks that they provide every
-    axiom ([<:]). The analyses, which are functors over the cost model,
-    can then be applied to them: their bounds are L running times (see
-    [add_in_L] at the end).
+    call-by-value lambda-calculus L, and [L] gathers them ([TimeCostModel]).
+    Rocq checks that they provide every axiom ([<:]). The analyses, which
+    are functors over the cost model, can then be applied to [L]: their
+    bounds are L running times).
 
     - A representation [Repr A CA] is a realisability relation between the
       values of [A] with complexities [CA] and closed L values. It is
@@ -17,7 +17,8 @@
       [K * cost (cf a)] steps to a realiser of the result.
     - Ground data are realised by Scott encodings. Lists, options and pairs
       are realised element-wise, so that they are representable whenever
-      their elements are.
+      their elements are. The environments of closures ([Combinators]) are
+      pairs of realisers of any representations.
     - Only [fix_complexity] uses an axiom: functional extensionality, to
       turn its pointwise unfolding equation into an equality.
 
@@ -31,9 +32,8 @@
     and complete for [pow step] ([evalc_sound], [pow_evalc]). *)
 
 From Stdlib Require Import Program.Basics Lia List ZArith QArith FunctionalExtensionality.
-From Complexity Require Import CostModel HOCostModel Combinators Arity CombinatorCostModel
-  UnitCostModel NatCostModel BoolCostModel GroundListCostModel OptionCostModel ProdCostModel
-  ZCostModel FixCostModel NatComplexity ListComplexity ZComplexity ETHCost.
+From Complexity Require Import TimeCostModel CostModel TimeBasic Combinators Arity
+  TimeCombinators TimeDatatypes TimeFix.
 From Undecidability.L Require Import Util.L_facts.
 Import HOAS_Notations.
 Local Open Scope nat_scope.
@@ -370,6 +370,28 @@ Proof.
   - auto.
 Defined.
 
+(** Environments of closures ([Combinators]): pairs of realisers of any
+    representations. *)
+Definition env_rl {E CE A CA} (RE : LRepr E CE) (RA : LRepr A CA) (k : nat) (e : env E A)
+  (c : CE * CA) (s : term) : Prop :=
+  exists r1 r2, s = lam (app (app (var 0) r1) r2) /\
+    rl RE k (etl e) (fst c) r1 /\ rl RA k (ehd e) (snd c) r2.
+
+Definition env_repr {E CE A CA} (RE : LRepr E CE) (RA : LRepr A CA) :
+  LRepr (env E A) (CE * CA).
+Proof.
+  refine {| rl := env_rl RE RA;
+            bo := fun c c' => bo RE (fst c) (fst c') /\ bo RA (snd c) (snd c') |}.
+  - intros k e c s (r1 & r2 & -> & H1 & H2).
+    pose proof (rl_proc H1). pose proof (rl_proc H2). Lproc.
+  - intros k k' e c s Hk (r1 & r2 & -> & H1 & H2). exists r1, r2.
+    split; [reflexivity | split; [exact (rl_down Hk H1) | exact (rl_down Hk H2)]].
+  - intros k e c c' s [B1 B2] (r1 & r2 & -> & H1 & H2). exists r1, r2.
+    split; [reflexivity | split; [exact (rl_mono B1 H1) | exact (rl_mono B2 H2)]].
+  - intros c. split; apply bo_refl.
+  - intros c1 c2 c3 [B1 B2] [B3 B4]. split; [exact (bo_trans B1 B3) | exact (bo_trans B2 B4)].
+Defined.
+
 (** ** Tactics *)
 
 Ltac Llia := unfold K in *; cbn [cost res pot val] in *; lia.
@@ -381,7 +403,7 @@ Ltac Lfun :=
     let s := fresh "s" in let Hj := fresh "Hj" in let Ha := fresh "Ha" in
     let Hc := fresh "Hc" in
     intros j a c s Hj Ha Hc; pose proof (rl_proc Ha);
-    cbn [cost res pot val cost_add CostModel.app fmap ret_I ret bind] in Hc |- *].
+    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hc |- *].
 
 (** Evaluate, check the cost, and leave the realisability of the result. *)
 Ltac Lstep := do 2 eexists; split; [apply evalc_sound; Leval | split; [Llia |]].
@@ -407,6 +429,9 @@ Definition Kc_r := lam (lam (var 1)).
 Definition compose_r := lam (lam (lam (app (var 2) (app (var 1) (var 0))))).
 Definition Cc_r := lam (lam (lam (app (app (var 2) (var 0)) (var 1)))).
 Definition Sc_r := lam (lam (lam (app (app (var 2) (var 0)) (app (var 1) (var 0))))).
+Definition ehd_r := lam (app (var 0) (lam (lam (var 0)))).
+Definition etl_r := lam (app (var 0) (lam (lam (var 1)))).
+Definition Lam_r := lam (lam (lam (app (var 2) (lam (app (app (var 0) (var 2)) (var 1)))))).
 
 (** Case analyses apply the encoding of the value to one closure per
     constructor, and the selected closure to [Ic_r]: the closure of a
@@ -427,7 +452,7 @@ Ltac Lcase_start := Lunfold_r; Lfun; Lstep; Lfun; Lstep; Lfun.
 Ltac Lcase3_start := Lunfold_r; Lfun; Lstep; Lfun; Lstep; Lfun; Lstep; Lfun.
 
 (** The unfolding equation of [fix_complexity] is pointwise. *)
-Lemma ext_eq_eq {T} (ar : Arity T) : forall x y, ext_eq ar x y -> x = y.
+Lemma pw_eq_eq {T} (ar : Arity T) : forall x y, pw_eq ar x y -> x = y.
 Proof.
   induction ar as [T | A B ar IH]; cbn; [auto |].
   intros f g H. apply functional_extensionality. intro a. apply IH, H.
@@ -440,12 +465,17 @@ Module LCM <: CostModel.
   Existing Class Repr.
   Abbreviation Ground A := (Repr A unit).
 
-  Definition Repr_unit : Ground unit := ground_repr (fun _ => unit_enc) (fun _ => unit_enc_proc).
-  Global Existing Instance Repr_unit.
+  Global Instance Repr_unit : Ground unit :=
+    ground_repr (fun _ => unit_enc) (fun _ => unit_enc_proc).
 
-  Definition Repr_arr {A CA B CB} (RA : Repr A CA) (RB : Repr B CB) :
+  (** The size of ground data is the size of its encoding, as an L term
+      (element-wise for lists, options and pairs). *)
+  Global Instance Size_unit : Size unit := fun _ => L_facts.size unit_enc.
+  Lemma size_tt : 0 < CostModelCore.size tt.
+  Proof. cbv. lia. Qed.
+
+  Global Instance Repr_arr {A CA B CB} (RA : Repr A CA) (RB : Repr B CB) :
     Repr (A -> B) (ℂI A CA -> ℂO CB) := arr_repr RA RB.
-  Global Existing Instance Repr_arr.
 
   (** [x] has complexity [c]: some L value realises it, at every budget. *)
   Definition has_complexity {A CA} {R : Repr A CA} (x : A) (c : CA) : Prop :=
@@ -453,8 +483,8 @@ Module LCM <: CostModel.
 
   Definition bound_order {A CA} {R : Repr A CA} (c c' : CA) : Prop := bo R c c'.
 
-  Global Instance bound_order_po {A CA} {R : Repr A CA} : PreOrder (@bound_order A CA R).
-  Proof. split; [intro c; apply bo_refl | intros c1 c2 c3; apply bo_trans]. Qed.
+  Global Instance bound_order_po {A CA} {R : Repr A CA} : PreOrder (@bound_order A CA R) :=
+    ltac:(split; [intro c; apply bo_refl | intros c1 c2 c3; apply bo_trans]).
 
   Global Instance has_complexity_ext_eq {A CA} {R : Repr A CA} (f : A) :
     Proper (bound_order ==> impl) (has_complexity f).
@@ -469,18 +499,24 @@ Module LCM <: CostModel.
   Lemma bound_order_ground {A} {R : Ground A} (c c' : unit) : bound_order c c'.
   Proof. destruct c, c'. apply bo_refl. Qed.
 
-  Class ComplexityBound {A CA} `{Repr A CA} (f : A) (c : CA) := {CB : has_complexity f c}.
+  (** The complexity type of a representable type ([CType]). *)
+  Global Instance repr_ctype {A CA} `{Repr A CA} : CType A := {| ctype := CA |}.
+
+  Class ComplexityBound {A} {I : CType A} {R : Repr A (ctype A)} (f : A) (c : ctype A) :=
+    {CB : has_complexity f c}.
 
   Global Instance ComplexityBound_ext_eq : forall {A CA} `{Repr A CA} (f : A),
-    Proper (bound_order ==> impl) (ComplexityBound f).
+    Proper (@bound_order A CA _ ==> impl) (ComplexityBound f).
   Proof. intros A CA R f c c' Hc [H]. constructor. eapply has_complexity_ext_eq; eauto. Qed.
+  (** The bounds in the size of the inputs ([Bounds]). *)
+  Include Bounds.
 End LCM.
 
 (** Higher-order primitives. *)
 Module LBT <: BasicTimeCostModel LCM.
   Import LCM.
   Lemma id_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (fun (x : A) => x) (fun (ca : ℂI A CA) => (1 ⋉ pot ca) : ℂO CA).
+      ComplexityBound (fun (x : A) => x) (fun ca => (1 ⋉ pot ca) : ℂO CA).
   Proof.
     intros A CA R. constructor. exists Ic_r. intro k. Lfun. Lstep. Lend Ha.
   Qed.
@@ -507,7 +543,7 @@ Module LBT <: BasicTimeCostModel LCM.
       ComplexityBound f cf ->
       ComplexityBound g cg ->
       ComplexityBound (compose f g : A -> C)
-                      (fun ca : ℂI A CA => 1 ⊕ pot <$> (f ⋊ cf) · ((g ⋊ cg) · ca)).
+                      (fun ca => 1 ⊕ pot <$> (f ⋊ cf) · ((g ⋊ cg) · ca)).
   Proof.
     intros A B C CA CB CC RA RB RC f cf g cg [[sf Hf]] [[sg Hg]]. constructor.
     exists (lam (app sf (app sg (var 0)))). intro k.
@@ -518,11 +554,16 @@ Module LBT <: BasicTimeCostModel LCM.
 
   Lemma constant_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB} b {cb},
       ComplexityBound (b : B) (cb : CB) ->
-      ComplexityBound (fun (_ : A) => b) (fun (_ : ℂI A CA) => 1 ⋉ cb).
+      ComplexityBound (fun (_ : A) => b) (fun _ => 1 ⋉ cb).
   Proof.
     intros A B CA CB RA RB b cb [[sb Hb]]. constructor.
     exists (lam sb). intro k. pose proof (rl_proc (Hb 0)).
     Lfun. Lstep. apply Hb.
+  Qed.
+
+  Lemma tt_complexity : ComplexityBound tt tt.
+  Proof.
+    constructor. exists unit_enc. intro k. reflexivity.
   Qed.
 
 End LBT.
@@ -530,23 +571,56 @@ End LBT.
 (** Combinators. *)
 Module LCB <: CombinatorTimeCostModel LCM LBT.
   Import LCM LBT.
+  Global Instance Repr_env {E CE A CA} (RE : Repr E CE) (RA : Repr A CA) :
+    Repr (env E A) (CE * CA) :=
+    env_repr RE RA.
+
+  Lemma ehd_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@ehd E A) (fun ce => 1 ⋉ snd (pot ce)).
+  Proof.
+    intros. constructor. exists ehd_r. intro k. Lfun.
+    destruct Ha as (r1 & r2 & -> & Hr1 & Hr2). pose proof (rl_proc Hr1). pose proof (rl_proc Hr2).
+    Lstep. Lend Hr2.
+  Qed.
+
+  Lemma etl_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@etl E A) (fun ce => 1 ⋉ fst (pot ce)).
+  Proof.
+    intros. constructor. exists etl_r. intro k. Lfun.
+    destruct Ha as (r1 & r2 & -> & Hr1 & Hr2). pose proof (rl_proc Hr1). pose proof (rl_proc Hr2).
+    Lstep. Lend Hr1.
+  Qed.
+
+  Lemma Lam_complexity : forall {E CE A CA B CB} `{Repr E CE} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@Lam E A B)
+      (fun cc : ℂI (env E A -> B) (ℂI (env E A) (CE * CA) -> ℂO CB) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⋉
+       fun ca : ℂI A CA => 1 ⊕ pot <$> cc · (ECons (val ce) (val ca) ⋊ (pot ce, pot ca))).
+  Proof.
+    intros. constructor. exists Lam_r. intro k. Lfun. Lstep. Lfun. Lstep. Lfun.
+    assert (He : rl (env_repr _ _) j1 (ECons a0 a1) (c0, c1)
+                   (lam (app (app (var 0) s0) s1)))
+      by (exists s0, s1; split; [reflexivity | split; [exact (rl_down_ j1 Ha0 ltac:(lia)) | exact Ha1]]).
+    Lcall Ha He (j1 - 1). Lstep. Lend R.
+  Qed.
+
   Lemma Kc_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB},
-      ComplexityBound (@Kc A B) (fun ca : ℂI A CA => 1 ⋉ (fun _ : ℂI B CB => 1 ⋉ pot ca)).
+      ComplexityBound (@Kc A B) (fun ca => 1 ⋉ (fun _ => 1 ⋉ pot ca)).
   Proof.
     intros. constructor. exists Kc_r. intro k. Lfun. Lstep. Lfun. Lstep. Lend Ha.
   Qed.
 
   Lemma Ic_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@Ic A) (fun ca : ℂI A CA => 1 ⋉ pot ca).
+      ComplexityBound (@Ic A) (fun ca => 1 ⋉ pot ca).
   Proof.
     intros. constructor. exists Ic_r. intro k. Lfun. Lstep. Lend Ha.
   Qed.
 
   Lemma compose_hcomplexity : forall {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC},
-      ComplexityBound (@compose A B C)
-        (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 1 ⋉
-         fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => 1 ⋉
-         fun ca : ℂI A CA => 1 ⊕ pot <$> cf · (cg · ca)).
+    ComplexityBound (@compose A B C)
+      (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 1 ⋉
+       fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => 1 ⋉
+       fun ca : ℂI A CA => 1 ⊕ pot <$> cf · (cg · ca)).
   Proof.
     intros. constructor. exists compose_r. intro k. Lfun. Lstep. Lfun. Lstep. Lfun.
     Lcall Ha0 Ha1 (j1 - 1). Lcall Ha R (j1 - 1 - cost (c0 (a1 ⋊ c1))).
@@ -554,10 +628,10 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
   Qed.
 
   Lemma Cc_complexity : forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
-      ComplexityBound (@Cc X A B)
-        (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
-         fun ca : ℂI A CA => 1 ⋉
-         fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · ca).
+    ComplexityBound (@Cc X A B)
+      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
+       fun ca : ℂI A CA => 1 ⋉
+       fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · ca).
   Proof.
     intros. constructor. exists Cc_r. intro k. Lfun. Lstep. Lfun. Lstep. Lfun.
     Lcall Ha Ha1 (j1 - 1). Lcall R Ha0 (j1 - 1 - cost (c (a1 ⋊ c1))).
@@ -565,10 +639,10 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
   Qed.
 
   Lemma Sc_complexity : forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
-      ComplexityBound (@Sc X A B)
-        (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
-         fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => 1 ⋉
-         fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · (cg · cx)).
+    ComplexityBound (@Sc X A B)
+      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
+       fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => 1 ⋉
+       fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · (cg · cx)).
   Proof.
     intros. constructor. exists Sc_r. intro k. Lfun. Lstep. Lfun. Lstep. Lfun.
     Lcall Ha0 Ha1 (j1 - 1). Lcall Ha Ha1 (j1 - 1 - cost (c0 (a1 ⋊ c1))).
@@ -578,38 +652,33 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
 
 End LCB.
 
-(** [unit]. *)
-Module LUN <: UnitTimeCostModel LCM.
-  Import LCM.
-  Lemma tt_complexity : ComplexityBound tt tt.
-  Proof.
-    constructor. exists unit_enc. intro k. reflexivity.
-  Qed.
-
-End LUN.
-
 (** [nat]. *)
 Module LNT <: NatTimeCostModel LCM LBT.
   Import LCM LBT.
-  Definition Repr_nat : Ground nat := ground_repr nat_enc' nat_enc_proc.
-  Global Existing Instance Repr_nat.
+  Global Instance Repr_nat : Ground nat := ground_repr nat_enc' nat_enc_proc.
+
+  Global Instance Size_nat : Size nat := fun n => L_facts.size (nat_enc' n).
+  Lemma size_O : 0 < CostModelCore.size 0.
+  Proof. cbv. lia. Qed.
+  Lemma size_S : forall n, CostModelCore.size n < CostModelCore.size (S n).
+  Proof. intro n. unfold CostModelCore.size, Size_nat. cbn. lia. Qed.
 
   Lemma nat_complexity : forall n : nat, ComplexityBound n tt.
   Proof.
     intro n. constructor. exists (nat_enc' n). intro k. reflexivity.
   Qed.
 
-  Lemma S_complexity : ComplexityBound S (fun (x : ℂI nat unit) => 1 ⋉ tt).
+  Lemma S_complexity : ComplexityBound S (fun x => 1 ⋉ tt).
   Proof.
     constructor. exists (lam (lam (lam (app (var 0) (var 2))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
   Lemma nat_case_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@nat_case A)
-        (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun cs : ℂI (nat -> A) (ℂI nat unit -> ℂO CA) => 1 ⋉
-         fun cn : ℂI nat unit => 1 ⊕
-           match val cn with O => pot cz (tt ⋊ tt) | S k => pot cs (k ⋊ tt) end).
+    ComplexityBound (@nat_case A)
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cs : ℂI (nat -> A) (ℂI nat unit -> ℂO CA) => 1 ⋉
+       fun cn : ℂI nat unit => 1 ⊕
+         match val cn with O => pot cz (tt ⋊ tt) | S k => pot cs (k ⋊ tt) end).
   Proof.
     intros A CA RA. constructor. exists (case2_r (hU 3) (h1 3)). Lcase_start.
     destruct a1 as [| m]; cbn in Ha1; subst s1; cbn [cost res pot val] in *.
@@ -623,8 +692,11 @@ End LNT.
 (** [bool]. *)
 Module LBO <: BoolTimeCostModel LCM LBT.
   Import LCM LBT.
-  Definition Repr_bool : Ground bool := ground_repr bool_enc bool_enc_proc.
-  Global Existing Instance Repr_bool.
+  Global Instance Repr_bool : Ground bool := ground_repr bool_enc bool_enc_proc.
+
+  Global Instance Size_bool : Size bool := fun b => L_facts.size (bool_enc b).
+  Lemma size_bool : forall b : bool, 0 < CostModelCore.size b.
+  Proof. intros []; cbv; lia. Qed.
 
   Lemma bool_complexity : forall b : bool, ComplexityBound b tt.
   Proof.
@@ -632,11 +704,11 @@ Module LBO <: BoolTimeCostModel LCM LBT.
   Qed.
 
   Lemma bool_case_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@bool_case A)
-        (fun ct : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun cf : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun cb : ℂI bool unit => 1 ⊕
-           if val cb then pot ct (tt ⋊ tt) else pot cf (tt ⋊ tt)).
+    ComplexityBound (@bool_case A)
+      (fun ct : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cf : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cb : ℂI bool unit => 1 ⊕
+         if val cb then pot ct (tt ⋊ tt) else pot cf (tt ⋊ tt)).
   Proof.
     intros A CA RA. constructor. exists (case2_r (hU 3) (hU 2)). Lcase_start.
     destruct a1; cbn in Ha1; subst s1; cbn [cost res pot val] in *.
@@ -649,8 +721,15 @@ End LBO.
 (** Lists. *)
 Module LLM <: ListTimeCostModel LCM LBT.
   Import LCM LBT.
-  Definition Repr_list {A} (RA : Ground A) : Ground (list A) := list_repr RA.
-  Global Existing Instance Repr_list.
+  Global Instance Repr_list {A} (RA : Ground A) : Ground (list A) := list_repr RA.
+
+  Global Instance Size_list {A} (SA : Size A) : Size (list A) :=
+    fix size_list l := match l with nil => 4 | a :: l => 5 + SA a + size_list l end.
+  Lemma size_nil : forall {A} `{Size A}, 0 < CostModelCore.size (@nil A).
+  Proof. intros. cbv. lia. Qed.
+  Lemma size_cons : forall {A} `{Size A} (a : A) l,
+    CostModelCore.size a + CostModelCore.size l < CostModelCore.size (a :: l).
+  Proof. intros. unfold CostModelCore.size at 3. cbn. unfold CostModelCore.size. lia. Qed.
 
   Lemma nil_complexity : forall {A} `{Ground A}, ComplexityBound (@nil A) tt.
   Proof.
@@ -659,8 +738,8 @@ Module LLM <: ListTimeCostModel LCM LBT.
 
   Lemma cons_complexity : forall {A : Type} `{Ground A},
       ComplexityBound (@cons A)
-                      (fun (h : ℂI A unit) => 1 ⋉ ( 
-                       fun (t : ℂI (list A) unit) => 1 ⋉ tt)).
+                      (fun h => 1 ⋉ ( 
+                       fun t => 1 ⋉ tt)).
   Proof.
     intros A RA. constructor.
     exists (lam (lam (lam (lam (app (app (var 0) (var 3)) (var 2)))))). intro k.
@@ -671,18 +750,18 @@ Module LLM <: ListTimeCostModel LCM LBT.
   Qed.
 
   Lemma list_case_complexity : forall {X A CA} `{Ground X} `{Repr A CA},
-      ComplexityBound (@list_case X A)
-        (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun cc : ℂI (X -> list X -> A) (ℂI X unit -> ℂO (ℂI (list X) unit -> ℂO CA)) => 1 ⋉
-         fun cl : ℂI (list X) unit => 1 ⊕
-           match val cl with
-           | nil => pot cz (tt ⋊ tt)
-           | cons h t => pot <$> cc · (h ⋊ tt) · (t ⋊ tt)
-           end).
+    ComplexityBound (@list_case X A)
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cc : ℂI (X -> list X -> A) (ℂI X unit -> ℂO (ℂI (list X) unit -> ℂO CA)) => 1 ⋉
+       fun cl : ℂI (list X) unit => 1 ⊕
+         match val cl with
+         | nil => pot cz (tt ⋊ tt)
+         | cons h t => pot <$> cc · (h ⋊ tt) · (t ⋊ tt)
+         end).
   Proof.
     intros X A CA RX RA. constructor. exists (case2_r (hU 3) (h2 4)). Lcase_start.
     destruct a1 as [| x l]; cbn in Ha1;
-      cbn [cost res pot val cost_add CostModel.app fmap ret_I ret bind] in *.
+      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in *.
     - subst s1. Lcall Ha (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j1 - 1) tt) (j1 - 1). Lstep. Lend R.
     - destruct Ha1 as (r & t & -> & Hr & Ht). pose proof (rl_proc Hr).
       assert (Ht' : rl (Repr_list RX) j1 l tt t) by exact Ht. pose proof (rl_proc Ht').
@@ -695,8 +774,14 @@ End LLM.
 (** Options. *)
 Module LOM <: OptionTimeCostModel LCM LBT.
   Import LCM LBT.
-  Definition Repr_option {A} (RA : Ground A) : Ground (option A) := option_repr RA.
-  Global Existing Instance Repr_option.
+  Global Instance Repr_option {A} (RA : Ground A) : Ground (option A) := option_repr RA.
+
+  Global Instance Size_option {A} (SA : Size A) : Size (option A) :=
+    fun o => match o with None => 3 | Some a => 5 + SA a end.
+  Lemma size_None : forall {A} `{Size A}, 0 < CostModelCore.size (@None A).
+  Proof. intros. cbv. lia. Qed.
+  Lemma size_Some : forall {A} `{Size A} (a : A), CostModelCore.size a < CostModelCore.size (Some a).
+  Proof. intros. cbv. lia. Qed.
 
   Lemma None_complexity : forall {A} `{Ground A}, ComplexityBound (@None A) tt.
   Proof.
@@ -704,7 +789,7 @@ Module LOM <: OptionTimeCostModel LCM LBT.
   Qed.
 
   Lemma Some_complexity : forall {A} `{Ground A},
-      ComplexityBound (@Some A) (fun _ : ℂI A unit => 1 ⋉ tt).
+      ComplexityBound (@Some A) (fun _ => 1 ⋉ tt).
   Proof.
     intros A RA. constructor. exists (lam (lam (lam (app (var 1) (var 2))))). intro k.
     Lfun. destruct c. Lstep. cbn [rl Repr_option option_repr option_rl].
@@ -712,14 +797,14 @@ Module LOM <: OptionTimeCostModel LCM LBT.
   Qed.
 
   Lemma option_case_complexity : forall {X A CA} `{Ground X} `{Repr A CA},
-      ComplexityBound (@option_case X A)
-        (fun cs : ℂI (X -> A) (ℂI X unit -> ℂO CA) => 1 ⋉
-         fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun co : ℂI (option X) unit => 1 ⊕
-           match val co with
-           | Some x => pot cs (x ⋊ tt)
-           | None => pot cz (tt ⋊ tt)
-           end).
+    ComplexityBound (@option_case X A)
+      (fun cs : ℂI (X -> A) (ℂI X unit -> ℂO CA) => 1 ⋉
+       fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun co : ℂI (option X) unit => 1 ⊕
+         match val co with
+         | Some x => pot cs (x ⋊ tt)
+         | None => pot cz (tt ⋊ tt)
+         end).
   Proof.
     intros X A CA RX RA. constructor. exists (case2_r (h1 4) (hU 2)). Lcase_start.
     destruct a1 as [x |]; cbn in Ha1; cbn [cost res pot val] in *.
@@ -733,11 +818,17 @@ End LOM.
 (** Pairs. *)
 Module LPM <: ProdTimeCostModel LCM LBT.
   Import LCM LBT.
-  Definition Repr_prod {A B} (RA : Ground A) (RB : Ground B) : Ground (A * B) := prod_repr RA RB.
-  Global Existing Instance Repr_prod.
+  Global Instance Repr_prod {A B} (RA : Ground A) (RB : Ground B) : Ground (A * B) :=
+    prod_repr RA RB.
+
+  Global Instance Size_prod {A B} (SA : Size A) (SB : Size B) : Size (A * B) :=
+    fun p => 4 + SA (fst p) + SB (snd p).
+  Lemma size_pair : forall {A B} `{Size A} `{Size B} (a : A) (b : B),
+    CostModelCore.size a + CostModelCore.size b < CostModelCore.size (a, b).
+  Proof. intros. cbv. lia. Qed.
 
   Lemma pair_complexity : forall {A B} `{Ground A} `{Ground B},
-      ComplexityBound (@pair A B) (fun _ : ℂI A unit => 1 ⋉ fun _ : ℂI B unit => 1 ⋉ tt).
+      ComplexityBound (@pair A B) (fun _ => 1 ⋉ fun _ => 1 ⋉ tt).
   Proof.
     intros A B RA RB. constructor.
     exists (lam (lam (lam (app (app (var 0) (var 2)) (var 1))))). intro k.
@@ -748,15 +839,15 @@ Module LPM <: ProdTimeCostModel LCM LBT.
   Qed.
 
   Lemma prod_case_complexity : forall {X Y A CA} `{Ground X} `{Ground Y} `{Repr A CA},
-      ComplexityBound (@prod_case X Y A)
-        (fun cf : ℂI (X -> Y -> A) (ℂI X unit -> ℂO (ℂI Y unit -> ℂO CA)) => 1 ⋉
-         fun cp : ℂI (X * Y) unit => 1 ⊕
-           let (x, y) := val cp in
-           pot <$> cf · (x ⋊ tt) · (y ⋊ tt)).
+    ComplexityBound (@prod_case X Y A)
+      (fun cf : ℂI (X -> Y -> A) (ℂI X unit -> ℂO (ℂI Y unit -> ℂO CA)) => 1 ⋉
+       fun cp : ℂI (X * Y) unit => 1 ⊕
+         let (x, y) := val cp in
+         pot <$> cf · (x ⋊ tt) · (y ⋊ tt)).
   Proof.
     intros X Y A CA RX RY RA. constructor. exists (case1_r (h2 4)). Lcase1_start.
     destruct a0 as [x y]; cbn [rl Repr_prod prod_repr prod_rl fst snd] in Ha0;
-      cbn [cost res pot val cost_add CostModel.app fmap ret_I ret bind] in *.
+      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in *.
     destruct Ha0 as (r1 & r2 & -> & H1 & H2). cbn [fst snd] in H1, H2.
     pose proof (rl_proc H1). pose proof (rl_proc H2).
     Lcall Ha H1 (j0 - 1). Lcall R H2 (j0 - 1 - cost (c (x ⋊ tt))).
@@ -768,20 +859,43 @@ End LPM.
 (** [positive], [N], [Z], [comparison] and [Q]. *)
 Module LZM <: ZTimeCostModel LCM LBT.
   Import LCM LBT.
-  Definition Repr_positive : Ground positive := ground_repr pos_enc pos_enc_proc.
-  Global Existing Instance Repr_positive.
+  Global Instance Repr_positive : Ground positive := ground_repr pos_enc pos_enc_proc.
 
-  Definition Repr_N : Ground N := ground_repr N_enc N_enc_proc.
-  Global Existing Instance Repr_N.
+  Global Instance Repr_N : Ground N := ground_repr N_enc N_enc_proc.
 
-  Definition Repr_Z : Ground Z := ground_repr Z_enc Z_enc_proc.
-  Global Existing Instance Repr_Z.
+  Global Instance Repr_Z : Ground Z := ground_repr Z_enc Z_enc_proc.
 
-  Definition Repr_Q : Ground Q := ground_repr Q_enc Q_enc_proc.
-  Global Existing Instance Repr_Q.
+  Global Instance Repr_Q : Ground Q := ground_repr Q_enc Q_enc_proc.
 
-  Definition Repr_comparison : Ground comparison := ground_repr comp_enc comp_enc_proc.
-  Global Existing Instance Repr_comparison.
+  Global Instance Repr_comparison : Ground comparison := ground_repr comp_enc comp_enc_proc.
+
+  Global Instance Size_positive : Size positive := fun p => L_facts.size (pos_enc p).
+  Global Instance Size_N : Size N := fun n => L_facts.size (N_enc n).
+  Global Instance Size_Z : Size Z := fun z => L_facts.size (Z_enc z).
+  Global Instance Size_Q : Size Q := fun q => L_facts.size (Q_enc q).
+  Global Instance Size_comparison : Size comparison := fun c => L_facts.size (comp_enc c).
+  Ltac lsize := unfold CostModelCore.size, Size_positive, Size_N, Size_Z, Size_Q, Size_comparison;
+    cbn; lia.
+  Lemma size_xH : (0 < CostModelCore.size xH)%nat.
+  Proof. lsize. Qed.
+  Lemma size_xO : (forall p, CostModelCore.size p < CostModelCore.size (xO p))%nat.
+  Proof. intro. lsize. Qed.
+  Lemma size_xI : (forall p, CostModelCore.size p < CostModelCore.size (xI p))%nat.
+  Proof. intro. lsize. Qed.
+  Lemma size_N0 : (0 < CostModelCore.size N0)%nat.
+  Proof. lsize. Qed.
+  Lemma size_Npos : (forall p, CostModelCore.size p < CostModelCore.size (Npos p))%nat.
+  Proof. intro. lsize. Qed.
+  Lemma size_Z0 : (0 < CostModelCore.size Z0)%nat.
+  Proof. lsize. Qed.
+  Lemma size_Zpos : (forall p, CostModelCore.size p < CostModelCore.size (Zpos p))%nat.
+  Proof. intro. lsize. Qed.
+  Lemma size_Zneg : (forall p, CostModelCore.size p < CostModelCore.size (Zneg p))%nat.
+  Proof. intro. lsize. Qed.
+  Lemma size_Qmake : (forall n d, CostModelCore.size n + CostModelCore.size d < CostModelCore.size (Qmake n d))%nat.
+  Proof. intros. lsize. Qed.
+  Lemma size_comparison : (forall c : comparison, 0 < CostModelCore.size c)%nat.
+  Proof. intros []; lsize. Qed.
 
   Lemma positive_complexity : forall p : positive, ComplexityBound p tt.
   Proof.
@@ -808,47 +922,47 @@ Module LZM <: ZTimeCostModel LCM LBT.
     intro x. constructor. exists (comp_enc x). intro k. reflexivity.
   Qed.
 
-  Lemma xI_complexity : ComplexityBound xI (fun _ : ℂI positive unit => 1 ⋉ tt).
+  Lemma xI_complexity : ComplexityBound xI (fun _ => 1 ⋉ tt).
   Proof.
     constructor. exists (lam (lam (lam (lam (app (var 2) (var 3)))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma xO_complexity : ComplexityBound xO (fun _ : ℂI positive unit => 1 ⋉ tt).
+  Lemma xO_complexity : ComplexityBound xO (fun _ => 1 ⋉ tt).
   Proof.
     constructor. exists (lam (lam (lam (lam (app (var 1) (var 3)))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma Npos_complexity : ComplexityBound Npos (fun _ : ℂI positive unit => 1 ⋉ tt).
+  Lemma Npos_complexity : ComplexityBound Npos (fun _ => 1 ⋉ tt).
   Proof.
     constructor. exists (lam (lam (lam (app (var 0) (var 2))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma Zpos_complexity : ComplexityBound Zpos (fun _ : ℂI positive unit => 1 ⋉ tt).
+  Lemma Zpos_complexity : ComplexityBound Zpos (fun _ => 1 ⋉ tt).
   Proof.
     constructor. exists (lam (lam (lam (lam (app (var 1) (var 3)))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma Zneg_complexity : ComplexityBound Zneg (fun _ : ℂI positive unit => 1 ⋉ tt).
+  Lemma Zneg_complexity : ComplexityBound Zneg (fun _ => 1 ⋉ tt).
   Proof.
     constructor. exists (lam (lam (lam (lam (app (var 0) (var 3)))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma Qmake_complexity : ComplexityBound Qmake (fun _ : ℂI Z unit => 1 ⋉ fun _ : ℂI positive unit => 1 ⋉ tt).
+  Lemma Qmake_complexity : ComplexityBound Qmake (fun _ => 1 ⋉ fun _ => 1 ⋉ tt).
   Proof.
     constructor. exists (lam (lam (lam (app (app (var 0) (var 2)) (var 1))))). intro k. Lfun. Lstep. Lfun. Lstep. Lground.
   Qed.
 
   Lemma positive_case_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@positive_case A)
-        (fun cI : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-         fun cO : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-         fun cH : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun cp : ℂI positive unit => 1 ⊕
-           match val cp with
-           | xI q => pot cI (q ⋊ tt)
-           | xO q => pot cO (q ⋊ tt)
-           | xH => pot cH (tt ⋊ tt)
-           end).
+    ComplexityBound (@positive_case A)
+      (fun cI : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
+       fun cO : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
+       fun cH : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cp : ℂI positive unit => 1 ⊕
+         match val cp with
+         | xI q => pot cI (q ⋊ tt)
+         | xO q => pot cO (q ⋊ tt)
+         | xH => pot cH (tt ⋊ tt)
+         end).
   Proof.
     intros A CA RA. constructor. exists (case3_r (h1 5) (h1 4) (hU 2)). Lcase3_start.
     destruct a2 as [q | q |]; cbn in Ha2; subst s2; cbn [cost res pot val] in *.
@@ -858,11 +972,11 @@ Module LZM <: ZTimeCostModel LCM LBT.
   Qed.
 
   Lemma N_case_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@N_case A)
-        (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-         fun cn : ℂI N unit => 1 ⊕
-           match val cn with N0 => pot cz (tt ⋊ tt) | Npos p => pot cp (p ⋊ tt) end).
+    ComplexityBound (@N_case A)
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
+       fun cn : ℂI N unit => 1 ⊕
+         match val cn with N0 => pot cz (tt ⋊ tt) | Npos p => pot cp (p ⋊ tt) end).
   Proof.
     intros A CA RA. constructor. exists (case2_r (hU 3) (h1 3)). Lcase_start.
     destruct a1 as [| q]; cbn in Ha1; subst s1; cbn [cost res pot val] in *.
@@ -871,16 +985,16 @@ Module LZM <: ZTimeCostModel LCM LBT.
   Qed.
 
   Lemma Z_case_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@Z_case A)
-        (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-         fun cn : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-         fun cx : ℂI Z unit => 1 ⊕
-           match val cx with
-           | Z0 => pot cz (tt ⋊ tt)
-           | Zpos p => pot cp (p ⋊ tt)
-           | Zneg p => pot cn (p ⋊ tt)
-           end).
+    ComplexityBound (@Z_case A)
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
+       fun cn : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
+       fun cx : ℂI Z unit => 1 ⊕
+         match val cx with
+         | Z0 => pot cz (tt ⋊ tt)
+         | Zpos p => pot cp (p ⋊ tt)
+         | Zneg p => pot cn (p ⋊ tt)
+         end).
   Proof.
     intros A CA RA. constructor. exists (case3_r (hU 4) (h1 4) (h1 3)). Lcase3_start.
     destruct a2 as [| q | q]; cbn in Ha2; subst s2; cbn [cost res pot val] in *.
@@ -890,16 +1004,16 @@ Module LZM <: ZTimeCostModel LCM LBT.
   Qed.
 
   Lemma comparison_case_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@comparison_case A)
-        (fun ce : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun cl : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun cg : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-         fun cc : ℂI comparison unit => 1 ⊕
-           match val cc with
-           | Eq => pot ce (tt ⋊ tt)
-           | Lt => pot cl (tt ⋊ tt)
-           | Gt => pot cg (tt ⋊ tt)
-           end).
+    ComplexityBound (@comparison_case A)
+      (fun ce : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cl : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cg : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
+       fun cc : ℂI comparison unit => 1 ⊕
+         match val cc with
+         | Eq => pot ce (tt ⋊ tt)
+         | Lt => pot cl (tt ⋊ tt)
+         | Gt => pot cg (tt ⋊ tt)
+         end).
   Proof.
     intros A CA RA. constructor. exists (case3_r (hU 4) (hU 3) (hU 2)). Lcase3_start.
     destruct a2; cbn in Ha2; subst s2; cbn [cost res pot val] in *.
@@ -909,17 +1023,17 @@ Module LZM <: ZTimeCostModel LCM LBT.
   Qed.
 
   Lemma Q_case_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@Q_case A)
-        (fun cf : ℂI (Z -> positive -> A) (ℂI Z unit -> ℂO (ℂI positive unit -> ℂO CA)) => 1 ⋉
-         fun cq : ℂI Q unit => 1 ⊕
-           match val cq with
-           | Qmake n d => pot <$> cf · (n ⋊ tt) · (d ⋊ tt)
-           end).
+    ComplexityBound (@Q_case A)
+      (fun cf : ℂI (Z -> positive -> A) (ℂI Z unit -> ℂO (ℂI positive unit -> ℂO CA)) => 1 ⋉
+       fun cq : ℂI Q unit => 1 ⊕
+         match val cq with
+         | Qmake n d => pot <$> cf · (n ⋊ tt) · (d ⋊ tt)
+         end).
   Proof.
     intros A CA RA. constructor. exists (case1_r (h2 4)). Lcase1_start.
     destruct a0 as [n d]; cbn [rl Repr_Q ground_repr] in Ha0; unfold Q_enc in Ha0;
       cbn [Qnum Qden] in Ha0; subst s0;
-      cbn [cost res pot val cost_add CostModel.app fmap ret_I ret bind] in *.
+      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in *.
     pose proof (Z_enc_proc n). pose proof (pos_enc_proc d).
     Lcall Ha (ground_rl Z_enc Z_enc_proc (j0 - 1) n) (j0 - 1).
     Lcall R (ground_rl pos_enc pos_enc_proc (j0 - 1) d) (j0 - 1 - cost (c (n ⋊ tt))).
@@ -942,14 +1056,14 @@ Module LFX <: FixTimeCostModel LCM LBT LCB.
       ComplexityBound f cf.
   Proof.
     intros A B CA CB RA RB ar f F cF cf Hfix [[sF HF]] Hrec. constructor.
-    assert (Heq : forall a, f a = F f a) by (intro a; apply (ext_eq_eq ar), Hfix).
+    assert (Heq : forall a, f a = F f a) by (intro a; apply (pw_eq_eq ar), Hfix).
     pose proof (rl_proc (HF 0)) as HpF.
     assert (Hprho : proc (rho sF)) by (split; [apply rho_cls, HpF | apply rho_lambda]).
     exists (rho sF). intro k. induction k as [k IH] using (well_founded_induction lt_wf).
     apply arr_lam; [exact Hprho |]. intros j a c1 sa Hj Ha Hc.
     pose proof (rl_proc Ha).
     destruct (Hrec (a ⋊ c1)) as [Hcost Hcomp].
-    cbn [cost res pot val cost_add CostModel.app fmap ret_I ret bind] in Hcost, Hcomp.
+    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hcost, Hcomp.
     assert (IHj : rl (Repr_arr RA RB) (j - 1) f cf (rho sF)) by (apply IH; Llia).
     Lcall (HF j) IHj (j - 1).
     Lcall R Ha (j - 1 - cost (cF (f ⋊ cf))).
@@ -967,26 +1081,8 @@ End LFX.
     the L instance. For instance, the bound of [Nat.add] proved in
     [NatComplexity] is an L running time. *)
 
-Module LNatComplexity := NatComplexity LCM LBT LNT LCB LUN LBO LFX.
-Module LListComplexity := ListComplexity LCM LBT LNT LCB LUN LBO LLM LFX.
-Module LZComplexity := ZComplexity LCM LBT LNT LCB LUN LBO LZM LFX.
-Module LETHCost := ETHCost LCM LBT LNT LCB LUN LBO LLM LFX.
+Module L <: TimeCostModel.
+  Include LCM. Include LBT. Include LCB. Include LBO. Include LNT. Include LLM. Include LOM.
+  Include LPM. Include LZM. Include LFX.
+End L.
 
-(** [Nat.add] is computed by a closed L term [s]: [s n] reduces in at most
-    [K * 35] steps to a value [v], and [v m] in at most [K * (55 n + 7)]
-    steps to the encoding of [n + m]. *)
-Corollary add_in_L : exists s, proc s /\ forall n m, exists v,
-  redLe (K * 35) (app s (nat_enc' n)) v /\
-  redLe (K * (55 * n + 7)) (app v (nat_enc' m)) (nat_enc' (n + m)).
-Proof.
-  destruct LNatComplexity.add_complexity as [[s H]].
-  exists s. split; [exact (rl_proc (H 0)) |]. intros n m.
-  set (k := 35 + (55 * n + 7)).
-  destruct (arr_app k (H k) ltac:(lia) (ground_rl nat_enc' nat_enc_proc k n) ltac:(cbn; lia))
-    as (n1 & v1 & E1 & N1 & R1).
-  cbn [cost res pot val] in N1, R1.
-  destruct (arr_app (k - 35) R1 ltac:(lia) (ground_rl nat_enc' nat_enc_proc (k - 35) m)
-    ltac:(cbn; lia)) as (n2 & v2 & E2 & N2 & R2).
-  cbn in N2, R2. subst v2.
-  exists v1. split; [exists n1; split; assumption | exists n2; split; assumption].
-Qed.

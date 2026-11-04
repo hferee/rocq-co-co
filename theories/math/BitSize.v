@@ -26,6 +26,16 @@ Proof.
   apply Z.mul_lt_mono_nonneg; try lia; apply Zpower2_Psize; reflexivity.
 Qed.
 
+(** The bit size is at most the value: the sizes of conversions from [nat]. *)
+Lemma size_nat_le_to_nat p : Pos.size_nat p <= Pos.to_nat p.
+Proof. induction p; cbn [Pos.size_nat]; rewrite ?Pos2Nat.inj_xI, ?Pos2Nat.inj_xO; lia. Qed.
+
+Lemma size_nat_of_succ_nat n : Pos.size_nat (Pos.of_succ_nat n) <= S n.
+Proof. pose proof (size_nat_le_to_nat (Pos.of_succ_nat n)). rewrite SuccNat2Pos.id_succ in H. exact H. Qed.
+
+Lemma size_nat_of_nat n : Pos.size_nat (Pos.of_nat n) <= S n.
+Proof. pose proof (size_nat_le_to_nat (Pos.of_nat n)). rewrite Nat2Pos.id_max in H. lia. Qed.
+
 (** Add [1 <= Pos.size_nat p] for the sizes [Pos.size_nat p] of the goal. *)
 Ltac size_facts :=
   repeat match goal with
@@ -52,6 +62,9 @@ Proof. destruct z; cbn; try apply size_nat_pred_double; lia. Qed.
 
 Lemma zsize_pred_double z : zsize (Z.pred_double z) <= S (zsize z).
 Proof. destruct z; cbn; try apply size_nat_pred_double; lia. Qed.
+
+Lemma zsize_of_nat n : zsize (Z.of_nat n) <= S n.
+Proof. destruct n; cbn; [lia | pose proof (size_nat_of_succ_nat n); lia]. Qed.
 
 Lemma zsize_pos_sub x y : zsize (Z.pos_sub x y) <= Pos.size_nat x + Pos.size_nat y.
 Proof.

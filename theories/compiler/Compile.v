@@ -8,7 +8,7 @@
       former compiler, by bracket abstraction, is in [BracketCompile].)
     - [fix_equation] and [fix_equation_mutual] state and prove the unfolding
       equation of a recursive function, as required by [fix_complexity]
-      ([FixCostModel]). *)
+      ([TimeFix]). *)
 
 From Ltac2 Require Import Ltac2.
 From Stdlib Require Import Program.Basics PArith NArith ZArith QArith.
@@ -410,14 +410,14 @@ Ltac2 fix_functional (f : constr) : constr * int * int :=
   | _ => fail_msg "fix_equation: not a fixpoint"
   end.
 
-(** Prove [ext_eq ar (f a) (F' f a)] (for all [a]), where [F'] is
+(** Prove [pw_eq ar (f a) (F' f a)] (for all [a]), where [F'] is
     [lift_cases F], for [n] arguments, recursive on argument [k]: the
     equation [f a = F f a] holds by case analysis of the recursive argument
     and conversion, and [F f a = F' f a] by case analysis of the values
     matched by [F]. [pre] are the arguments given before (for mutual
     recursion). *)
 Ltac2 prove_unfolding (ff : constr) (f : constr) (pre : constr list) (n : int) (k : int) :=
-  ltac1:(intro; cbn [ext_eq]; intros);
+  ltac1:(intro; cbn [pw_eq]; intros);
   let hs := List.rev (List.firstn n (List.rev (Control.hyps ()))) in
   let (x, _, _) := List.nth hs k in
   let xs := List.map (fun (h, _, _) => make (Var h)) hs in
