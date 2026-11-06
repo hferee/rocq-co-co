@@ -258,10 +258,40 @@ Module CombinatorTactics
       tried ([once]): backtracking into the typeclass search of [cbc] would
       try the same inequalities many times. The hint only applies to bounds
       without evars: the bounds of the subterms that [cbc] searches are
-      evars, so that the hint does not call [cbound] recursively. *)
+      evars, so that the hint does not call [cbound] recursively.
+
+      The proof is an auxiliary lemma ([abstract]), named after the
+      function ([Pos_compare_cont_cbound] for [Pos.compare_cont]): the proof
+      terms built by [cbound] are large, and the declaration of an
+      [Instance] given by a term (as [_]) processes them several times more
+      slowly than a [Qed]. The name must not depend on the file only: the
+      analyses of several files are included in one module type
+      ([TimeStdlib]). *)
+  Ltac cbound_auto := first [solve [once cweaken] | solve [once cbound]].
+
+  Ltac2 cbound_lemma_name () : ident option :=
+    match Constr.Unsafe.kind (Control.goal ()) with
+    | Constr.Unsafe.App _ args =>
+        let (h, _) := split_app (Array.get args (Int.sub (Array.length args) 2)) in
+        match Constr.Unsafe.kind h with
+        | Constr.Unsafe.Constant c _ =>
+            let p := List.map Ident.to_string (Env.path (Std.ConstRef c)) in
+            let p := List.skipn (Int.sub (List.length p) 2) p in
+            Ident.of_string (String.app (String.concat "_" p) "_cbound")
+        | _ => None
+        end
+    | _ => None
+    end.
+
+  Ltac cbound_abstract :=
+    ltac2:(if Constr.has_evar (Control.goal ()) then ltac1:(cbound_auto)
+           else match cbound_lemma_name () with
+                | Some id => Control.abstract (Some id) (fun () => ltac1:(cbound_auto))
+                | None => ltac1:(cbound_auto)
+                end).
+
   #[global] Hint Extern 150 (@ComplexityBound _ _ _ _ ?c) =>
-    tryif has_evar c then fail
-    else first [solve [once cweaken] | solve [once cbound]] : typeclass_instances.
+    tryif has_evar c then fail else cbound_abstract : typeclass_instances.
 End CombinatorTactics.
 
 Module Type CombinatorTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM) :=
