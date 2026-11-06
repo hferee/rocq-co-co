@@ -5,7 +5,6 @@
     constants are the smallest ones (see [NatComplexity]). *)
 
 From Complexity Require Export TimeCostModel.
-From Stdlib Require Import Bool.
 
 Module BoolComplexity (Import M : TimeCostModel).
 
@@ -17,8 +16,8 @@ Module BoolComplexity (Import M : TimeCostModel).
   Global Instance orb_complexity : ComplexityBound orb
     (fun ca => 2 ⋉ fun cb => 12 ⋉ tt) := _.
 
-  (** ** Bounds in the size of the arguments *)
-  Global Instance negb_linear_bound : LinearBound negb := _.
-  Global Instance andb_linear_bound : LinearBound andb := _.
-  Global Instance orb_linear_bound : LinearBound orb := _.
+  (** ** Bounds in the size of the arguments: constant *)
+  Global Instance negb_constant_bound : ConstantBound negb := _.
+  Global Instance andb_constant_bound : ConstantBound andb := _.
+  Global Instance orb_constant_bound : ConstantBound orb := _.
 End BoolComplexity.

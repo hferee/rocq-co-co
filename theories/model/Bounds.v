@@ -5,10 +5,11 @@
     sizes of the inputs only. [FirstOrderBound f g] states it for a first-order
     function [f], with any number of arguments: each application of [f] to
     its next argument costs at most [g ss], where [ss] are the sizes of the
-    arguments given so far. [PolynomialBound f] and [LinearBound f] state
-    that [g] is a polynomial in these sizes ([poly], from [Poly], where
-    they are shown to be higher-order polynomials), of degree at most [1]
-    for [LinearBound], as classes.
+    arguments given so far. [PolynomialBound f], [LinearBound f] and
+    [ConstantBound f] state that [g] is a polynomial in these sizes ([poly],
+    from [Poly], where they are shown to be higher-order polynomials), of
+    degree at most [1] for [LinearBound], and [0] for [ConstantBound], as
+    classes.
 
     The sizes are those of the cost model ([Size], whose instances are
     given by the models of the datatypes), so that the bounds speak of the
@@ -147,6 +148,14 @@ Ltac2 linear_constants () :=
     let s := psum 0 n in
     constr:(padd (pconst $k) (pmul (pconst $k) $s))).
 
+Ltac2 constant_constants () :=
+  instantiate_poly (fun k d _ =>
+    (if Int.lt 0 d then
+       Control.zero (Tactic_failure (Some (Message.of_string "the costs are not constant")))
+     else ());
+    let k := nat_constr k in
+    constr:(pconst $k)).
+
 Ltac2 polynomial_constants () :=
   instantiate_poly (fun k d n =>
     let k := nat_constr k in
@@ -198,6 +207,9 @@ Module Bounds (Import CM : CostModelCore).
   Class LinearBound {A CA} `{FirstOrder A CA} (f : A) : Prop :=
     linear_bound : exists p, pdeg p <= 1 /\ FirstOrderBound f (peval p).
 
+  Class ConstantBound {A CA} `{FirstOrder A CA} (f : A) : Prop :=
+    constant_bound : exists p, pdeg p = 0 /\ FirstOrderBound f (peval p).
+
   Lemma size_bound_mono {A CA} (fo : FirstOrder A CA) (g g' : list nat -> nat) s :
     (forall ss, g ss <= g' ss) ->
     bound_order (H := fo_repr fo) (size_bound fo g s) (size_bound fo g' s).
@@ -218,6 +230,11 @@ Module Bounds (Import CM : CostModelCore).
     {Hf : LinearBound f} : PolynomialBound f.
   Proof. destruct Hf as (p & _ & Hf). exists p. exact Hf. Qed.
 
+  (** A constant bound is a linear bound. *)
+  Global Instance ConstantBound_LinearBound {A CA} `{FirstOrder A CA} (f : A)
+    {Hf : ConstantBound f} : LinearBound f.
+  Proof. destruct Hf as (p & Hp & Hf). exists p. split; [lia | exact Hf]. Qed.
+
   (** ** Proofs of bounds
 
       [cost_split_by tac] reduces [FirstOrderBound f g] to inequalities
@@ -226,10 +243,11 @@ Module Bounds (Import CM : CostModelCore).
       ([add_size_facts]) and the constants of the model unfolded ([costs]).
       [cost_bound] proves them with [lia] or [nia].
 
-      [clinear] and [cpolynomial] prove [LinearBound f] and
-      [PolynomialBound f] from the bound of [f] found by typeclass search,
-      choosing the constants ([linear_constants]); [clinear_using H] and
-      [cpolynomial_using H] from the bound [H]. The inequalities that [lia]
+      [cconstant], [clinear] and [cpolynomial] prove [ConstantBound f],
+      [LinearBound f] and [PolynomialBound f] from the bound of [f] found by
+      typeclass search, choosing the constants ([linear_constants]);
+      [cconstant_using H], [clinear_using H] and [cpolynomial_using H] from
+      the bound [H]. The inequalities that [lia]
       and [nia] do not prove are left, for example when they need facts on
       the measures of the arguments. *)
   Ltac cost_split_by tac :=
@@ -249,6 +267,14 @@ Module Bounds (Import CM : CostModelCore).
   Ltac clinear := clinear_by ltac:(typeclasses eauto).
   Ltac clinear_using H := clinear_by ltac:(exact H).
 
+  Ltac cconstant_by tac :=
+    unfold ConstantBound; eexists; split; cycle 1;
+    [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; constant_constants ()) in
+      split tac; cbn [peval nth]; try solve [lia | nia]
+    | reflexivity ].
+  Ltac cconstant := cconstant_by ltac:(typeclasses eauto).
+  Ltac cconstant_using H := cconstant_by ltac:(exact H).
+
   Ltac cpolynomial_by tac :=
     unfold PolynomialBound; eexists;
     let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; polynomial_constants ()) in
@@ -258,8 +284,9 @@ Module Bounds (Import CM : CostModelCore).
   Ltac cpolynomial_using H := cpolynomial_by ltac:(exact H).
 
   (** Bounds without an instance are derived from the bounds of
-      [ComplexityBound] found by typeclass search, when [clinear] or
-      [cpolynomial] proves them. *)
+      [ComplexityBound] found by typeclass search, when [cconstant],
+      [clinear] or [cpolynomial] proves them. *)
+  Global Hint Extern 10 (ConstantBound _) => solve [cconstant] : typeclass_instances.
   Global Hint Extern 10 (LinearBound _) => solve [clinear] : typeclass_instances.
   Global Hint Extern 10 (PolynomialBound _) => solve [cpolynomial] : typeclass_instances.
 End Bounds.

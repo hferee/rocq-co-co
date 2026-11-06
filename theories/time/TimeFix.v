@@ -25,10 +25,15 @@
     recursive functions cannot be analysed. *)
 
 From Complexity Require Export TimeCombinators.
+From Ltac2 Require Import Ltac2.
+Set Default Proof Mode "Classic".
 
 (** The functional of a recursive function is compiled with the combinators
-    ([crec] leaves it to [cbc]): this module type depends on their model. *)
-Module Type FixTimeCostModel
+    ([crec] leaves it to [cbc]): this module type depends on their model. As
+    for the combinators, the model of fixpoints ([FixTimeCostModel], at the
+    end) is made of its axioms and of the tactics that they justify, in a
+    functor ([FixTactics]). *)
+Module Type FixTimeCostAxioms
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
   (Import CB : CombinatorTimeCostModel CM BT).
 
@@ -46,6 +51,11 @@ Module Type FixTimeCostModel
     ComplexityBound F cF ->
     bound_order (fun ca : ℂI A CA => c_fix ⊕ pot <$> (F ⋊ cF) · (f ⋊ cf) · ca) cf ->
     ComplexityBound f cf.
+End FixTimeCostAxioms.
+
+Module FixTactics
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
+  (Import CB : CombinatorTimeCostModel CM BT) (Import FX : FixTimeCostAxioms CM BT CB).
 
   (** In a goal [ComplexityBound f cf] where [f] is a recursive function,
       [crec] leaves the goals [ComplexityBound F ?cF] (to be solved by
@@ -67,10 +77,19 @@ Module Type FixTimeCostModel
       [cbound] ([TimeCombinators]) extended to recursive functions: if
       the function is recursive, its functional is compiled and the
       recurrence of [fix_complexity] is reduced to inequalities between
-      costs. The extension of [cbound_start] holds in every model with
-      fixpoints, and so in the hint of [TimeCombinators] for bounds without
-      instance. [cbound_mutual] does the same for mutually recursive
-      functions (see [crec_mutual]). *)
-  Ltac cbound_start ::= tryif crec then [> cbc | idtac] else cstart.
+      costs; otherwise, the previous [cbound_start] applies. The extension
+      holds in every model with fixpoints, and so in the hint of
+      [TimeCombinators] for bounds without instance. [cbound_mutual] does
+      the same for mutually recursive functions (see [crec_mutual]). *)
+  Ltac2 Set cbound_start as previous := fun () =>
+    match Control.case (fun () => ltac1:(crec)) with
+    | Val _ => Control.dispatch [(fun () => ltac1:(cbc)); (fun () => ())]
+    | Err _ => previous ()
+    end.
   Ltac cbound_mutual := crec_mutual; [cbc | cfinish].
-End FixTimeCostModel.
+End FixTactics.
+
+Module Type FixTimeCostModel
+  (CM : CostModel) (BT : BasicTimeCostModel CM) (CB : CombinatorTimeCostModel CM BT) :=
+  FixTimeCostAxioms CM BT CB <+ FixTactics CM BT CB.
+

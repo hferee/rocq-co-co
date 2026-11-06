@@ -57,7 +57,7 @@ Module ListComplexity (Import M : TimeNat).
 
       [fold_left] is higher-order: its bound depends on the one of its
       function. *)
-  Global Instance tl_linear_bound {A} `{Ground A} `{Size A} : LinearBound (@tl A) := _.
+  Global Instance tl_constant_bound {A} `{Ground A} `{Size A} : ConstantBound (@tl A) := _.
   Global Instance length_linear_bound {A} `{Ground A} `{Size A} : LinearBound (@length A) := _.
   Global Instance app_linear_bound {A} `{Ground A} `{Size A} : LinearBound (@app A) := _.
   Global Instance seq_linear_bound : LinearBound seq := _.

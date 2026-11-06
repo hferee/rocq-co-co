@@ -27,7 +27,15 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
 - `instances/`: the call-by-value λ-calculus L as an instance of
   `TimeCostModel` (`LInstance`) and of the arithmetic signature (`LArith`).
 - `examples/`: examples, the analysis of an ETH algorithm, operation counts
-  in the arithmetic model (`HornerCount`), and why unfoldings of fixpoints
-  must not be free (`UnguardedFix`).
+  in the arithmetic model (`HornerCount`, and Strassen's matrix product in
+  `StrassenCount`), and why unfoldings of fixpoints must not be free
+  (`UnguardedFix`).
 
 Build with `make` (Rocq 9.2, rocq-stdlib, coq-library-undecidability).
+
+The top-level directory `examples/deque` holds an optional example, outside
+the main build: Kaplan and Tarjan's real-time deques, from the Rocq sources
+of the opam package `ktdeque`, have constant-time operations (`DequeCost.v`).
+`make deque` fetches these sources (version 0.2.0, checked against their
+hash), builds the part that the example uses with dune, and compiles the
+example.

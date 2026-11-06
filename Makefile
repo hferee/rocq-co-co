@@ -14,5 +14,9 @@ clean::
 	rm makefile.coq makefile.coq.conf
 	rm -f $(BUILD_FILES)
 
-.PHONY: _
+# The deque example, with its dependency (fetched on demand): examples/deque.
+deque:
+	$(MAKE) -C examples/deque
+
+.PHONY: _ deque
 

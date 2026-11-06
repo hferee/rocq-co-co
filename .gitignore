@@ -52,3 +52,4 @@ makefile.coq
 ._d/
 ._ncdi/
 makefile.coq.conf
+examples/deque/_deps

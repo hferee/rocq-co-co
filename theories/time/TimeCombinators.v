@@ -11,8 +11,69 @@
 
 From Complexity Require Export TimeBasic Compile.
 From Stdlib Require Import PArith.
+From Ltac2 Require Import Ltac2.
+Set Default Proof Mode "Classic".
 
-Module Type CombinatorTimeCostModel
+(** ** Constant bounds
+
+    [cst1 k], [cst2 k1 k2], ...: the complexity of a first-order function of
+    [1], [2], ... arguments whose applications cost [k1], [k2], ... A bound
+    [ComplexityBound f (cst2 _ _)] is proved by [cconst], which finds the
+    constants ([CombinatorTactics]). The constants are arguments, not
+    expressions under the binders of the complexity, so that they can be
+    left to [cconst]. *)
+    (* TODO: can we generalise this to an arbitrary arity? *)
+Definition cst1 {A CA} (k1 : nat) : ℂI A CA -> ℂO unit := fun _ => k1 ⋉ tt.
+Definition cst2 {A CA B CB} (k1 k2 : nat) : ℂI A CA -> ℂO (ℂI B CB -> ℂO unit) :=
+  fun _ => k1 ⋉ fun _ => k2 ⋉ tt.
+Definition cst3 {A CA B CB C CC} (k1 k2 k3 : nat)
+  : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO unit)) :=
+  fun _ => k1 ⋉ fun _ => k2 ⋉ fun _ => k3 ⋉ tt.
+Definition cst4 {A CA B CB C CC D CD} (k1 k2 k3 k4 : nat)
+  : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO (ℂI D CD -> ℂO unit))) :=
+  fun _ => k1 ⋉ fun _ => k2 ⋉ fun _ => k3 ⋉ fun _ => k4 ⋉ tt.
+Definition cst5 {A CA B CB C CC D CD E CE} (k1 k2 k3 k4 k5 : nat)
+  : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO (ℂI D CD -> ℂO (ℂI E CE -> ℂO unit)))) :=
+  fun _ => k1 ⋉ fun _ => k2 ⋉ fun _ => k3 ⋉ fun _ => k4 ⋉ fun _ => k5 ⋉ tt.
+Definition cst6 {A CA B CB C CC D CD E CE F CF} (k1 k2 k3 k4 k5 k6 : nat)
+  : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO (ℂI D CD -> ℂO (ℂI E CE -> ℂO
+    (ℂI F CF -> ℂO unit))))) :=
+  fun _ => k1 ⋉ fun _ => k2 ⋉ fun _ => k3 ⋉ fun _ => k4 ⋉ fun _ => k5 ⋉ fun _ => k6 ⋉ tt.
+#[global] Hint Unfold cst1 cst2 cst3 cst4 cst5 cst6 : costs.
+
+Ltac2 rec cst_update (r : constr) (k : int) (l : (constr * int) list) : (constr * int) list :=
+  match l with
+  | [] => [(r, k)]
+  | (r', k') :: l' =>
+      if Constr.equal r r' then (r, imax k k') :: l' else (r', k') :: cst_update r k l'
+  end.
+
+(** In the goals [cost <= ?k], instantiates each [?k] with the largest
+    cost, which must be a numeral expression. *)
+Ltac2 cst_instantiate () :=
+  let tbl := Ref.ref [] in
+  Control.enter (fun () =>
+    lazy_match! goal with
+    | [ |- ?l <= ?r ] =>
+        if Constr.is_evar r then
+          let (k, d) := poly_of l in
+          if Int.lt 0 d then
+            Control.zero (Tactic_failure (Some (Message.concat
+              (Message.of_string "cconst: the cost is not constant: ") (Message.of_constr l))))
+          else Ref.set tbl (cst_update r k (Ref.get tbl))
+        else ()
+    | [ |- _ ] => ()
+    end);
+  Control.focus 1 1 (fun () =>
+    List.iter (fun (r, k) => Std.unify r (nat_constr k)) (Ref.get tbl)).
+
+(** The model of the combinators ([CombinatorTimeCostModel], at the end) is
+    made of its axioms ([CombinatorTimeCostAxioms]) and of the tactics that
+    they justify ([CombinatorTactics]). The tactics are in a functor, which
+    the module type includes, rather than in the module type itself: Ltac2
+    definitions should not be made in module types, since functor
+    applications do not check them. *)
+Module Type CombinatorTimeCostAxioms
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
 
   (** The complexity of an application [f v] is the output complexity of [f]
@@ -96,6 +157,11 @@ Module Type CombinatorTimeCostModel
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo ⋉
        fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => c_clo ⋉
        fun cx : ℂI X CX => c_step ⊕ pot <$> cf · cx · (cg · cx)).
+End CombinatorTimeCostAxioms.
+
+Module CombinatorTactics
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
+  (Import CB : CombinatorTimeCostAxioms CM BT).
 
   (** ** Proofs of bounds
 
@@ -112,9 +178,15 @@ Module Type CombinatorTimeCostModel
 
   (** Compute the costs ([cbv], as the complexities found by typeclass
       search are large terms), unfolding the constants of the model
-      ([costs]), and the values (combinators). *)
+      ([costs]), and the values (combinators). The closure combinators are
+      unfolded by the same [cbv]: the values that the complexities carry
+      are compiled terms applied to environments, and an environment
+      contains the values computed in the environment before it ([let]s):
+      unevaluated, they copy it, and their size doubles with each [let];
+      evaluated by value, each environment is computed once. *)
   Ltac csimpl :=
-    cbv beta iota zeta delta [app cost_add fmap ret_I ret bind cost res val pot fst snd];
+    cbv beta iota zeta delta [app cost_add fmap ret_I ret bind cost res val pot fst snd
+                              Lam ehd etl Kc Ic Sc Cc compose];
     autounfold with costs; unfold_comb.
 
   (** Compute the functions of the claimed bound on constructors, but
@@ -146,22 +218,33 @@ Module Type CombinatorTimeCostModel
         end
     end.
 
-  (** From a goal [bound_order c_found c_claimed] to inequalities. *)
+  (** From a goal [bound_order c_found c_claimed] to inequalities. The found
+      complexity is computed first ([csimpl]): as built by typeclass search,
+      it is a large term (closures, environments, typed binders), which
+      makes every later tactic slow, even [split] and [destruct]. *)
   Ltac cfinish :=
-    bo_split; destr_inputs; ccases; cunit; try solve [lia | nia]; try ring_simplify.
+    csimpl; bo_split; destr_inputs; ccases; cunit; try solve [lia | nia]; try ring_simplify.
 
   (** From a goal [ComplexityBound f c] to [bound_order c_found c]. *)
   Ltac cstart := eapply ComplexityBound_mono; [idtac | unfold_fun; cbc].
 
   (** [cbound_start] reduces a goal [ComplexityBound f c] to the goals that
       [cfinish] reduces to inequalities. Here, it handles definitions that
-      are not recursive ([cstart]). The other layers of a cost model extend
-      it ([Ltac cbound_start ::= ..]): [TimeFix] with recursive functions.
-      The extension holds in the models that include the layer, so that
-      [cbound], and the hint below, use the most complete version for the
-      model. *)
-  Ltac cbound_start := cstart.
-  Ltac cbound := cbound_start; cfinish.
+      are not recursive ([cstart]). It is a mutable Ltac2 definition: the
+      other layers of a cost model extend it with [Ltac2 Set cbound_start as
+      previous := ..], falling back on [previous] for the goals they do not
+      handle ([TimeFix] for recursive functions). An extension holds in the
+      models that include its layer, after those of the layers included
+      before it, so that [cbound], and the hint below, use the most complete
+      version for the model. *)
+  Ltac2 mutable cbound_start : unit -> unit := fun () => ltac1:(cstart).
+  Ltac cbound := ltac2:(cbound_start ()); cfinish.
+
+  (** [cconst] proves [ComplexityBound f (cst2 _ _)] (or [cst1], ...), and
+      finds the constants: the largest costs of the applications of [f]. *)
+  Ltac cconst :=
+    ltac2:(cbound_start ()); csimpl; bo_split; destr_inputs; ccases; cunit;
+    ltac2:(cst_instantiate ()); cbn; lia.
 
   (** [cweaken] proves [ComplexityBound f c] from the bound of [f] found by
       typeclass search (an instance), when [c] is larger. *)
@@ -179,4 +262,7 @@ Module Type CombinatorTimeCostModel
   #[global] Hint Extern 150 (@ComplexityBound _ _ _ _ ?c) =>
     tryif has_evar c then fail
     else first [solve [once cweaken] | solve [once cbound]] : typeclass_instances.
-End CombinatorTimeCostModel.
+End CombinatorTactics.
+
+Module Type CombinatorTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM) :=
+  CombinatorTimeCostAxioms CM BT <+ CombinatorTactics CM BT.
