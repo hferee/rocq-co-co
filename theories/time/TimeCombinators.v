@@ -122,11 +122,6 @@ Ltac2 cst_instantiate () :=
 Module Type CombinatorTimeCostAxioms
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
 
-  (** The complexity of an application [f v] is the output complexity of [f]
-      at [v] ([apply_complexity]). As an instance of lowest priority, it lets
-      typeclass search follow the structure of compiled terms. *)
-  Global Existing Instance apply_complexity | 100.
-
   (** ** Costs
 
       Partial applications (building closures) cost [c_clo], full
@@ -209,6 +204,59 @@ Module CombinatorTactics
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
   (Import CB : CombinatorTimeCostAxioms CM BT).
 
+  (** ** Search of complexities
+
+      [Found f]: a complexity [found f] of [f], with its bound. The typeclass
+      search of the complexity of a compiled term ([cbc_found]) finds an
+      instance of [Found], whose complexity is an output (a field), rather
+      than a bound [ComplexityBound f ?c], whose complexity is an index:
+
+      - the complexity of an application [f v] is the output complexity of
+        [f] at [v] ([found_apply], from [apply_complexity]), of lowest
+        priority, so that the search follows the structure of compiled
+        terms;
+      - [found_compose] does the same for [compose] ([compose_complexity]);
+      - the other complexities are the bounds of the instances
+        ([found_bound]), tried first.
+
+      The types of the instances found only mention the terms, not their
+      complexities: with bounds, the complexity of each subterm, unreduced
+      ([res (cf (v ⋊ cv))]), appeared in the type of the bound of each
+      enclosing application, and the kernel type-checked it again there (the
+      check of the proof terms took most of the time of the proofs of the
+      large functions). *)
+  Class Found {A CA} `{Repr A CA} (f : A) := { found : CA ; found_ok : ComplexityBound f found }.
+  Arguments found {_ _ _} _ {_}.
+  Arguments found_ok {_ _ _} _ {_}.
+
+  Definition found_bound {A CA} `{Repr A CA} (f : A) (c : CA) (H : ComplexityBound f c) : Found f :=
+    {| found := c; found_ok := H |}.
+
+  Definition found_apply {A B CA CB} `{Repr A CA} `{Repr B CB} (v : A) (f : A -> B)
+    (Hv : Found v) (Hf : Found f) : Found (f v) :=
+    {| found := res (found f (v ⋊ found v));
+       found_ok := apply_complexity _ (found_ok v) (found_ok f) |}.
+
+  Definition found_compose {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC}
+    (f : B -> C) (g : A -> B) (Hf : Found f) (Hg : Found g) : Found (compose f g : A -> C) :=
+    {| found := fun ca : ℂI A CA => c_step ⊕ pot <$> (f ⋊ found f) · ((g ⋊ found g) · ca);
+       found_ok := compose_complexity f _ g _ (found_ok f) (found_ok g) |}.
+
+  Global Existing Instance found_bound | 1.
+  Global Existing Instance found_compose | 50.
+  Global Existing Instance found_apply | 100.
+
+  (** [csearch] searches for the complexity of the term of a goal
+      [ComplexityBound f ?c], which instantiates [?c] with [found f].
+      [cbc_found] is [cbc] ([Compile]) with [csearch]: it compiles the
+      function first. *)
+  Ltac csearch :=
+    lazymatch goal with
+    | |- ComplexityBound ?f _ => notypeclasses refine (@found_ok _ _ _ f _)
+    end;
+    typeclasses eauto.
+  Ltac cbc_found := unshelve (compile_goal; csearch); try exact unit.
+
   (** ** Proofs of bounds
 
       [cbound] proves a goal [ComplexityBound f c], where [c] is the claimed
@@ -231,7 +279,8 @@ Module CombinatorTactics
       unevaluated, they copy it, and their size doubles with each [let];
       evaluated by value, each environment is computed once. *)
   Ltac csimpl :=
-    cbv beta iota zeta delta [app cost_add fmap ret_I ret bind cost res val pot fst snd
+    cbv beta iota zeta delta [found found_bound found_apply found_compose
+                              app cost_add fmap ret_I ret bind cost res val pot fst snd
                               Lam ehd etl Kc Ic Sc Cc compose];
     autounfold with costs; unfold_comb.
 
@@ -266,7 +315,7 @@ Module CombinatorTactics
     csimpl; bo_split; destr_inputs; ccases; cunit; try solve [lia | nia]; try ring_simplify.
 
   (** From a goal [ComplexityBound f c] to [bound_order c_found c]. *)
-  Ltac cstart := eapply ComplexityBound_mono; [idtac | unfold_fun; cbc].
+  Ltac cstart := eapply ComplexityBound_mono; [idtac | unfold_fun; cbc_found].
 
   (** [cbound_start] reduces a goal [ComplexityBound f c] to the goals that
       [cfinish] reduces to inequalities. Here, it handles definitions that

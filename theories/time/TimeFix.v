@@ -83,10 +83,10 @@ Module FixTactics
       the same for mutually recursive functions (see [crec_mutual]). *)
   Ltac2 Set cbound_start as previous := fun () =>
     match Control.case (fun () => ltac1:(crec)) with
-    | Val _ => Control.dispatch [(fun () => ltac1:(cbc)); (fun () => ())]
+    | Val _ => Control.dispatch [(fun () => ltac1:(cbc_found)); (fun () => ())]
     | Err _ => previous ()
     end.
-  Ltac cbound_mutual := crec_mutual; [cbc | cfinish].
+  Ltac cbound_mutual := crec_mutual; [cbc_found | cfinish].
 End FixTactics.
 
 Module Type FixTimeCostModel

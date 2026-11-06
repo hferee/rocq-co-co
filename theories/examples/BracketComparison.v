@@ -20,10 +20,12 @@ From Stdlib Require Import PArith.
 
 Module BracketComparison (Import M : TimeCostModel).
 
-  (** [cbound] with bracket abstraction. *)
+  (** [cbound] with bracket abstraction ([bcbc] with the search of
+      [cbound], [csearch]). *)
+  Ltac bcbc_found := unshelve (bracket_compile_goal; csearch); try exact unit.
   Ltac bcbound :=
-    (tryif crec then [> bcbc | idtac]
-     else (eapply ComplexityBound_mono; [idtac | unfold_fun; bcbc]));
+    (tryif crec then [> bcbc_found | idtac]
+     else (eapply ComplexityBound_mono; [idtac | unfold_fun; bcbc_found]));
     cfinish.
 
   Lemma add_complexity : ComplexityBound Nat.add

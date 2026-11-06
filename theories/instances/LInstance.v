@@ -648,6 +648,8 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
     Lstep. Lend R1.
   Qed.
 
+  (** The definitions and tactics of the model ([Found], [cbound], ...). *)
+  Include CombinatorTactics LCM LBT.
 End LCB.
 
 (** [nat]. *)
