@@ -50,6 +50,50 @@ Ltac2 rec cst_update (r : constr) (k : int) (l : (constr * int) list) : (constr 
       if Constr.equal r r' then (r, imax k k') :: l' else (r', k') :: cst_update r k l'
   end.
 
+(** [cunit] destructs the closed subterms of type [unit] of the goal, other
+    than [tt] (the complexities of ground values, given by potentials of
+    functions as [res (..)]). The goal is traversed once for each destruct,
+    without going into numerals: the goals of the costs are mostly
+    inequalities between numerals ([S (S ..)]), and an Ltac1 [context]
+    match, which types each subterm, took most of the time of [cconst] on
+    large functions. *)
+Ltac2 rec unit_subterms (acc : constr list ref) (t : constr) : unit :=
+  match nat_value t with
+  | Some _ => ()
+  | None =>
+      let found :=
+        match Constr.Unsafe.kind t with
+        | Constr.Unsafe.Constructor _ _ => false
+        | Constr.Unsafe.Sort _ => false
+        | Constr.Unsafe.Prod _ _ => false
+        | _ =>
+            if Constr.Unsafe.is_closed t then
+              match Control.case (fun () => Constr.type t) with
+              | Val (ty, _) => Constr.equal ty constr:(unit)
+              | Err _ => false
+              end
+            else false
+        end in
+      if found then Ref.set acc (t :: Ref.get acc)
+      else Constr.Unsafe.iter (unit_subterms acc) t
+  end.
+
+Ltac2 rec cunit_goal () :=
+  let acc := Ref.ref [] in
+  unit_subterms acc (Control.goal ());
+  let rec try_all l :=
+    match l with
+    | [] => ()
+    | u :: l =>
+        match Control.case (fun () => ltac1:(u |- destruct u) (Ltac1.of_constr u)) with
+        | Val _ => cunit_goal ()
+        | Err _ => try_all l
+        end
+    end in
+  try_all (List.rev (Ref.get acc)).
+
+Ltac2 cunit () := Control.enter cunit_goal.
+
 (** In the goals [cost <= ?k], instantiates each [?k] with the largest
     cost, which must be a numeral expression. *)
 Ltac2 cst_instantiate () :=
@@ -212,13 +256,7 @@ Module CombinatorTactics
 
   (** The complexities of ground values, given by potentials of functions
       as [res (..)], are [tt]. *)
-  Ltac cunit :=
-    repeat match goal with
-    | |- context [?u] =>
-        lazymatch type of u with
-        | unit => lazymatch u with tt => fail | _ => destruct u end
-        end
-    end.
+  Ltac cunit := ltac2:(cunit ()).
 
   (** From a goal [bound_order c_found c_claimed] to inequalities. The found
       complexity is computed first ([csimpl]): as built by typeclass search,
