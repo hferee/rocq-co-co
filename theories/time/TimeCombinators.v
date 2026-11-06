@@ -11,6 +11,8 @@
 
 From Complexity Require Export TimeBasic Compile.
 From Stdlib Require Import PArith.
+From Stdlib Require List.
+From Complexity Require Poly.
 From Ltac2 Require Import Ltac2.
 Set Default Proof Mode "Classic".
 
@@ -238,13 +240,53 @@ Module CombinatorTactics
       before it, so that [cbound], and the hint below, use the most complete
       version for the model. *)
   Ltac2 mutable cbound_start : unit -> unit := fun () => ltac1:(cstart).
-  Ltac cbound := ltac2:(cbound_start ()); cfinish.
 
   (** [cconst] proves [ComplexityBound f (cst2 _ _)] (or [cst1], ...), and
       finds the constants: the largest costs of the applications of [f]. *)
   Ltac cconst :=
     ltac2:(cbound_start ()); csimpl; bo_split; destr_inputs; ccases; cunit;
     ltac2:(cst_instantiate ()); cbn; lia.
+
+  (** [cbound_constant], [cbound_linear] and [cbound_polynomial] prove
+      [ConstantBound f], [LinearBound f] and [PolynomialBound f] by analysing
+      [f] as [cbound] does, without a [ComplexityBound] instance for [f]
+      (unlike [cconstant], [clinear] and [cpolynomial]): [cbound_split]
+      reduces [FirstOrderBound f (peval ?p)] to inequalities [cost <= peval
+      ?p ss], and the polynomial [?p] is chosen from the costs as in
+      [Bounds]. The inequalities that [lia] and [nia] do not prove are left,
+      for example when they need facts on the sizes of the arguments. *)
+  Ltac cbound_split :=
+    unfold FirstOrderBound; cbn [fo_repr size_bound];
+    ltac2:(cbound_start ()); csimpl; bo_split; destr_inputs; ccases; cunit;
+    add_size_facts.
+
+  Ltac cbound_constant :=
+    unfold ConstantBound; eexists; split; cycle 1;
+    [ cbound_split; ltac2:(constant_constants ()); cbn [Poly.peval List.nth];
+      try solve [lia | nia]
+    | reflexivity ].
+
+  Ltac cbound_linear :=
+    unfold LinearBound; eexists; split; cycle 1;
+    [ cbound_split; ltac2:(linear_constants ()); cbn [Poly.peval List.nth];
+      try solve [lia | nia]
+    | cbn; lia ].
+
+  Ltac cbound_polynomial :=
+    unfold PolynomialBound; eexists;
+    cbound_split; ltac2:(polynomial_constants ()); cbn [Poly.peval List.nth Nat.pow];
+    try solve [lia | nia].
+
+  (** [cbound] proves [ComplexityBound f c] ([cbound_start], then
+      [cfinish]), and [ConstantBound f], [LinearBound f] and
+      [PolynomialBound f] with the tactics above. *)
+  Ltac cbound :=
+    lazymatch goal with
+    | |- ConstantBound _ => cbound_constant
+    | |- LinearBound _ => cbound_linear
+    | |- PolynomialBound _ => cbound_polynomial
+    | |- _ => ltac2:(cbound_start ()); cfinish
+    end.
 
   (** [cweaken] proves [ComplexityBound f c] from the bound of [f] found by
       typeclass search (an instance), when [c] is larger. *)
