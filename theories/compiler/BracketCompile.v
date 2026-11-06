@@ -18,7 +18,7 @@
 
 From Ltac2 Require Import Ltac2.
 From Stdlib Require Import Program.Basics.
-From Complexity Require Import Combinators Compile.
+From Complexity Require Import Compile.
 Import Constr.Unsafe.
 
 (** Combinators: number of type arguments and of other arguments. *)

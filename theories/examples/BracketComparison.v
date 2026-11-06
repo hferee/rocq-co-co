@@ -15,16 +15,15 @@
     | [length]    | [10 len + 8]        | [17 len + 9]        |
     | [Pos.succ]  | [11 size]           | [18 size]           | *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic TimeDatatypes Combinators
-  Compile BracketCompile TimeCombinators TimeFix.
-From Stdlib Require Import Program.Basics List Arith PArith Lia.
+From Complexity Require Import TimeCostModel BracketCompile.
+From Stdlib Require Import PArith.
 
 Module BracketComparison (Import M : TimeCostModel).
 
   (** [cbound] with bracket abstraction. *)
   Ltac bcbound :=
     (tryif crec then [> bcbc | idtac]
-     else (eapply ComplexityBound_ext_eq; [idtac | unfold_fun; bcbc]));
+     else (eapply ComplexityBound_mono; [idtac | unfold_fun; bcbc]));
     cfinish.
 
   Lemma add_complexity : ComplexityBound Nat.add

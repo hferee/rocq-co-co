@@ -10,9 +10,7 @@
     argument; the cost of a step of the recursion includes it, since the
     recursive call is a partial application too. *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic TimeDatatypes Combinators
-  Compile TimeCombinators TimeFix.
-From Stdlib Require Import Program.Basics Arith Lia.
+From Complexity Require Export TimeCostModel.
 
 Module NatComplexity (Import M : TimeCostModel).
 
@@ -24,28 +22,28 @@ Module NatComplexity (Import M : TimeCostModel).
   (** ** Bounds *)
 
   Global Instance Nat_add_complexity : ComplexityBound Nat.add
-    (fun cn => 5 ⋉ fun cm => (36 * val cn + 14) ⋉ tt) := ltac:(cbound).
+    (fun cn => 5 ⋉ fun cm => (36 * val cn + 14) ⋉ tt) := _.
 
   (** [Nat.sub] is recursive on its first argument and matches on the second
       one. *)
   Global Instance Nat_sub_complexity : ComplexityBound Nat.sub
-    (fun cn => 5 ⋉ fun cm => (56 * val cn + 16) ⋉ tt) := ltac:(cbound).
+    (fun cn => 5 ⋉ fun cm => (56 * val cn + 16) ⋉ tt) := _.
 
   Global Instance Nat_eqb_complexity : ComplexityBound Nat.eqb
-    (fun cn => 5 ⋉ fun cm => (37 * val cn + 14) ⋉ tt) := ltac:(cbound).
+    (fun cn => 5 ⋉ fun cm => (37 * val cn + 14) ⋉ tt) := _.
 
   Global Instance Nat_leb_complexity : ComplexityBound Nat.leb
-    (fun cn => 5 ⋉ fun cm => (39 * val cn + 10) ⋉ tt) := ltac:(cbound).
+    (fun cn => 5 ⋉ fun cm => (39 * val cn + 10) ⋉ tt) := _.
 
   (** [Nat.ltb] is not recursive: its complexity follows from the one of
       [Nat.leb] by compilation alone. *)
   Global Instance Nat_ltb_complexity : ComplexityBound Nat.ltb
-    (fun cn => 2 ⋉ fun cm => (39 * val cn + 63) ⋉ tt) := ltac:(cbound).
+    (fun cn => 2 ⋉ fun cm => (39 * val cn + 63) ⋉ tt) := _.
 
   (** The recursive branch of [Nat.mul] calls [Nat.add]. *)
   Global Instance Nat_mul_complexity : ComplexityBound Nat.mul
     (fun cn => 5 ⋉ fun cm =>
-       (val cn * (36 * val cm + 52) + 10) ⋉ tt) := ltac:(cbound).
+       (val cn * (36 * val cm + 52) + 10) ⋉ tt) := _.
 
   (** [Nat.pow] is recursive on its second argument, and the step [m] calls
       [Nat.mul] on [n ^ m]: the sum of the [n ^ i] is bounded by

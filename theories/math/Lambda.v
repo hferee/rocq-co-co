@@ -20,7 +20,7 @@
     A. Chlipala. Parametric higher-order abstract syntax for mechanized
     semantics. ICFP 2008. *)
 
-From Complexity Require Import Combinators.
+From Complexity Require Export Combinators.
 From Stdlib Require Import List Program.Basics.
 Import ListNotations.
 From Ltac2 Require Import Ltac2.

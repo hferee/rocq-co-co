@@ -1,16 +1,24 @@
 (** * Cost models for the basic datatypes
 
-    One module type for each datatype: booleans, natural numbers, lists,
-    options and pairs of ground data, and binary numbers. Values are ground
-    data, with sizes ([Size]); constructors and case analyses are primitive.
-    Each case analysis is compiled to a case combinator ([Combinators]),
-    defined here with its datatype. Recursion is covered by [TimeFix]:
-    the functions of the standard library are analysed as they are defined
-    ([stdlib]). *)
+    Booleans, natural numbers, lists, options and pairs of ground data, and
+    binary numbers. Values are ground data, with sizes ([Size]); constructors
+    and case analyses are primitive. Each case analysis is compiled to a case
+    combinator ([Combinators]), defined here with its datatype. Recursion is
+    covered by [TimeFix]: the functions of the standard library are analysed
+    as they are defined ([stdlib]).
 
-From Complexity Require Import CostModel TimeBasic Combinators Compile
-  TimeCombinators TimeFix.
-From Stdlib Require Import Program.Basics Lia List PArith NArith ZArith QArith.
+    Each datatype has up to three layers, so that a cost model can choose its
+    primitives: the data ([NatData]: representation, sizes and values, with
+    no cost), the constructors ([NatCtorTimeCostModel]) and the case analysis
+    ([NatCaseTimeCostModel]). A model without the case layer of [nat] has no
+    known cost for matches on [nat]: [cbc] fails on them. The constructor and
+    case layers declare their constants (the cost of a partial application
+    is [c_clo], from [BasicTimeCostModel]). [NatTimeCostModel] gathers the
+    three layers. *)
+
+From Complexity Require Export TimeBasic.
+From Complexity Require Import Combinators.
+From Stdlib Require Import List PArith NArith ZArith QArith.
 Local Open Scope nat_scope.
 
 
@@ -24,26 +32,34 @@ Definition bool_case {A : Type} (t f : unit -> A) (b : bool) : A :=
 #[global] Typeclasses Opaque bool_case.
 #[global] Hint Unfold bool_case : comb.
 
-Module Type BoolTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
-
-  (** Booleans are ground data. *)
+(** Booleans are ground data. *)
+Module Type BoolData (Import CM : CostModel).
   #[global] Declare Instance Repr_bool : Ground bool.
 
   #[global] Declare Instance Size_bool : Size bool.
   Parameter size_bool : forall b : bool, 0 < size b.
 
   #[global] Declare Instance bool_complexity : forall b : bool, ComplexityBound b tt.
+End BoolData.
+
+Module Type BoolCaseTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import BD : BoolData CM).
+
+  Parameter c_case_bool : nat.
+  #[global] Hint Unfold c_case_bool : costs.
 
   (** Case analysis, with the branches as thunks: only the selected branch is
       evaluated. [if] and every match on a boolean are compiled to it. *)
   #[global] Declare Instance bool_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@bool_case A)
-      (fun ct : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cf : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cb : ℂI bool unit => 1 ⊕
+      (fun ct : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun cf : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun cb : ℂI bool unit => c_case_bool ⊕
          if val cb then pot ct (tt ⋊ tt) else pot cf (tt ⋊ tt)).
-End BoolTimeCostModel.
+End BoolCaseTimeCostModel.
+
+Module Type BoolTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM) :=
+  BoolData CM <+ BoolCaseTimeCostModel CM BT.
 
 (** ** Natural numbers *)
 
@@ -60,15 +76,9 @@ Coercion ℂI_nat_inj : nat >-> ℂI.
 
 (* An example of a cost model for time complexity  *)
 (* It's a call-by-value time cost model *)
-Module Type NatTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
 
-(*   Parameter CT_nat: CT nat unit.
-  Existing Instance CT_nat. *)
-  
-  (** ** Values and constructors
-
-      Natural numbers are ground data. *)
+(** Natural numbers are ground data. *)
+Module Type NatData (Import CM : CostModel).
   #[global] Declare Instance Repr_nat : Ground nat.
 
   #[global] Declare Instance Size_nat : Size nat.
@@ -76,25 +86,37 @@ Module Type NatTimeCostModel
   Parameter size_S : forall n, size n < size (S n).
 
   #[global] Declare Instance nat_complexity : forall n : nat, ComplexityBound n tt.
+End NatData.
 
-  Parameter S_complexity : ComplexityBound S (fun x => 1 ⋉ tt).
+Module Type NatCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import ND : NatData CM).
+
+  Parameter c_S : nat.
+  #[global] Hint Unfold c_S : costs.
+
+  Parameter S_complexity : ComplexityBound S (fun x => c_S ⋉ tt).
   Existing Instance S_complexity.
+End NatCtorTimeCostModel.
 
+Module Type NatCaseTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import ND : NatData CM).
 
+  Parameter c_case_nat : nat.
+  #[global] Hint Unfold c_case_nat : costs.
 
-  (** ** Case analysis
-
-      [nat_case] is a higher-order constant: matches on any expression, with
+  (** [nat_case] is a higher-order constant: matches on any expression, with
       branches using other variables, are compiled to it ([Compile]).
       Recursion is covered by the generic fixpoint axiom of [TimeFix]. *)
-
   #[global] Declare Instance nat_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@nat_case A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cs : ℂI (nat -> A) (ℂI nat unit -> ℂO CA) => 1 ⋉
-       fun cn : ℂI nat unit => 1 ⊕
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun cs : ℂI (nat -> A) (ℂI nat unit -> ℂO CA) => c_clo ⋉
+       fun cn : ℂI nat unit => c_case_nat ⊕
          match val cn with O => pot cz (tt ⋊ tt) | S k => pot cs (k ⋊ tt) end).
-End NatTimeCostModel.
+End NatCaseTimeCostModel.
+
+Module Type NatTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM) :=
+  NatData CM <+ NatCtorTimeCostModel CM BT <+ NatCaseTimeCostModel CM BT.
 
 (* See NatComplexity.v for examples. *)
 
@@ -108,9 +130,7 @@ Definition list_case {X A : Type} (z : unit -> A) (c : X -> list X -> A) (l : li
 #[global] Typeclasses Opaque list_case.
 #[global] Hint Unfold list_case : comb.
 
-Module Type ListTimeCostModel
-  (Import CM : CostModel) (Import BTM : BasicTimeCostModel CM).
-
+Module Type ListData (Import CM : CostModel).
   (* The cost of a list is the list of costs.
     Other possible cost models: the maxiumum cost or the sum of the costs. *)
 (*   Parameter CT_list: forall {A CA : Type} `{CT A CA}, CT (list A) (list CA).
@@ -126,6 +146,14 @@ Module Type ListTimeCostModel
 
   (** The empty list is a value; the other lists are built with [cons]. *)
   #[global] Declare Instance nil_complexity : forall {A} `{Ground A}, ComplexityBound (@nil A) tt.
+End ListData.
+
+Module Type ListCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import LD : ListData CM).
+
+  Parameter c_cons : nat.
+  #[global] Hint Unfold c_cons : costs.
+
   (* TODO: annoyingly, this is required for cons_complexity to find the typeclass instance *)
 (*   Global Instance CT_cons {A CA : Type}: CT (A -> list A -> list A)
                         (ℂI A -> ℂO (ℂI (list A) -> ℂO (list CA))).
@@ -133,23 +161,31 @@ Module Type ListTimeCostModel
 
   #[global] Declare Instance cons_complexity: forall {A : Type} `{Ground A},
     ComplexityBound (@cons A)
-                    (fun h => 1 ⋉ ( (* we may not need so many 1s *)
-                     fun t => 1 ⋉ tt)).
+                    (fun h => c_clo ⋉ (
+                     fun t => c_cons ⋉ tt)).
+End ListCtorTimeCostModel.
 
+Module Type ListCaseTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import LD : ListData CM).
+
+  Parameter c_case_list : nat.
+  #[global] Hint Unfold c_case_list : costs.
 
   (** Case analysis, as a higher-order constant: matches on any expression,
       with branches using other variables, are compiled to it ([Compile]). *)
   #[global] Declare Instance list_case_complexity : forall {X A CA} `{Ground X} `{Repr A CA},
     ComplexityBound (@list_case X A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cc : ℂI (X -> list X -> A) (ℂI X unit -> ℂO (ℂI (list X) unit -> ℂO CA)) => 1 ⋉
-       fun cl : ℂI (list X) unit => 1 ⊕
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun cc : ℂI (X -> list X -> A) (ℂI X unit -> ℂO (ℂI (list X) unit -> ℂO CA)) => c_clo ⋉
+       fun cl : ℂI (list X) unit => c_case_list ⊕
          match val cl with
          | nil => pot cz (tt ⋊ tt)
          | cons h t => pot <$> cc · (h ⋊ tt) · (t ⋊ tt)
          end).
+End ListCaseTimeCostModel.
 
-End ListTimeCostModel.
+Module Type ListTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM) :=
+  ListData CM <+ ListCtorTimeCostModel CM BT <+ ListCaseTimeCostModel CM BT.
 
 (** ** Options (of ground data) *)
 
@@ -161,10 +197,8 @@ Definition option_case {X A : Type} (s : X -> A) (z : unit -> A) (o : option X) 
 #[global] Typeclasses Opaque option_case.
 #[global] Hint Unfold option_case : comb.
 
-Module Type OptionTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
-
-  (** Options of ground data are ground data. *)
+(** Options of ground data are ground data. *)
+Module Type OptionData (Import CM : CostModel).
   #[global] Declare Instance Repr_option : forall {A}, Ground A -> Ground (option A).
 
   #[global] Declare Instance Size_option : forall {A}, Size A -> Size (option A).
@@ -173,20 +207,37 @@ Module Type OptionTimeCostModel
 
   (** [None] is a value; the other options are built with [Some]. *)
   #[global] Declare Instance None_complexity : forall {A} `{Ground A}, ComplexityBound (@None A) tt.
+End OptionData.
+
+Module Type OptionCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import OD : OptionData CM).
+
+  Parameter c_Some : nat.
+  #[global] Hint Unfold c_Some : costs.
 
   #[global] Declare Instance Some_complexity : forall {A} `{Ground A},
-    ComplexityBound (@Some A) (fun _ => 1 ⋉ tt).
+    ComplexityBound (@Some A) (fun _ => c_Some ⋉ tt).
+End OptionCtorTimeCostModel.
+
+Module Type OptionCaseTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import OD : OptionData CM).
+
+  Parameter c_case_option : nat.
+  #[global] Hint Unfold c_case_option : costs.
 
   #[global] Declare Instance option_case_complexity : forall {X A CA} `{Ground X} `{Repr A CA},
     ComplexityBound (@option_case X A)
-      (fun cs : ℂI (X -> A) (ℂI X unit -> ℂO CA) => 1 ⋉
-       fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun co : ℂI (option X) unit => 1 ⊕
+      (fun cs : ℂI (X -> A) (ℂI X unit -> ℂO CA) => c_clo ⋉
+       fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun co : ℂI (option X) unit => c_case_option ⊕
          match val co with
          | Some x => pot cs (x ⋊ tt)
          | None => pot cz (tt ⋊ tt)
          end).
-End OptionTimeCostModel.
+End OptionCaseTimeCostModel.
+
+Module Type OptionTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM) :=
+  OptionData CM <+ OptionCtorTimeCostModel CM BT <+ OptionCaseTimeCostModel CM BT.
 
 (** ** Pairs (of ground data)
 
@@ -201,28 +252,42 @@ Definition prod_case {X Y A : Type} (f : X -> Y -> A) (p : X * Y) : A :=
 #[global] Typeclasses Opaque prod_case.
 #[global] Hint Unfold prod_case : comb.
 
-Module Type ProdTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
-
+Module Type ProdData (Import CM : CostModel).
   #[global] Declare Instance Repr_prod : forall {A B}, Ground A -> Ground B -> Ground (A * B).
 
   #[global] Declare Instance Size_prod : forall {A B}, Size A -> Size B -> Size (A * B).
   Parameter size_pair : forall {A B} `{Size A} `{Size B} (a : A) (b : B),
     size a + size b < size (a, b).
+End ProdData.
 
-  (* Pairs are built with [pair]. *)
+(* Pairs are built with [pair]. *)
+Module Type ProdCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import PD : ProdData CM).
+
+  Parameter c_pair : nat.
+  #[global] Hint Unfold c_pair : costs.
 
   #[global] Declare Instance pair_complexity : forall {A B} `{Ground A} `{Ground B},
-    ComplexityBound (@pair A B) (fun _ => 1 ⋉ fun _ => 1 ⋉ tt).
+    ComplexityBound (@pair A B) (fun _ => c_clo ⋉ fun _ => c_pair ⋉ tt).
+End ProdCtorTimeCostModel.
+
+Module Type ProdCaseTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import PD : ProdData CM).
+
+  Parameter c_case_prod : nat.
+  #[global] Hint Unfold c_case_prod : costs.
 
   #[global] Declare Instance prod_case_complexity :
     forall {X Y A CA} `{Ground X} `{Ground Y} `{Repr A CA},
     ComplexityBound (@prod_case X Y A)
-      (fun cf : ℂI (X -> Y -> A) (ℂI X unit -> ℂO (ℂI Y unit -> ℂO CA)) => 1 ⋉
-       fun cp : ℂI (X * Y) unit => 1 ⊕
+      (fun cf : ℂI (X -> Y -> A) (ℂI X unit -> ℂO (ℂI Y unit -> ℂO CA)) => c_clo ⋉
+       fun cp : ℂI (X * Y) unit => c_case_prod ⊕
          let (x, y) := val cp in
          pot <$> cf · (x ⋊ tt) · (y ⋊ tt)).
-End ProdTimeCostModel.
+End ProdCaseTimeCostModel.
+
+Module Type ProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM) :=
+  ProdData CM <+ ProdCtorTimeCostModel CM BT <+ ProdCaseTimeCostModel CM BT.
 
 (** ** Binary numbers: [positive], [N], [Z], and [Q] *)
 
@@ -242,11 +307,9 @@ Definition Q_case {A : Type} (f : Z -> positive -> A) (q : Q) : A :=
 #[global] Typeclasses Opaque positive_case N_case Z_case comparison_case Q_case.
 #[global] Hint Unfold positive_case N_case Z_case comparison_case Q_case : comb.
 
-Module Type ZTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
+(** ** Values, constructors, case analysis *)
 
-  (** ** Values, constructors, case analysis *)
-
+Module Type ZData (Import CM : CostModel).
   #[global] Declare Instance Repr_positive : Ground positive.
   #[global] Declare Instance Repr_N : Ground N.
   #[global] Declare Instance Repr_Z : Ground Z.
@@ -274,21 +337,37 @@ Module Type ZTimeCostModel
   #[global] Declare Instance Z_complexity : forall z : Z, ComplexityBound z tt.
   #[global] Declare Instance Q_complexity : forall q : Q, ComplexityBound q tt.
   #[global] Declare Instance comparison_complexity : forall c : comparison, ComplexityBound c tt.
+End ZData.
 
-  #[global] Declare Instance xI_complexity : ComplexityBound xI (fun _ => 1 ⋉ tt).
-  #[global] Declare Instance xO_complexity : ComplexityBound xO (fun _ => 1 ⋉ tt).
-  #[global] Declare Instance Npos_complexity : ComplexityBound Npos (fun _ => 1 ⋉ tt).
-  #[global] Declare Instance Zpos_complexity : ComplexityBound Zpos (fun _ => 1 ⋉ tt).
-  #[global] Declare Instance Zneg_complexity : ComplexityBound Zneg (fun _ => 1 ⋉ tt).
+(** One constant for the constructors of all the binary numbers, one for
+    their case analyses. *)
+Module Type ZCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import ZD : ZData CM).
+
+  Parameter c_ctor_Z : nat.
+  #[global] Hint Unfold c_ctor_Z : costs.
+
+  #[global] Declare Instance xI_complexity : ComplexityBound xI (fun _ => c_ctor_Z ⋉ tt).
+  #[global] Declare Instance xO_complexity : ComplexityBound xO (fun _ => c_ctor_Z ⋉ tt).
+  #[global] Declare Instance Npos_complexity : ComplexityBound Npos (fun _ => c_ctor_Z ⋉ tt).
+  #[global] Declare Instance Zpos_complexity : ComplexityBound Zpos (fun _ => c_ctor_Z ⋉ tt).
+  #[global] Declare Instance Zneg_complexity : ComplexityBound Zneg (fun _ => c_ctor_Z ⋉ tt).
   #[global] Declare Instance Qmake_complexity :
-    ComplexityBound Qmake (fun _ => 1 ⋉ fun _ => 1 ⋉ tt).
+    ComplexityBound Qmake (fun _ => c_clo ⋉ fun _ => c_ctor_Z ⋉ tt).
+End ZCtorTimeCostModel.
+
+Module Type ZCaseTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import ZD : ZData CM).
+
+  Parameter c_case_Z : nat.
+  #[global] Hint Unfold c_case_Z : costs.
 
   #[global] Declare Instance positive_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@positive_case A)
-      (fun cI : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-       fun cO : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-       fun cH : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cp : ℂI positive unit => 1 ⊕
+      (fun cI : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => c_clo ⋉
+       fun cO : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => c_clo ⋉
+       fun cH : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun cp : ℂI positive unit => c_case_Z ⊕
          match val cp with
          | xI q => pot cI (q ⋊ tt)
          | xO q => pot cO (q ⋊ tt)
@@ -297,17 +376,17 @@ Module Type ZTimeCostModel
 
   #[global] Declare Instance N_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@N_case A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-       fun cn : ℂI N unit => 1 ⊕
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => c_clo ⋉
+       fun cn : ℂI N unit => c_case_Z ⊕
          match val cn with N0 => pot cz (tt ⋊ tt) | Npos p => pot cp (p ⋊ tt) end).
 
   #[global] Declare Instance Z_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@Z_case A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-       fun cn : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-       fun cx : ℂI Z unit => 1 ⊕
+      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => c_clo ⋉
+       fun cn : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => c_clo ⋉
+       fun cx : ℂI Z unit => c_case_Z ⊕
          match val cx with
          | Z0 => pot cz (tt ⋊ tt)
          | Zpos p => pot cp (p ⋊ tt)
@@ -316,10 +395,10 @@ Module Type ZTimeCostModel
 
   #[global] Declare Instance comparison_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@comparison_case A)
-      (fun ce : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cl : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cg : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cc : ℂI comparison unit => 1 ⊕
+      (fun ce : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun cl : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun cg : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => c_clo ⋉
+       fun cc : ℂI comparison unit => c_case_Z ⊕
          match val cc with
          | Eq => pot ce (tt ⋊ tt)
          | Lt => pot cl (tt ⋊ tt)
@@ -328,9 +407,12 @@ Module Type ZTimeCostModel
 
   #[global] Declare Instance Q_case_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@Q_case A)
-      (fun cf : ℂI (Z -> positive -> A) (ℂI Z unit -> ℂO (ℂI positive unit -> ℂO CA)) => 1 ⋉
-       fun cq : ℂI Q unit => 1 ⊕
+      (fun cf : ℂI (Z -> positive -> A) (ℂI Z unit -> ℂO (ℂI positive unit -> ℂO CA)) => c_clo ⋉
+       fun cq : ℂI Q unit => c_case_Z ⊕
          match val cq with
          | Qmake n d => pot <$> cf · (n ⋊ tt) · (d ⋊ tt)
          end).
-End ZTimeCostModel.
+End ZCaseTimeCostModel.
+
+Module Type ZTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM) :=
+  ZData CM <+ ZCtorTimeCostModel CM BT <+ ZCaseTimeCostModel CM BT.

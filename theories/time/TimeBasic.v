@@ -6,8 +6,19 @@
     complexities ([ℂI], [ℂO]) and the application [·] are defined in
     [CostModel], independently of the resource. *)
 
-From Complexity Require Import CostModel.
+From Complexity Require Export CostModel.
 Module Type BasicTimeCostModel (Import CM : CostModel).
+
+  (** ** Constants
+
+      The costs of the primitives are constants, fixed by each cost model:
+      [TimeCostModel] sets them all to [1]. [c_clo] is the cost of a partial
+      application (building a closure), [c_step] the cost of a full
+      application of a basic function or of a combinator ([TimeCombinators]).
+      The models of the datatypes and of fixpoints have their own
+      constants. *)
+  Parameter c_clo c_step : nat.
+  #[global] Hint Unfold c_clo c_step : costs.
 
   (* Assume we know the cost of some basic functions *)
   (* General idea: we define a (complete) set of primitives and axiomatize their
@@ -19,7 +30,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     A priori, this is not the case for coq-library-complexity. *)
   (* Note that the complexity of the identity is roughly the identity *)
   #[global] Declare Instance id_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (fun (x : A) => x) (fun ca => (1 ⋉ pot ca) : ℂO CA).
+    ComplexityBound (fun (x : A) => x) (fun ca => (c_step ⋉ pot ca) : ℂO CA).
 
   (* Note : we are using the unfolding of [@id A] here so that typeclass
     resolution works *)
@@ -38,12 +49,12 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     ComplexityBound f cf ->
     ComplexityBound g cg ->
     ComplexityBound (compose f g : A -> C)
-                    (fun ca => 1 ⊕ pot <$> (f ⋊ cf) · ((g ⋊ cg) · ca)).
+                    (fun ca => c_step ⊕ pot <$> (f ⋊ cf) · ((g ⋊ cg) · ca)).
 
   #[global] Declare Instance constant_complexity :
     forall {A B CA CB} `{Repr A CA} `{Repr B CB} b {cb},
     ComplexityBound (b : B) (cb : CB) ->
-    ComplexityBound (fun (_ : A) => b) (fun _ => 1 ⋉ cb).
+    ComplexityBound (fun (_ : A) => b) (fun _ => c_step ⋉ cb).
 
   (** [tt]: the argument of the thunks for the branches of constant
       constructors in case analyses, and the empty environment of closures

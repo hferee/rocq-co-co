@@ -4,19 +4,18 @@
     complexity, and only the claimed bound remains to be checked. The
     constants are the smallest ones (see [NatComplexity]). *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic Combinators Compile
-  TimeCombinators TimeDatatypes.
-From Stdlib Require Import Program.Basics Bool Lia.
+From Complexity Require Export TimeCostModel.
+From Stdlib Require Import Bool.
 
 Module BoolComplexity (Import M : TimeCostModel).
 
-  Global Instance negb_complexity : ComplexityBound negb (fun cb => 2 ⋉ tt) := ltac:(cbound).
+  Global Instance negb_complexity : ComplexityBound negb (fun cb => 2 ⋉ tt) := _.
 
   Global Instance andb_complexity : ComplexityBound andb
-    (fun ca => 2 ⋉ fun cb => 14 ⋉ tt) := ltac:(cbound).
+    (fun ca => 2 ⋉ fun cb => 14 ⋉ tt) := _.
 
   Global Instance orb_complexity : ComplexityBound orb
-    (fun ca => 2 ⋉ fun cb => 12 ⋉ tt) := ltac:(cbound).
+    (fun ca => 2 ⋉ fun cb => 12 ⋉ tt) := _.
 
   (** ** Bounds in the size of the arguments *)
   Global Instance negb_linear_bound : LinearBound negb := _.

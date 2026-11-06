@@ -25,7 +25,7 @@
     B. M. Kapron, S. A. Cook. A new characterization of type-2 feasibility.
     SIAM Journal on Computing 25(1):117-132, 1996. *)
 
-From Complexity Require Import Combinators Lambda HOPoly.
+From Complexity Require Export HOPoly.
 From Stdlib Require Import Arith PArith NArith Lia NArithRing List.
 Import ListNotations.
 Local Open Scope N_scope.

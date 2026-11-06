@@ -38,11 +38,8 @@
     ([BFFFeasibility]): [V] has one ([V_hpoly]), [W] has none, whatever its
     complexity ([W_not_hpoly]). *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic Combinators Compile TimeCombinators
-  TimeDatatypes TimeFix Lambda HOPoly.
-From Complexity Require Import NatComplexity PosComplexity.
-From Complexity Require Import BFF BFFFeasibility.
-From Stdlib Require Import Arith PArith NArith NArithRing Lia.
+From Complexity Require Import PosComplexity BFFFeasibility.
+From Stdlib Require Import PArith NArith NArithRing.
 From Stdlib Require List.
 Import List.ListNotations.
 
@@ -268,16 +265,16 @@ Module Type3Complexity (Import M : TimePos).
   Proof. cbound. all: pose proof (Pos2Nat.is_pos cp); lia. Qed.
 
   Global Instance pow2_complexity : ComplexityBound pow2
-    (fun cx => (96 * N.to_nat (val cx) + 2) ⋉ tt) := ltac:(cbound).
+    (fun cx => (96 * N.to_nat (val cx) + 2) ⋉ tt) := _.
 
   Global Instance pred_N_complexity : ComplexityBound Pos.pred_N
-    (fun cp => (16 * Pos.size_nat (val cp)) ⋉ tt) := ltac:(cbound).
+    (fun cp => (16 * Pos.size_nat (val cp)) ⋉ tt) := _.
 
   Global Instance N_pred_complexity : ComplexityBound N.pred
-    (fun cx => (16 * N.size_nat (val cx) + 2) ⋉ tt) := ltac:(cbound).
+    (fun cx => (16 * N.size_nat (val cx) + 2) ⋉ tt) := _.
 
   Global Instance N_eqb_complexity : ComplexityBound N.eqb
-    (fun cx => 2 ⋉ fun cy => (50 * N.size_nat (val cx) + 33) ⋉ tt) := ltac:(cbound).
+    (fun cx => 2 ⋉ fun cy => (50 * N.size_nat (val cx) + 33) ⋉ tt) := _.
 
   Global Instance pow2_eq_pos_complexity : ComplexityBound pow2_eq_pos
     (fun cx => 5 ⋉ fun cp => (Pos.size_nat (val cp) * (16 * N.size_nat (val cx) + 52)) ⋉ tt).
@@ -288,12 +285,12 @@ Module Type3Complexity (Import M : TimePos).
   Qed.
 
   Global Instance C_complexity : ComplexityBound C
-    (fun cx => 4 ⋉ C_pot (val cx)) := ltac:(cbound).
+    (fun cx => 4 ⋉ C_pot (val cx)) := _.
 
-  Global Instance zero_complexity : ComplexityBound zero zero_pot := ltac:(cbound).
+  Global Instance zero_complexity : ComplexityBound zero zero_pot := _.
 
   Global Instance V_complexity : ComplexityBound V
-    (fun cF => 2 ⋉ fun cx => V_cost (val cF) (pot cF) (val cx) ⋉ tt) := ltac:(cbound).
+    (fun cF => 2 ⋉ fun cx => V_cost (val cF) (pot cF) (val cx) ⋉ tt) := _.
 
   Global Instance W_complexity : ComplexityBound W
     (fun cF => 2 ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt).

@@ -5,10 +5,9 @@
     smallest constants for the shape of the bound. Costs are linear in the
     bit size [Pos.size_nat] ([BitSize]). *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic TimeDatatypes Combinators
-  Compile TimeCombinators TimeFix.
-From Complexity Require Import NatComplexity BitSize.
-From Stdlib Require Import Program.Basics Arith PArith Lia.
+From Complexity Require Export NatComplexity.
+From Complexity Require Import BitSize.
+From Stdlib Require Import PArith.
 
 Module PosComplexity (Import M : TimeNat).
 
@@ -24,7 +23,7 @@ Module PosComplexity (Import M : TimeNat).
   (** ** Bounds *)
 
   Global Instance Pos_succ_complexity : ComplexityBound Pos.succ
-    (fun cp => (18 * Pos.size_nat (val cp)) ⋉ tt) := ltac:(cbound).
+    (fun cp => (18 * Pos.size_nat (val cp)) ⋉ tt) := _.
 
   Global Instance Pos_pred_double_complexity : ComplexityBound Pos.pred_double
     (fun cp => (16 * Pos.size_nat (val cp)) ⋉ tt).
@@ -32,12 +31,12 @@ Module PosComplexity (Import M : TimeNat).
 
   Global Instance Pos_eqb_complexity : ComplexityBound Pos.eqb
     (fun cp => 5 ⋉ fun cq =>
-       (50 * Pos.size_nat (val cp)) ⋉ tt) := ltac:(cbound).
+       (50 * Pos.size_nat (val cp)) ⋉ tt) := _.
 
   (** [Pos.compare_cont] is recursive on its third argument. *)
   Global Instance Pos_compare_cont_complexity : ComplexityBound Pos.compare_cont
     (fun cr => 5 ⋉ fun cp => 2 ⋉
-     fun cq => (86 * Pos.size_nat (val cq)) ⋉ tt) := ltac:(cbound).
+     fun cq => (86 * Pos.size_nat (val cq)) ⋉ tt) := _.
 
   (** [Pos.add] and [Pos.add_carry] are mutually recursive: the recursion is
       analysed on the function [fun b => if b then Pos.add else
@@ -62,7 +61,7 @@ Module PosComplexity (Import M : TimeNat).
   (** [Pos.compare] is [Pos.compare_cont Eq]. *)
   Global Instance Pos_compare_complexity : ComplexityBound Pos.compare
     (fun cx => 2 ⋉ fun cy =>
-       (86 * Pos.size_nat (val cy)) ⋉ tt) := ltac:(cbound).
+       (86 * Pos.size_nat (val cy)) ⋉ tt) := _.
 
   (** The recursive step of [Pos.mul] adds [y] to the doubled product: its
       cost depends on the size of the product. *)

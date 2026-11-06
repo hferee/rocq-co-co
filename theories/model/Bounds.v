@@ -2,7 +2,7 @@
 
     [ComplexityBound f c] bounds the costs of [f] by any function [c] of its
     inputs. The usual classes of complexity bound them by a function of the
-    sizes of the inputs only. [CostBound f g] states it for a first-order
+    sizes of the inputs only. [FirstOrderBound f g] states it for a first-order
     function [f], with any number of arguments: each application of [f] to
     its next argument costs at most [g ss], where [ss] are the sizes of the
     arguments given so far. [PolynomialBound f] and [LinearBound f] state
@@ -18,7 +18,7 @@
     are shared by all the analyses over a cost model. *)
 
 From Complexity Require Import CostModelCore Poly.
-From Stdlib Require Import Arith Lia List.
+From Stdlib Require Import List.
 Import ListNotations.
 From Ltac2 Require Import Ltac2.
 Set Default Proof Mode "Classic".
@@ -160,9 +160,7 @@ Module Bounds (Import CM : CostModelCore).
 
       [FirstOrder A CA]: [A] is a type of functions whose arguments and
       result are ground data, with sizes for the arguments, and [CA] the type
-      of their complexities. A function with no argument is ground data. Its
-      instances follow the arrows of [A], so that any number of arguments is
-      handled. *)
+      of their complexities. *)
   Inductive FirstOrder : Type -> Type -> Type :=
   | fo_res {B} : Ground B -> FirstOrder B unit
   | fo_arg {A B CB} : Ground A -> Size A -> FirstOrder B CB ->
@@ -191,14 +189,14 @@ Module Bounds (Import CM : CostModelCore).
 
   (** ** Bounds *)
 
-  Definition CostBound {A CA} `{fo : FirstOrder A CA} (f : A) (g : list nat -> nat) : Prop :=
+  Definition FirstOrderBound {A CA} `{fo : FirstOrder A CA} (f : A) (g : list nat -> nat) : Prop :=
     @ComplexityBound A (repr_ctype (H := fo_repr fo)) (fo_repr fo) f (size_bound fo g []).
 
   Class PolynomialBound {A CA} `{FirstOrder A CA} (f : A) : Prop :=
-    polynomial_bound : exists p, CostBound f (peval p).
+    polynomial_bound : exists p, FirstOrderBound f (peval p).
 
   Class LinearBound {A CA} `{FirstOrder A CA} (f : A) : Prop :=
-    linear_bound : exists p, pdeg p <= 1 /\ CostBound f (peval p).
+    linear_bound : exists p, pdeg p <= 1 /\ FirstOrderBound f (peval p).
 
   Lemma size_bound_mono {A CA} (fo : FirstOrder A CA) (g g' : list nat -> nat) s :
     (forall ss, g ss <= g' ss) ->
@@ -209,10 +207,10 @@ Module Bounds (Import CM : CostModelCore).
     - apply bound_order_arr. intro ca. cbn. split; [apply Hg | apply IH].
   Qed.
 
-  Lemma CostBound_mono {A CA} `{FirstOrder A CA} (f : A) (g g' : list nat -> nat) :
-    (forall ss, g ss <= g' ss) -> CostBound f g -> CostBound f g'.
+  Lemma FirstOrderBound_mono {A CA} `{FirstOrder A CA} (f : A) (g g' : list nat -> nat) :
+    (forall ss, g ss <= g' ss) -> FirstOrderBound f g -> FirstOrderBound f g'.
   Proof.
-    intros Hg Hf. exact (ComplexityBound_ext_eq _ _ _ (size_bound_mono _ _ _ [] Hg) Hf).
+    intros Hg Hf. exact (ComplexityBound_mono _ _ _ (size_bound_mono _ _ _ [] Hg) Hf).
   Qed.
 
   (** A linear bound is a polynomial bound. *)
@@ -222,10 +220,11 @@ Module Bounds (Import CM : CostModelCore).
 
   (** ** Proofs of bounds
 
-      [cost_split_by tac] reduces [CostBound f g] to inequalities between
-      the costs of the bound of [f] given by [tac] (typeclass search in
-      [cost_split]) and [g], with the facts on the sizes of the arguments
-      ([add_size_facts]). [cost_bound] proves them with [lia] or [nia].
+      [cost_split_by tac] reduces [FirstOrderBound f g] to inequalities
+      between the costs of the bound of [f] given by [tac] (typeclass search
+      in [cost_split]) and [g], with the facts on the sizes of the arguments
+      ([add_size_facts]) and the constants of the model unfolded ([costs]).
+      [cost_bound] proves them with [lia] or [nia].
 
       [clinear] and [cpolynomial] prove [LinearBound f] and
       [PolynomialBound f] from the bound of [f] found by typeclass search,
@@ -234,10 +233,10 @@ Module Bounds (Import CM : CostModelCore).
       and [nia] do not prove are left, for example when they need facts on
       the measures of the arguments. *)
   Ltac cost_split_by tac :=
-    unfold CostBound; cbn [fo_repr size_bound];
-    eapply ComplexityBound_ext_eq; [idtac | tac];
+    unfold FirstOrderBound; cbn [fo_repr size_bound];
+    eapply ComplexityBound_mono; [idtac | tac];
     bo_split; destr_inputs;
-    cbv beta iota zeta delta [cost res val pot];
+    cbv beta iota zeta delta [cost res val pot]; autounfold with costs;
     cbn -[Nat.mul size]; add_size_facts.
   Ltac cost_split := cost_split_by ltac:(typeclasses eauto).
   Ltac cost_bound := cost_split; try solve [lia | nia].

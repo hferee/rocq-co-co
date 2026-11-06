@@ -6,11 +6,8 @@
     for the shape of each bound (see [NatComplexity]). This file is the start
     of the analysis; the remarks at the end list what is covered. *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic TimeDatatypes Combinators
-  Compile TimeCombinators TimeFix.
-From Complexity Require Import TimeStdlib.
-From Complexity Require Import ETHAlgorithm.
-From Stdlib Require Import Program.Basics List Arith Lia.
+From Complexity Require Export TimeStdlib ETHAlgorithm.
+From Stdlib Require Import List.
 Import ListNotations.
 
 Module ETHCost (Import M : TimeStdlib).
@@ -21,11 +18,11 @@ Module ETHCost (Import M : TimeStdlib).
       both arguments. *)
   Global Instance memN_complexity : ComplexityBound memN
     (fun cx => 7 ⋉ fun cl =>
-       (length (val cl) * (37 * val cx + 71) + 2) ⋉ tt) := ltac:(cbound).
+       (length (val cl) * (37 * val cx + 71) + 2) ⋉ tt) := _.
 
   Global Instance countN_complexity : ComplexityBound countN
     (fun cx => 7 ⋉ fun cl =>
-       (length (val cl) * (37 * val cx + 115) + 2) ⋉ tt) := ltac:(cbound).
+       (length (val cl) * (37 * val cx + 115) + 2) ⋉ tt) := _.
 
   (** [eqbN a b]: recursive on its first argument, matches the second one. *)
   Global Instance eqbN_complexity : ComplexityBound eqbN
@@ -37,11 +34,11 @@ Module ETHCost (Import M : TimeStdlib).
       branch; its other branches return [l] itself. *)
   Global Instance insert_uniq_complexity : ComplexityBound insert_uniq
     (fun cx => 5 ⋉ fun cl =>
-       (length (val cl) * (76 * val cx + 207) + 18) ⋉ tt) := ltac:(cbound).
+       (length (val cl) * (76 * val cx + 207) + 18) ⋉ tt) := _.
 
   (** [range n = seq 0 n]: not recursive, it follows from [seq]. *)
   Global Instance range_complexity : ComplexityBound range
-    (fun cn => (29 * val cn + 2) ⋉ tt) := ltac:(cbound).
+    (fun cn => (29 * val cn + 2) ⋉ tt) := _.
 
   (** [fold_left Nat.add]: the cost of each addition is linear in the
       accumulator, so the bound depends on the values. *)
@@ -52,7 +49,7 @@ Module ETHCost (Import M : TimeStdlib).
 
   Global Instance sumN_complexity : ComplexityBound sumN
     (fun cl =>
-       (length (val cl) * (36 * list_sum (val cl) + 64) + 23) ⋉ tt) := ltac:(cbound).
+       (length (val cl) * (36 * list_sum (val cl) + 64) + 23) ⋉ tt) := _.
 End ETHCost.
 
 (** * Coverage of [ETHAlgorithm] by the current models

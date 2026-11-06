@@ -1,6 +1,13 @@
-From Stdlib Require Export Classes.Morphisms Classes.RelationClasses Program.Basics.
+(** The costs are numbers: the cost model exports the arithmetic of the
+    standard library, with [lia] and [nia], which close the goals left by
+    its tactics. *)
+From Stdlib Require Export Classes.Morphisms Classes.RelationClasses Program.Basics Arith Lia.
 
-(** * Complexities
+(** * Complexity model
+
+    Notions that should be common to all complexity notions.
+    In particular, this could be instantiated with both space or time
+    complexity.
 
     For function types, a complexity is a function taking as input an input
     of the function together with its complexity ([ℂI]), and returning a
@@ -9,10 +16,7 @@ From Stdlib Require Export Classes.Morphisms Classes.RelationClasses Program.Bas
     records instead of curried arguments and pairs. The output value is not
     part of a complexity, as it is determined by the function.
 
-    In the terms of recurrence extraction (Danner, Licata & Ramyaa,
-    Denotational cost semantics for functional languages with inductive
-    types, ICFP 2015), the complexity of a value is its potential, and [ℂO]
-    is the writer monad of costs. *)
+*)
 
 (** A value with its complexity (potential). *)
 #[projections(primitive)]
@@ -46,8 +50,9 @@ Infix "<$>" := fmap (at level 55, right associativity).
     argument, of the function and of the application, and its result keeps
     the value, to be passed to the next complexity. Annotated values are
     computations of cost [0] (coercion [ret_I]). The complexity of
-    [compose f g] is thus [fun a => 1 ⊕ pot <$> (f ⋊ cf) · ((g ⋊ cg) · a)]:
-    it reads as the term [f (g a)]. *)
+    [compose f g] is thus [fun a => c ⊕ pot <$> (f ⋊ cf) · ((g ⋊ cg) · a)],
+    where [c] is the cost of the composition itself: it reads as the term
+    [f (g a)]. *)
 Definition app {A B CA CB} (f : ℂO (ℂI (A -> B) (ℂI A CA -> ℂO CB))) (x : ℂO (ℂI A CA))
   : ℂO (ℂI B CB) :=
   let r := pot (res f) (res x) in
@@ -56,6 +61,15 @@ Infix "·" := app (at level 36, left associativity).
 
 Definition ret_I {A CA} (x : ℂI A CA) : ℂO (ℂI A CA) := ret x.
 Coercion ret_I : ℂI >-> ℂO.
+
+(** * Constants
+
+    The costs of the primitives of a cost model are constants, declared as
+    parameters by the module types of the model and fixed by each model
+    ([with Definition], see [TimeCostModel]). Each module type registers its
+    constants in [costs], so that the tactics unfold them where they are
+    fixed: [lia] treats an unfolded constant as an atom. *)
+Create HintDb costs.
 
 (** Destruct the complexities of the inputs of ground type: [c : ℂI A unit]
     becomes the value of the input, still named [c]. *)
@@ -66,19 +80,16 @@ Ltac destr_inputs :=
 
 (** * Sizes
 
-    [Size A]: the sizes of the values of [A], those of their representations
-    in a machine model. The models of the datatypes give the sizes of ground
-    data, with one axiom for each constructor: a value is larger than its
-    arguments together. A size is a function of the value, as the
-    representation of ground data is: a relation, as [has_complexity], would
-    only be needed for values with several representations, such as
-    functions. *)
+    As complexity bounds are usually expressed in terms of the size of the
+    inputs, we will record in a typeclass the size function of given types.
+    For now, this is only relevant for ground types ; but we will later 
+    define and used second or higher-order sizes. *)
 Class Size (A : Type) := size : A -> nat.
 
 (** * Complexity types
 
     [ctype A]: the type of the complexities of the values of [A], computed
-    from their representation ([repr_ctype] in [CostModelCore]). A bound
+    from their representation ([repr_ctype] in [Complexities]). A bound
     [ComplexityBound f c] has the type [ctype A]: Rocq resolves the
     representation of [A] when it checks [c] against it, so that the
     binders of [c] need no type annotation. A record, not a definitional
@@ -89,9 +100,10 @@ Arguments ctype A {_}.
 (** * The cost model
 
     We axiomatize a notion of complexity and will import it via the module
-    system. [CostModel] extends this core with the bounds in the size of the
-    inputs ([Bounds]). *)
-Module Type CostModelCore.
+    system: the axioms ([CostModelAxioms]), with the complexity bounds that
+    they define ([Complexities]), form [CostModelCore]. [CostModel] extends
+    it with the bounds in the size of the inputs ([Bounds]). *)
+Module Type CostModelAxioms.
 
   (** ** Representable types
 
@@ -120,53 +132,42 @@ Module Type CostModelCore.
   #[global] Declare Instance Repr_arr : forall {A CA B CB}, Repr A CA -> Repr B CB ->
     Repr (A -> B) (ℂI A CA -> ℂO CB).
 
-  (** ** Complexities and their order *)
+  (** ** Complexities and their order
+
+      [has_complexity f c]: [c] is a complexity of [f]. It need not be
+      monotone in [c]: the bounds ([ComplexityBound]) are closed upwards by
+      definition. *)
+  (* The relation between terms and complexity bounds. *)
   Parameter has_complexity : forall {A CA} `{Repr A CA}, A -> CA -> Prop.
 
+(* The complexity relation can be closed downards by an ordering. *)
   Parameter bound_order : forall {A CA} `{Repr A CA}, CA -> CA -> Prop.
   #[global] Declare Instance bound_order_po :
     forall {A CA} `{Repr A CA}, PreOrder (@bound_order A CA _).
 
-  #[global] Declare Instance has_complexity_ext_eq : forall {A CA} `{Repr A CA} (f : A),
-    Proper (bound_order ==> impl) (has_complexity f).
-
   (** The order on the complexities of functions is pointwise, and compares
-      costs; complexities of ground data carry no information. *)
+      costs. *)
   Parameter bound_order_arr : forall {A CA B CB} `{Repr A CA} `{Repr B CB}
     (c c' : ℂI A CA -> ℂO CB),
     (forall ca, cost (c ca) <= cost (c' ca) /\ bound_order (res (c ca)) (res (c' ca))) ->
     bound_order c c'.
+End CostModelAxioms.
 
-  Parameter bound_order_ground : forall {A} `{Ground A} (c c' : unit), bound_order c c'.
+(** * Complexity bounds
 
-  (* As Forster & Künze, we record complexity results using typeclasses. *)
-  (** [ComplexityBound f c] is a property of the function [f], not of a
-    program: it reads "[f] is computable within [c]". This is unavoidable.
-    [f] is a Rocq value, so the predicate cannot inspect its syntax: it is
-    invariant under conversion, and, under functional extensionality (which
-    we do not want to contradict), pointwise-equal functions are equal and
-    have the same bounds. For instance, [Nat.iter (2 ^ n) (fun x => x) n]
-    has the bound of the identity (see [Examples]). [fix_complexity]
-    ([TimeFix]) makes this extensionality provable without assuming
-    functional extensionality.
+    Defined and proved from the axioms, and included in the cost model
+    ([CostModelCore]) and in its instances, which do not prove anything about
+    them. *)
+Module Complexities (Import CM : CostModelAxioms).
 
-    Forster & Künze's approach is extensional in the same way:
-    [computableTime f T] states that some L term computes [f] within [T],
-    and their lemma [computableTimeExt] transports it along extensional
-    equality. *)
-  (** The complexity type of a representable type ([CType]). *)
-  Global Instance repr_ctype {A CA} `{Repr A CA} : CType A := {| ctype := CA |}.
+  (** ** The order
 
-  Class ComplexityBound {A} {I : CType A} {R : Repr A (ctype A)} (f : A) (c : ctype A) :=
-    {CB : has_complexity f c}.
-
-  Global Instance ComplexityBound_ext_eq : forall {A CA} `{Repr A CA} (f : A),
-    Proper (@bound_order A CA _ ==> impl) (ComplexityBound f).
-  Proof. intros A CA R f c c' Hc [H]. constructor. eapply has_complexity_ext_eq; eauto. Qed.
-
-  (** Replaces the complexity bound with an evar. The complexity bound goal
-      will eventually need to be taken from the shelf. *)
-  Ltac capply := eapply ComplexityBound_ext_eq; [shelve|].
+      Complexities of ground data carry no information: any two are
+      related, by reflexivity. The lemma applies to any terms of type
+      [unit], such as [res (c ca)], which [reflexivity] does not relate to
+      [tt] (there is no eta-rule for [unit]). *)
+  Lemma bound_order_ground {A} `{Ground A} (c c' : unit) : bound_order c c'.
+  Proof. destruct c, c'. reflexivity. Qed.
 
   (** Decompose [bound_order] goals into inequalities between costs. The
       arguments of functions are named as in the right-hand side (usually
@@ -183,4 +184,49 @@ Module Type CostModelCore.
         split
     | |- @bound_order _ unit _ _ _ => apply bound_order_ground
     end.
-End CostModelCore.
+
+  (** ** Bounds *)
+
+  (* As Forster & Künze, we record complexity results using typeclasses. *)
+  (** [ComplexityBound f c] is a property of the function [f], not of a
+    program: it reads "[f] is computable within [c]". This is unavoidable.
+    [f] is a Rocq value, so the predicate cannot inspect its syntax: it is
+    invariant under conversion, and, under functional extensionality (which
+    we do not want to contradict), pointwise-equal functions are equal and
+    have the same bounds. For instance, [Nat.iter (2 ^ n) (fun x => x) n]
+    has the bound of the identity (see [Examples]). [fix_complexity]
+    ([TimeFix]) makes this extensionality provable without assuming
+    functional extensionality.
+
+    Forster & Künze's approach is extensional in the same way:
+    [computableTime f T] states that some L term computes [f] within [T],
+    and their lemma [computableTimeExt] transports it along extensional
+    equality. *)
+
+  (** The complexity type of a representable type ([CType]). *)
+  Global Instance repr_ctype {A CA} `{Repr A CA} : CType A := {| ctype := CA |}.
+
+  (** "Within [c]": [f] has a complexity below [c]. *)
+  Class ComplexityBound {A} {I : CType A} {R : Repr A (ctype A)} (f : A) (c : ctype A)
+    : Prop :=
+    { bound_below : exists c0, bound_order c0 c /\ has_complexity f c0 }.
+
+  Lemma has_complexity_bound {A CA} `{Repr A CA} (f : A) (c : CA) :
+    has_complexity f c -> ComplexityBound f c.
+  Proof. intro Hf. constructor. exists c. split; [reflexivity | exact Hf]. Qed.
+
+  (** Bounds are closed upwards, by transitivity of the order: the proofs
+      compare the complexity found for a function with the claimed one. *)
+  Global Instance ComplexityBound_mono : forall {A CA} `{Repr A CA} (f : A),
+    Proper (@bound_order A CA _ ==> impl) (ComplexityBound f).
+  Proof.
+    intros A CA R f c c' Hc [(c0 & H0 & H)]. constructor.
+    exists c0. split; [etransitivity; eassumption | exact H].
+  Qed.
+
+  (** Replaces the complexity bound with an evar. The complexity bound goal
+      will eventually need to be taken from the shelf. *)
+  Ltac capply := eapply ComplexityBound_mono; [shelve|].
+End Complexities.
+
+Module Type CostModelCore := CostModelAxioms <+ Complexities.

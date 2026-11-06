@@ -9,8 +9,8 @@
     finds the complexity of a compiled term by following its structure
     ([cbc]). *)
 
-From Complexity Require Import CostModel TimeBasic Combinators Compile.
-From Stdlib Require Import Program.Basics PArith Arith Lia.
+From Complexity Require Export TimeBasic Compile.
+From Stdlib Require Import PArith.
 
 Module Type CombinatorTimeCostModel
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
@@ -22,17 +22,21 @@ Module Type CombinatorTimeCostModel
 
   (** ** Costs
 
-      Every application costs at least one, as a beta-step of the
-      call-by-value lambda-calculus L (Forster & Kunze): partial applications
-      (building closures), and full applications of the combinators and, in
-      the models of the datatypes, of the case combinators, of the
-      constructors and of the unfoldings of fixpoints. Each step of the
+      Partial applications (building closures) cost [c_clo], full
+      applications of the combinators [c_step] ([BasicTimeCostModel]); the
+      models of the datatypes and of fixpoints charge their case combinators,
+      constructors and unfoldings with their own constants. In
+      [TimeCostModel], every application costs one, as a beta-step of the
+      call-by-value lambda-calculus L (Forster & Kunze). Each step of the
       evaluation of a compiled term does a constant amount of work, so that
       the real work is bounded by a constant times the cost.
 
       Free steps would break this bound, even when they are affine: with a
       free [compose], a closure duplicated once (and charged once) can be
-      executed exponentially many times at no cost ([tower] in [Examples]). *)
+      executed exponentially many times at no cost ([tower] in [Examples]).
+      A model with free combinators ([c_clo = c_step = 0]) does not bound
+      the running time: it counts the uses of the other primitives (see
+      [TimeArith]). *)
 
   (** ** Environments
 
@@ -43,10 +47,10 @@ Module Type CombinatorTimeCostModel
     forall {E CE A CA}, Repr E CE -> Repr A CA -> Repr (env E A) (CE * CA).
 
   #[global] Declare Instance ehd_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
-    ComplexityBound (@ehd E A) (fun ce => 1 ⋉ snd (pot ce)).
+    ComplexityBound (@ehd E A) (fun ce => c_step ⋉ snd (pot ce)).
 
   #[global] Declare Instance etl_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
-    ComplexityBound (@etl E A) (fun ce => 1 ⋉ fst (pot ce)).
+    ComplexityBound (@etl E A) (fun ce => c_step ⋉ fst (pot ce)).
 
   (** ** Closures *)
 
@@ -55,43 +59,43 @@ Module Type CombinatorTimeCostModel
   #[global] Declare Instance Lam_complexity :
     forall {E CE A CA B CB} `{Repr E CE} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Lam E A B)
-      (fun cc : ℂI (env E A -> B) (ℂI (env E A) (CE * CA) -> ℂO CB) => 1 ⋉
-       fun ce : ℂI E CE => 1 ⋉
-       fun ca : ℂI A CA => 1 ⊕ pot <$> cc · (ECons (val ce) (val ca) ⋊ (pot ce, pot ca))).
+      (fun cc : ℂI (env E A -> B) (ℂI (env E A) (CE * CA) -> ℂO CB) => c_clo ⋉
+       fun ce : ℂI E CE => c_clo ⋉
+       fun ca : ℂI A CA => c_step ⊕ pot <$> cc · (ECons (val ce) (val ca) ⋊ (pot ce, pot ca))).
 
   (** ** Applications and constants *)
 
   #[global] Declare Instance Kc_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB},
-    ComplexityBound (@Kc A B) (fun ca => 1 ⋉ (fun _ => 1 ⋉ pot ca)).
+    ComplexityBound (@Kc A B) (fun ca => c_clo ⋉ (fun _ => c_step ⋉ pot ca)).
 
   (** Only used by bracket abstraction. *)
   #[global] Declare Instance Ic_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@Ic A) (fun ca => 1 ⋉ pot ca).
+    ComplexityBound (@Ic A) (fun ca => c_step ⋉ pot ca).
 
   (** [compose] (B) as a constant, whereas [compose_complexity] requires fixed
       arguments. *)
   #[global] Declare Instance compose_hcomplexity :
     forall {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC},
     ComplexityBound (@compose A B C)
-      (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 1 ⋉
-       fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => 1 ⋉
-       fun ca : ℂI A CA => 1 ⊕ pot <$> cf · (cg · ca)).
+      (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => c_clo ⋉
+       fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => c_clo ⋉
+       fun ca : ℂI A CA => c_step ⊕ pot <$> cf · (cg · ca)).
 
   (** [Cc f a x = f x a]. *)
   #[global] Declare Instance Cc_complexity :
     forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Cc X A B)
-      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
-       fun ca : ℂI A CA => 1 ⋉
-       fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · ca).
+      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo ⋉
+       fun ca : ℂI A CA => c_clo ⋉
+       fun cx : ℂI X CX => c_step ⊕ pot <$> cf · cx · ca).
 
   (** [Sc f g x = f x (g x)]: the bound variable is used twice. *)
   #[global] Declare Instance Sc_complexity :
     forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Sc X A B)
-      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
-       fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => 1 ⋉
-       fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · (cg · cx)).
+      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo ⋉
+       fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => c_clo ⋉
+       fun cx : ℂI X CX => c_step ⊕ pot <$> cf · cx · (cg · cx)).
 
   (** ** Proofs of bounds
 
@@ -107,10 +111,11 @@ Module Type CombinatorTimeCostModel
       which facts on the values are missing. *)
 
   (** Compute the costs ([cbv], as the complexities found by typeclass
-      search are large terms) and the values (combinators). *)
+      search are large terms), unfolding the constants of the model
+      ([costs]), and the values (combinators). *)
   Ltac csimpl :=
     cbv beta iota zeta delta [app cost_add fmap ret_I ret bind cost res val pot fst snd];
-    unfold_comb.
+    autounfold with costs; unfold_comb.
 
   (** Compute the functions of the claimed bound on constructors, but
       neither multiplication nor the tests on values. The projections that
@@ -146,7 +151,32 @@ Module Type CombinatorTimeCostModel
     bo_split; destr_inputs; ccases; cunit; try solve [lia | nia]; try ring_simplify.
 
   (** From a goal [ComplexityBound f c] to [bound_order c_found c]. *)
-  Ltac cstart := eapply ComplexityBound_ext_eq; [idtac | unfold_fun; cbc].
+  Ltac cstart := eapply ComplexityBound_mono; [idtac | unfold_fun; cbc].
 
-  Ltac cbound := cstart; cfinish.
+  (** [cbound_start] reduces a goal [ComplexityBound f c] to the goals that
+      [cfinish] reduces to inequalities. Here, it handles definitions that
+      are not recursive ([cstart]). The other layers of a cost model extend
+      it ([Ltac cbound_start ::= ..]): [TimeFix] with recursive functions.
+      The extension holds in the models that include the layer, so that
+      [cbound], and the hint below, use the most complete version for the
+      model. *)
+  Ltac cbound_start := cstart.
+  Ltac cbound := cbound_start; cfinish.
+
+  (** [cweaken] proves [ComplexityBound f c] from the bound of [f] found by
+      typeclass search (an instance), when [c] is larger. *)
+  Ltac cweaken := eapply ComplexityBound_mono; [idtac | typeclasses eauto]; cfinish.
+
+  (** A claimed bound that is not an instance is proved by weakening the
+      bound of an instance ([cweaken]), or by [cbound], when they prove it
+      completely: [Instance : ComplexityBound f c := _]. A bound that they
+      do not prove needs a proof script, [Proof. cbound.], which shows the
+      inequalities left. Only the first complexity found by [cbound] is
+      tried ([once]): backtracking into the typeclass search of [cbc] would
+      try the same inequalities many times. The hint only applies to bounds
+      without evars: the bounds of the subterms that [cbc] searches are
+      evars, so that the hint does not call [cbound] recursively. *)
+  #[global] Hint Extern 150 (@ComplexityBound _ _ _ _ ?c) =>
+    tryif has_evar c then fail
+    else first [solve [once cweaken] | solve [once cbound]] : typeclass_instances.
 End CombinatorTimeCostModel.

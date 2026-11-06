@@ -6,10 +6,8 @@
     arguments of the fixpoint. A functional parameter comes with a
     hypothesis on its complexity. *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic TimeDatatypes Combinators
-  Compile TimeCombinators TimeFix.
-From Complexity Require Import NatComplexity.
-From Stdlib Require Import Program.Basics List Arith Lia.
+From Complexity Require Export NatComplexity.
+From Stdlib Require Import List.
 Import ListNotations.
 
 Module ListComplexity (Import M : TimeNat).
@@ -33,19 +31,18 @@ Module ListComplexity (Import M : TimeNat).
 
   (** ** List tail *)
   Instance complexity_tl {A} `{Ground A} :
-    ComplexityBound (@tl A) (fun lc => 4 ⋉ tt).
-  Proof. cbound. Qed.
+    ComplexityBound (@tl A) (fun lc => 4 ⋉ tt) := _.
 
   Global Instance length_complexity {A} `{Ground A} : ComplexityBound (@length A)
-    (fun cl => (17 * length (val cl) + 9) ⋉ tt) := ltac:(cbound).
+    (fun cl => (17 * length (val cl) + 9) ⋉ tt) := _.
 
   Global Instance app_complexity {A} `{Ground A} : ComplexityBound (@app A)
     (fun cl => 5 ⋉ fun cm =>
-       (47 * length (val cl) + 14) ⋉ tt) := ltac:(cbound).
+       (47 * length (val cl) + 14) ⋉ tt) := _.
 
   (** [seq] is recursive on its second argument; the first one changes. *)
   Global Instance seq_complexity : ComplexityBound seq
-    (fun cs => 7 ⋉ fun cn => (29 * val cn + 2) ⋉ tt) := ltac:(cbound).
+    (fun cs => 7 ⋉ fun cn => (29 * val cn + 2) ⋉ tt) := _.
 
   (** [fold_left] with a function whose partial and full applications cost at
       most [c1] and [c2] (on ground data): a higher-order bound. *)

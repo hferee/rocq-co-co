@@ -30,7 +30,9 @@ concatenating lists by composition
   - function composition
 
 ## parameterised cost constants
-Each constant (e.g. constructor allocation, combinator, etc.) could be a parameter, so they would explicitly appear in the complexity bounds (which would make the heavy).
+The costs of the primitives are constants, fixed by each model (`ParamTimeCostModel`, `TimeCostModel`, `TimeArith`). Remaining:
+* analyses generic in the constants: bounds are linear forms in the constants, heavy to write by hand. Needs a tactic computing the coefficients, and `poly_of` (`Bounds`) to treat constants as coefficients rather than as measures of degree 1.
+* operation counts are separated by keeping their constants abstract (`ArithOpsTimeCostModel`, `HornerCount`); unfoldings must cost at least 1 (`UnguardedFix`), so they are still charged, with their own constant.
 
 ## To check
 

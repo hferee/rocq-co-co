@@ -5,7 +5,6 @@
     application that uses them is a functor over [TimeStdlib], which finds
     their bounds by typeclass search. *)
 
-From Complexity Require Export TimeCostModel NatComplexity BoolComplexity PosComplexity
-  ListComplexity ZComplexity.
+From Complexity Require Export BoolComplexity ListComplexity ZComplexity.
 
 Module Type TimeStdlib := TimePos <+ BoolComplexity <+ ListComplexity <+ ZComplexity.

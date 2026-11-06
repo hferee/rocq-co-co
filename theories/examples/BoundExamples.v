@@ -5,11 +5,8 @@
     from the bounds of [ComplexityBound] by [clinear] and [cpolynomial],
     which choose the constants, explicitly or by typeclass search. *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic TimeDatatypes Combinators
-  Compile TimeCombinators TimeFix.
-From Complexity Require Import TimeStdlib.
-From Complexity Require Import ETHAlgorithm ETHCost.
-From Stdlib Require Import List Arith PArith Lia.
+From Complexity Require Import ETHCost.
+From Stdlib Require Import List PArith.
 
 Module BoundExamples (Import M : TimeStdlib).
 

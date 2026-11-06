@@ -24,10 +24,8 @@
     program. A functional equal to a BFF ([is_BFF]) may be computed by
     other, slower programs. *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic Combinators Compile TimeCombinators
-  TimeDatatypes TimeFix Lambda HOPoly.
-From Complexity Require Import BFF BFFComplexity.
-From Stdlib Require Import Arith NArith Lia.
+From Complexity Require Export BFFComplexity SOPoly.
+From Stdlib Require Import NArith.
 From Stdlib Require List.
 Import List.ListNotations.
 Open Scope list_scope.
@@ -103,7 +101,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
   Proof. intros C J. exists c, p. split; assumption. Qed.
   Arguments hpoly_intro & σ f p c _ _.
 
-  Ltac simpl_c := cbv [app cost_add fmap ret_I ret cost res val pot] in *.
+  Ltac simpl_c := cbv [app cost_add fmap ret_I ret cost res val pot] in *; autounfold with costs in *.
 
   Global Instance zero_hpoly : HPolyBound tN 0%N.
   Proof. refine (hpoly_intro _ _ (db <{ 0 }>) _ (N_complexity 0) _). cbn. lia. Qed.
@@ -333,5 +331,60 @@ Module BFFFeasibility (Import M : TimeCostModel).
     destruct (BFF_hpoly_bound _ t) as (c & p & C & J).
     exists c, p. split; [exact C|].
     intro x. exact (J x tt (N.size_nat x) (le_n _) (le_n _)).
+  Qed.
+
+  (** At type [(N ⇒ N) ⇒ N ⇒ N]: let [a] be a monotone bound on the costs
+      of the argument [f] (with complexity [cf]) and on the lengths of its
+      values, in the length of their arguments. The cost of [⟦t⟧ f x] (the
+      application to [f], then to [x]) and the length of its value are
+      bounded by a higher-order polynomial of type 2 in [a] and the length
+      of [x].
+
+      The higher-order polynomial is bounded by a second-order polynomial
+      ([BFF2_sopoly_bound]). *)
+  Corollary BFF2_hpoly_bound (t : term pv [] ((tN ⇒ tN) ⇒ tN ⇒ tN)) :
+    exists c (p : hpoly ((tN ⇒ tN) ⇒ tN ⇒ tN)), CBound _ ⟦t⟧ c /\
+      forall (f : N -> N) (cf : ℂI N unit -> ℂO unit) (a : nat -> nat),
+      (forall n n', n <= n' -> a n <= a n') ->
+      (forall x, cost (cf (x ⋊ tt)) <= a (N.size_nat x) /\ N.size_nat (f x) <= a (N.size_nat x)) ->
+      forall x,
+        cost (c (f ⋊ cf)) + cost (res (c (f ⋊ cf)) (x ⋊ tt)) <= 2 * ⟦p⟧ a (N.size_nat x) /\
+        N.size_nat (⟦t⟧ f x) <= ⟦p⟧ a (N.size_nat x).
+  Proof.
+    destruct (BFF_hpoly_bound _ t) as (c & p & C & J).
+    exists c, p. split; [exact C|].
+    intros f cf a Ha Hf x.
+    assert (Hmaj : maj (tN ⇒ tN) f cf a).
+    { intros y [] m _ Hy. destruct (Hf y) as [H1 H2]. pose proof (Ha _ _ Hy). cbn. lia. }
+    destruct (J f cf a Ha Hmaj) as [Hc Hm].
+    destruct (Hm x tt (N.size_nat x) (le_n _) (le_n _)) as [Hx Hl].
+    (* the cost of the application to [f] is the value at [0] *)
+    assert (Hp : ⟦p⟧ a 0 <= ⟦p⟧ a (N.size_nat x))
+      by exact (hpoly_monotone _ p a a Ha 0 (N.size_nat x) (Nat.le_0_l _)).
+    change (baseM (tN ⇒ tN) (⟦p⟧ a)) with (⟦p⟧ a 0) in Hc.
+    change (baseM tN (⟦p⟧ a (N.size_nat x))) with (⟦p⟧ a (N.size_nat x)) in Hx.
+    split; [| exact Hl].
+    eapply Nat.le_trans; [exact (Nat.add_le_mono _ _ _ _ Hc Hx) | lia].
+  Qed.
+
+  (** The same bound with a second-order polynomial in [a] and the length
+      of [x] ([hpoly_sopoly]), as Kapron and Cook's. Their bound is in the
+      length function of [f] only, with oracle calls cheap, whereas [a]
+      also bounds the cost of [f]. *)
+  Corollary BFF2_sopoly_bound (t : term pv [] ((tN ⇒ tN) ⇒ tN ⇒ tN)) :
+    exists c (q : sopoly), CBound _ ⟦t⟧ c /\
+      forall (f : N -> N) (cf : ℂI N unit -> ℂO unit) (a : nat -> nat),
+      (forall n n', n <= n' -> a n <= a n') ->
+      (forall x, cost (cf (x ⋊ tt)) <= a (N.size_nat x) /\ N.size_nat (f x) <= a (N.size_nat x)) ->
+      forall x,
+        cost (c (f ⋊ cf)) + cost (res (c (f ⋊ cf)) (x ⋊ tt)) <= 2 * soeval q a (N.size_nat x) /\
+        N.size_nat (⟦t⟧ f x) <= soeval q a (N.size_nat x).
+  Proof.
+    destruct (BFF2_hpoly_bound t) as (c & p & C & J).
+    destruct (hpoly_sopoly p) as [q Hq].
+    exists c, q. split; [exact C|].
+    intros f cf a Ha Hf x. destruct (J f cf a Ha Hf x) as [H1 H2].
+    pose proof (Hq a (N.size_nat x) Ha) as H.
+    split; eapply Nat.le_trans; [exact H1 | exact (Nat.mul_le_mono_l _ _ 2 H) | exact H2 | exact H].
   Qed.
 End BFFFeasibility.

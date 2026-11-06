@@ -8,10 +8,9 @@
     quadratic one, from a direct analysis, and a linear one, from an
     amortised analysis (at the end of the file). *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic TimeDatatypes Combinators
-  Compile TimeCombinators TimeFix.
-From Complexity Require Import NatComplexity PosComplexity BitSize.
-From Stdlib Require Import Program.Basics Arith PArith ZArith Lia.
+From Complexity Require Export PosComplexity.
+From Complexity Require Import BitSize.
+From Stdlib Require Import PArith ZArith.
 
 (** ** Trailing zeros
 
@@ -58,11 +57,11 @@ Module ZComplexity (Import M : TimePos).
 
   (** ** Constant-time functions *)
 
-  Global Instance Z_opp_complexity : ComplexityBound Z.opp (fun cz => 2 ⋉ tt) := ltac:(cbound).
+  Global Instance Z_opp_complexity : ComplexityBound Z.opp (fun cz => 2 ⋉ tt) := _.
 
-  Global Instance Z_abs_complexity : ComplexityBound Z.abs (fun cz => 2 ⋉ tt) := ltac:(cbound).
+  Global Instance Z_abs_complexity : ComplexityBound Z.abs (fun cz => 2 ⋉ tt) := _.
 
-  Global Instance Z_double_complexity : ComplexityBound Z.double (fun cz => 7 ⋉ tt) := ltac:(cbound).
+  Global Instance Z_double_complexity : ComplexityBound Z.double (fun cz => 7 ⋉ tt) := _.
 
   Global Instance Z_succ_double_complexity : ComplexityBound Z.succ_double
     (fun cz => (16 * zsize (val cz) + 6) ⋉ tt).
@@ -104,7 +103,7 @@ Module ZComplexity (Import M : TimePos).
   (** ** Comparisons *)
 
   Global Instance CompOpp_complexity : ComplexityBound CompOpp
-    (fun cc => 2 ⋉ tt) := ltac:(cbound).
+    (fun cc => 2 ⋉ tt) := _.
 
   Global Instance Z_compare_complexity : ComplexityBound Z.compare
     (fun cx => 2 ⋉ fun cy => (86 * zsize (val cy) + 36) ⋉ tt).
@@ -117,10 +116,10 @@ Module ZComplexity (Import M : TimePos).
   (** The cost of the case analysis of the result of the comparison depends
       on its value. *)
   Global Instance Z_ltb_complexity : ComplexityBound Z.ltb
-    (fun cx => 2 ⋉ fun cy => (86 * zsize (val cy) + 48) ⋉ tt) := ltac:(cbound).
+    (fun cx => 2 ⋉ fun cy => (86 * zsize (val cy) + 48) ⋉ tt) := _.
 
   Global Instance Z_leb_complexity : ComplexityBound Z.leb
-    (fun cx => 2 ⋉ fun cy => (86 * zsize (val cy) + 48) ⋉ tt) := ltac:(cbound).
+    (fun cx => 2 ⋉ fun cy => (86 * zsize (val cy) + 48) ⋉ tt) := _.
 
   (** ** Conversions *)
 
@@ -145,13 +144,13 @@ Module ZComplexity (Import M : TimePos).
       linear. These bounds are preferred by typeclass search (priority 0). *)
 
   Global Instance Pos_pred_double_tz_complexity : ComplexityBound Pos.pred_double
-    (fun cp => (16 * ptz (val cp) + 14) ⋉ tt) | 0 := ltac:(cbound).
+    (fun cp => (16 * ptz (val cp) + 14) ⋉ tt) | 0 := _.
 
   Global Instance Z_succ_double_tz_complexity : ComplexityBound Z.succ_double
-    (fun cz => (16 * ztz (val cz) + 20) ⋉ tt) | 0 := ltac:(cbound).
+    (fun cz => (16 * ztz (val cz) + 20) ⋉ tt) | 0 := _.
 
   Global Instance Z_pred_double_tz_complexity : ComplexityBound Z.pred_double
-    (fun cz => (16 * ztz (val cz) + 20) ⋉ tt) | 0 := ltac:(cbound).
+    (fun cz => (16 * ztz (val cz) + 20) ⋉ tt) | 0 := _.
 
   Global Instance Z_pos_sub_linear_complexity : ComplexityBound Z.pos_sub
     (fun cx => 5 ⋉ fun cy =>

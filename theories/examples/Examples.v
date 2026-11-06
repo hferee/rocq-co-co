@@ -15,9 +15,7 @@
       duplications, and its bound is exponential. With a free [compose],
       it used to get a constant bound, far below its running time. *)
 
-From Complexity Require Import TimeCostModel CostModel TimeBasic TimeDatatypes Combinators
-  Compile TimeCombinators TimeFix.
-From Stdlib Require Import Program.Basics Arith Lia.
+From Complexity Require Import TimeCostModel.
 
 Definition slow_id (n : nat) : nat := Nat.iter (2 ^ n) (fun x => x) n.
 
@@ -51,8 +49,8 @@ Module Examples (Import M : TimeCostModel).
   Proof.
     intros Hfg Hg.
     eapply (fix_complexity ar f (fun _ => g) (fun _ => 1 ⋉ cg));
-      [exact Hfg | apply constant_complexity, Hg |].
-    apply bound_order_arr. intro ca. cbn. split; [lia | reflexivity].
+      [cfix_pos | exact Hfg | apply constant_complexity, Hg |].
+    apply bound_order_arr. intro ca. cbn. split; [autounfold with costs; lia | reflexivity].
   Qed.
 
   (** [slow_id n] takes [2 ^ n] steps, but it is the identity. *)
@@ -61,7 +59,7 @@ Module Examples (Import M : TimeCostModel).
     capply. apply (complexity_ext (ar_val nat) slow_id (fun n => n)).
     - exact slow_id_id.
     - exact (@id_complexity nat unit _).
-    Unshelve. bo_split; destr_inputs; cbn; lia.
+    Unshelve. bo_split; destr_inputs; cbn; autounfold with costs; lia.
   Qed.
 
   (** ** Every application is charged

@@ -4,10 +4,12 @@
     the numerals, addition and multiplication ([hpoly], [Lambda]), denoting
     functionals over the natural numbers ([M σ]). At type [N ⇒ .. ⇒ N],
     they contain the usual polynomials ([ptrans], [poly_hpoly]); at type 2,
-    the second-order polynomials of Kapron and Cook. They are monotone, in
-    the sense of Bezem's strong majorization ([hpoly_monotone]), and at
-    type [N ⇒ N] they are bounded by polynomials ([hpoly_growth]). They
-    bound the basic feasible functionals ([BFF], [BFFFeasibility]).
+    the second-order polynomials of Kapron and Cook ([SOPoly]). They are
+    monotone, in the sense of Bezem's strong majorization
+    ([hpoly_monotone]). At type [N ⇒ N] they are bounded by polynomials
+    ([hpoly_growth]), and at type [(N ⇒ N) ⇒ N ⇒ N] by second-order
+    polynomials, on monotone functions ([SOPoly]). They bound the basic
+    feasible functionals ([BFF], [BFFFeasibility]).
 
     B. M. Kapron, S. A. Cook. A new characterization of type-2 feasibility.
     SIAM Journal on Computing 25(1):117-132, 1996.
@@ -16,7 +18,8 @@
     bar recursion containing discontinuous functionals. Journal of Symbolic
     Logic 50(3):652-660, 1985. *)
 
-From Complexity Require Import Combinators Lambda Poly.
+From Complexity Require Export Lambda.
+From Complexity Require Import Poly.
 From Stdlib Require Import Arith Lia List Program.Basics.
 Import ListNotations.
 

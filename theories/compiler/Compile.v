@@ -12,7 +12,7 @@
 
 From Ltac2 Require Import Ltac2.
 From Stdlib Require Import Program.Basics PArith NArith ZArith QArith.
-From Complexity Require Import Combinators Arity.
+From Complexity Require Export Combinators Arity.
 Import Constr.Unsafe.
 
 Ltac2 fail_msg (s : string) := Control.zero (Tactic_failure (Some (Message.of_string s))).
