@@ -50,9 +50,9 @@ Infix "<$>" := fmap (at level 55, right associativity).
     argument, of the function and of the application, and its result keeps
     the value, to be passed to the next complexity. Annotated values are
     computations of cost [0] (coercion [ret_I]). The complexity of
-    [compose f g] is thus [fun a => c ⊕ pot <$> (f ⋊ cf) · ((g ⋊ cg) · a)],
+    [compose f g] is thus [fun x => c ⊕ pot <$> (f ⋊ cf) · ((g ⋊ cg) · x)],
     where [c] is the cost of the composition itself: it reads as the term
-    [f (g a)]. *)
+    [f (g x)]. *)
 Definition app {A B CA CB} (f : ℂO (ℂI (A -> B) (ℂI A CA -> ℂO CB))) (x : ℂO (ℂI A CA))
   : ℂO (ℂI B CB) :=
   let r := pot (res f) (res x) in

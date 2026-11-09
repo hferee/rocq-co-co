@@ -3,7 +3,7 @@
     A Gallina axiom cannot quantify over the syntax of [fix] terms (their
     number of arguments, recursive argument, mutual functions, ...). Instead,
     [fix_complexity] uses the unfolding equation of a recursive function [f]:
-    [f a = F f a] (pointwise in all the arguments), where the functional [F]
+    `f a = F f a` (pointwise in all the arguments), where the functional `F`
     is the body of the fixpoint, abstracted over the recursive calls. The
     candidate complexity [cf] of [f] is a bound as soon as it bounds the cost
     of one unfolding, plus [c_fix], where the recursive calls cost what [cf]
@@ -58,7 +58,7 @@ Module FixTactics
   (Import CB : CombinatorTimeCostModel CM BT) (Import FX : FixTimeCostAxioms CM BT CB).
 
   (** In a goal [ComplexityBound f cf] where [f] is a recursive function,
-      [crec] leaves the goals [ComplexityBound F ?cF] (to be solved by
+      [crec] leaves the goals `ComplexityBound F ?cF` (to be solved by
       [cbc]) and the recurrence on [cf]. [crec_mutual] does the same for
       [fun b => if b then f1 else f2], where [f1] and [f2] are mutually
       recursive. The premise [1 <= c_fix] is proved by [cfix_pos], from

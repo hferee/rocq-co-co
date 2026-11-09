@@ -43,7 +43,7 @@ Definition qmat_case {A : Type} (fl : Z -> A) (fn : qmat -> qmat -> qmat -> qmat
 #[global] Typeclasses Opaque qmat_case.
 #[global] Hint Unfold qmat_case : comb.
 
-(** [full k a]: [a] is a matrix of size [2^k × 2^k]. *)
+(** `full k a`: `a` is a matrix of size [2^k × 2^k]. *)
 Fixpoint full (k : nat) (a : qmat) : Prop :=
   match k, a with
   | O, QLeaf _ => True
@@ -235,10 +235,10 @@ Module StrassenCount (Import M : StrassenTimeCostModel).
     (fun ca => c_fix ⋉ fun cb => qop_cost c_sub (val ca) ⋉ tt).
   Proof. unfold qop_cost. cbound. Qed.
 
-  (** The cost of a call to [qadd] or [qsub] whose first argument is [a]. *)
+  (** The cost of a call to [qadd] or [qsub] whose first argument is `a`. *)
   Definition qcall (c : nat) (a : qmat) : nat := c_fix + qop_cost c a.
 
-  (** The cost of [strassen d a b], after its application to [d]: it
+  (** The cost of `strassen d a b`, after its application to [d]: it
       follows the algorithm. *)
   Fixpoint strassen_cost (d : list unit) (a b : qmat) {struct d} : nat :=
     match d with
@@ -277,7 +277,7 @@ Module StrassenCount (Import M : StrassenTimeCostModel).
   Proof. cbound. all: unfold qcall; lia. Qed.
   End Counts.
 
-  (** The cost of [strassen d a b] on matrices of size [2^k × 2^k], where
+  (** The cost of `strassen d a b` on matrices of size [2^k × 2^k], where
       [d] has length [k]. *)
   Theorem strassen_cost_full k d a b : length d = k -> full k a -> full k b ->
     strassen_cost d a b = 7 ^ k * c_mul + adds k * c_add + subs k * c_sub + unfs k * c_fix.
@@ -297,8 +297,8 @@ Module StrassenCount (Import M : StrassenTimeCostModel).
     lia.
   Qed.
 
-  (** By [strassen_complexity], the cost of [strassen d a b] is
-      [c_fix + strassen_cost d a b]. On matrices of size [2^k × 2^k], it
+  (** By [strassen_complexity], the cost of `strassen d a b` is
+      `c_fix + strassen_cost d a b`. On matrices of size [2^k × 2^k], it
       takes [7^k] multiplications, [4 (7^k - 4^k)] additions,
       [2 (7^k - 4^k)] subtractions, and [1 + unfs k] unfoldings
       ([unfs_closed]). *)

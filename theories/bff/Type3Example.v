@@ -2,16 +2,16 @@
 
     Irwin, Kapron and Royer's example: the type-3 functionals
 
-    - [V F x = 1] if [F (C x) <> F zero], [0] otherwise,
-    - [W F x = 2^x] if [F (C x) <> F zero], [0] otherwise,
+    - `V F x = 1` if `F (C x) <> F zero`, [0] otherwise,
+    - `W F x = 2^x` if `F (C x) <> F zero`, [0] otherwise,
 
-    where [C x] is the characteristic function of [2^x] and [zero] the
-    constant function [0], for [F : (N -> N) -> N]. [V] is basic feasible.
-    [W] is not: when [F] is 0-1 valued, the length of the values of a BFF is
-    bounded by a polynomial in [|x|], but [|W F x| = x + 1] when [F]
-    distinguishes [C x] from [zero]. Yet [W] is not harder than [V]: if
-    [F (C x) <> F zero], then [F] has queried its argument at [2^x], the
-    only point where [C x] and [zero] differ, so that a machine running [F]
+    where `C x` is the characteristic function of [2^x] and [zero] the
+    constant function [0], for `F : (N -> N) -> N`. `V` is basic feasible.
+    [W] is not: when `F` is 0-1 valued, the length of the values of a BFF is
+    bounded by a polynomial in [|x|], but `|W F x| = x + 1` when `F`
+    distinguishes `C x` from [zero]. Yet [W] is not harder than `V`: if
+    `F (C x) <> F zero`, then `F` has queried its argument at [2^x], the
+    only point where `C x` and [zero] differ, so that a machine running `F`
     has written down [2^x], and [W] can write it once more.
 
     References:
@@ -25,18 +25,18 @@
 
     The functionals are defined below over binary numbers ([N]), with the
     test [y = 2^x] in polynomial time ([pow2_eq_pos]), and their costs are
-    analysed in [Type3Complexity]: the cost of [W] is the cost of [V] plus,
-    when [F] distinguishes [C x] from [zero], the cost of writing [2^x],
+    analysed in [Type3Complexity]: the cost of [W] is the cost of `V` plus,
+    when `F` distinguishes `C x` from [zero], the cost of writing [2^x],
     linear in [x], that is exponential in [|x|] ([W_cost]). The argument
-    above bounds it by the cost of [F] only under an assumption that the
-    cost model does not provide: that [F] pays for the size of its queries
+    above bounds it by the cost of `F` only under an assumption that the
+    cost model does not provide: that `F` pays for the size of its queries
     ([W_cost_paid]).
 
-    [V] is a BFF: it is equal, as a functional, to a PV^ω term ([V_BFF]).
+    `V` is a BFF: it is equal, as a functional, to a PV^ω term ([V_BFF]).
     [W] is not: no BFF is equal to it ([W_not_BFF]), since every BFF has a
     polynomial majorant.
     In terms of higher-order polynomial bounds in the cost model
-    ([BFFFeasibility]): [V] has one ([V_hpoly]), [W] has none, whatever its
+    ([BFFFeasibility]): `V` has one ([V_hpoly]), [W] has none, whatever its
     complexity ([W_not_hpoly]). *)
 
 From Complexity Require Import PosComplexity BFFFeasibility.
@@ -67,7 +67,7 @@ Fixpoint pow2_eq_pos (x : N) (p : positive) : bool :=
   | xI _ => false
   end.
 
-(** [C x]: the characteristic function of [2^x]. *)
+(** `C x`: the characteristic function of [2^x]. *)
 Definition C (x y : N) : N :=
   match y with N0 => 0 | Npos p => if pow2_eq_pos x p then 1 else 0 end.
 
@@ -116,20 +116,20 @@ Proof.
       try reflexivity; apply pow2_eq_pos_spec in E || rewrite <- pow2_eq_pos_spec in *; congruence.
 Qed.
 
-(** [C x] and [zero] differ only at [2^x]. *)
+(** `C x` and [zero] differ only at [2^x]. *)
 Lemma C_zero x y : y <> (2 ^ x)%N -> C x y = zero y.
 Proof. intro H. rewrite C_spec. destruct (N.eqb_spec y (2 ^ x)); [contradiction | reflexivity]. Qed.
 
 Lemma W_spec F x : W F x = if (F (C x) =? F zero)%N then 0%N else (2 ^ x)%N.
 Proof. unfold W. rewrite pow2_spec. reflexivity. Qed.
 
-(** ** [V] is a basic feasible functional
+(** ** `V` is a basic feasible functional
 
-    [V'] is [V] written in PV^ω ([BFF]): [pw2 x] is the characteristic
+    [V'] is `V` written in PV^ω ([BFF]): [pw2 x] is the characteristic
     function of [2^x] and [eqN] the equality test, defined with the
-    recursion on notation [R]. It is the denotation of the term [V'_pv]
-    of PV^ω, and it is equal to [V] as a functional ([V'_V]): on equal
-    arguments, [V'] and [V] have equal values. *)
+    recursion on notation `R`. It is the denotation of the term [V'_pv]
+    of PV^ω, and it is equal to `V` as a functional ([V'_V]): on equal
+    arguments, [V'] and `V` have equal values. *)
 Definition V'_t : PTerm pv ((tN ⇒ tN ⇒ tN) ⇒ (tN ⇒ tN ⇒ tN) ⇒ ((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) :=
   <{ λ eqN pw2 F x, cond (eqN (F (pw2 x)) (F (λ _, 0))) 1 0 }>.
 Definition V' (F : (N -> N) -> N) (x : N) : N := Eval cbn in pden V'_t eqN pw2 F x.
@@ -154,7 +154,7 @@ Proof.
     rewrite ?IH, ?Pos2Nat.inj_xI, ?Pos2Nat.inj_xO; cbn; lia.
 Qed.
 
-(** The length of [W F x] is [x + 1] when [F] distinguishes [C x] from
+(** The length of `W F x` is [x + 1] when `F` distinguishes `C x` from
     [zero]: exponential in [|x|]. *)
 Lemma size_nat_pow2 x : N.size_nat (pow2 x) = S (N.to_nat x).
 Proof. destruct x as [|p]; [reflexivity|]. cbn [pow2 N.size_nat N.to_nat]. rewrite size_nat_zeros. cbn. lia. Qed.
@@ -174,17 +174,17 @@ Qed.
 
 (** ** [W] is not a basic feasible functional *)
 
-(** The bound [n ↦ m (λ _, 1) (n + 1)] on the lengths of [W F x], for a
-    majorant [m] of [W] and a 0-1 valued [F], with [|x| = n + 1]. *)
+(** The bound [n ↦ m (λ _, 1) (n + 1)] on the lengths of `W F x`, for a
+    majorant [m] of [W] and a 0-1 valued `F`, with [|x| = n + 1]. *)
 Definition W_bound (m : hpoly (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) : hpoly (tN ⇒ tN) :=
   tapp (db <{ λ g n, g (λ _, 1) (n + 1) }>
           : hpoly ((((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) ⇒ tN ⇒ tN)) m.
 
 (** Every term of PV^ω has a polynomial majorant ([BFF_majorant]). Applied
-    to the majorant [fun _ => 1] of a 0-1 valued [F], it gives a
+    to the majorant [fun _ => 1] of a 0-1 valued `F`, it gives a
     higher-order polynomial of type [N ⇒ N], bounded by a polynomial
-    ([hpoly_growth]). But it would bound the length [x + 1] of [W F x] when
-    [F] distinguishes [C x] from [zero], which is exponential in [|x|]
+    ([hpoly_growth]). But it would bound the length [x + 1] of `W F x` when
+    `F` distinguishes `C x` from [zero], which is exponential in [|x|]
     ([pow2_not_poly]). *)
 Corollary W_not_BFF : ~ is_BFF (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) W.
 Proof.
@@ -212,14 +212,14 @@ Qed.
 
 (** ** Complexity *)
 
-(** The potentials of [C x] and [zero], given to [F] by [V] and [W]: the
+(** The potentials of `C x` and [zero], given to `F` by `V` and [W]: the
     costs of their applications. *)
 Definition C_pot (x : N) (cy : ℂI N unit) : ℂO unit :=
   (N.size_nat (val cy) * (16 * N.size_nat x + 52) + 16) ⋉ tt.
 Definition zero_pot (cy : ℂI N unit) : ℂO unit := 1 ⋉ tt.
 
-(** The costs of [V F x] and [W F x], from the potential [pF] of [F]: [F]
-    is applied to [C x] and to [zero], and its values are compared. [W]
+(** The costs of `V F x` and `W F x`, from the potential `pF` of `F`: `F`
+    is applied to `C x` and to [zero], and its values are compared. [W]
     then writes [2^x] when they differ, in time linear in [x]. *)
 Definition V_cost (F : (N -> N) -> N) (pF : ℂI (N -> N) (ℂI N unit -> ℂO unit) -> ℂO unit)
   (x : N) : nat :=
@@ -236,21 +236,21 @@ Arguments W_cost F pF x /.
 
 
     [W_complexity] below gives the cost of [W]: [W_cost] is [V_cost] plus,
-    when [F] distinguishes [C x] from [zero], [96 x + 9] for writing
+    when `F` distinguishes `C x` from [zero], [96 x + 9] for writing
     [2^x], which is exponential in the length of [x]
-    ([x >= 2^(|x| - 1)], [pow_size_nat_le]). It is a constant for each [F]
-    (only finitely many [x] are such that [F] queries [2^x] on [zero]),
-    but not uniformly in the potential of [F]: nothing in the cost model
-    relates the values queried by [F] to its costs. Values are free
+    ([x >= 2^(|x| - 1)], [pow_size_nat_le]). It is a constant for each `F`
+    (only finitely many [x] are such that `F` queries [2^x] on [zero]),
+    but not uniformly in the potential of `F`: nothing in the cost model
+    relates the values queried by `F` to its costs. Values are free
     constants of programs, and a call costs one step whatever the size of
     its argument (as a beta-step of L).
 
     Royer's argument does relate them, for oracle machines, which write
-    their queries: if [F (C x) <> F zero], then [F] queried its argument
-    at [2^x], and the call [F (C x)] paid at least [x] steps for writing
-    it (a lower bound on the cost [pF (C x ⋊ C_pot x)]). Under this
-    assumption, the cost of [W] is at most a constant times the cost of [V]
-    ([W_cost_paid]), so that [W] is as feasible as [V], although it is not
+    their queries: if `F (C x) <> F zero`, then `F` queried its argument
+    at [2^x], and the call `F (C x)` paid at least [x] steps for writing
+    it (a lower bound on the cost `pF (C x ⋊ C_pot x)`). Under this
+    assumption, the cost of [W] is at most a constant times the cost of `V`
+    ([W_cost_paid]), so that [W] is as feasible as `V`, although it is not
     basic feasible. *)
 Lemma W_cost_paid F pF x :
   ((F (C x) =? F zero)%N = false -> N.to_nat x <= cost (pF (C x ⋊ C_pot x))) ->
@@ -307,13 +307,13 @@ Module Type3Complexity (Import M : TimePos).
   Lemma size_C x y : N.size_nat (C x y) <= 1.
   Proof. rewrite C_spec. destruct (y =? 2 ^ x)%N; cbn; lia. Qed.
 
-  (** [V'], the denotation of a term of PV^ω equal to [V], has a
+  (** [V'], the denotation of a term of PV^ω equal to `V`, has a
       higher-order polynomial bound, as every term ([BFF_hpoly_bound]). *)
   Global Instance V'_hpoly : HPolyBound (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) V' :=
     BFF_hpoly_bound _ V'_pv.
 
-  (** [V] has a higher-order polynomial bound: its costs are those of [F]
-      on [C x] and on [zero], whose majorants are polynomials in [|x|]. *)
+  (** `V` has a higher-order polynomial bound: its costs are those of `F`
+      on `C x` and on [zero], whose majorants are polynomials in [|x|]. *)
   Lemma V_hpoly : HPolyBound (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) V.
   Proof.
     refine (hpoly_intro _ _
@@ -335,8 +335,8 @@ Module Type3Complexity (Import M : TimePos).
 
   (** [W] has no higher-order polynomial bound, whatever its complexity: a
       majorant also bounds the lengths of the values ([maj] at [N]). The
-      0-1 valued [F f = [f (2^x) <> 0]], with no cost, is majorized by
-      [fun _ => 1], but the length [x + 1] of [W F x] is exponential in
+      0-1 valued `F f = (if f (2^x) =? 0 then 0 else 1)`, with no cost, is majorized by
+      [fun _ => 1], but the length [x + 1] of `W F x` is exponential in
       [|x|], whereas a higher-order polynomial of type [N ⇒ N] is bounded by
       a polynomial ([hpoly_growth], [pow2_not_poly]). *)
   Lemma W_not_hpoly : ~ HPolyBound (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) W.

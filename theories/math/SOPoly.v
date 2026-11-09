@@ -1,12 +1,12 @@
 (** * Second-order polynomials
 
-    Kapron and Cook's second-order polynomials, in a function variable [F]
+    Kapron and Cook's second-order polynomials, in a function variable `F`
     and a number variable [n]: constants, [n], sums, products and
-    applications of [F]. They are higher-order polynomials ([HOPoly]) of
+    applications of `F`. They are higher-order polynomials ([HOPoly]) of
     type [(N ⇒ N) ⇒ N ⇒ N] ([sopoly_hpoly]). Conversely, every higher-order
     polynomial of this type is extensionally a second-order polynomial
     ([hpoly_sopoly]), by a definability logical relation on the families
-    indexed by [F] and [n] ([sodef]). They bound the basic feasible
+    indexed by `F` and [n] ([sodef]). They bound the basic feasible
     functionals of type 2 ([BFF2_sopoly_bound] in [BFFFeasibility]).
 
     B. M. Kapron, S. A. Cook. A new characterization of type-2 feasibility.
@@ -37,7 +37,7 @@ Fixpoint soeval (p : sopoly) (F : nat -> nat) (n : nat) : nat :=
 
 (** ** Second-order polynomials are higher-order polynomials
 
-    The translation into a term, in the context of [F] and [n]. *)
+    The translation into a term, in the context of `F` and [n]. *)
 Fixpoint sotrans (p : sopoly) : term hpc [tN; tN ⇒ tN] tN :=
   match p with
   | soconst k => tcst (hnum k)
@@ -59,7 +59,7 @@ Qed.
 (** ** Higher-order polynomials with second-order type are second-order
   polynomials
 
-    A logical relation on the families indexed by [F] and [n]: at [N], the
+    A logical relation on the families indexed by `F` and [n]: at [N], the
     family is the value of a second-order polynomial. *)
 
 Fixpoint sodef (σ : ty) : ((nat -> nat) -> nat -> M σ) -> Prop :=

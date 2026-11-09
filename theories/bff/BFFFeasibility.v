@@ -8,8 +8,8 @@
     The majorization is a logical relation over the types ([maj]):
     - at [N], a bound [m] majorizes a number of length at most [m];
     - at [σ ⇒ τ], [m] majorizes a function [f] of complexity [c] when, for
-      every argument [x] majorized by a monotone [a], the cost of [f x] is
-      at most the value of [m a] at [0]s ([baseM]), and [m a] majorizes
+      every argument [x] majorized by a monotone `a`, the cost of [f x] is
+      at most the value of `m a` at [0]s ([baseM]), and `m a` majorizes
       [f x].
 
     The denotation of a term is its closure conversion ([Lambda]), whose
@@ -17,7 +17,7 @@
     induction on the terms, in an environment of majorized values
     ([interp_hpoly]): the majorant of a term is the term itself, with each
     constant replaced by its majorant ([BFFComplexity]; for the recursion
-    [R], the bound of [R_cost_bound] in the majorants of [F] and [h]), and
+    `R`, the bound of [R_cost_bound] in the majorants of `F` and `h`), and
     the costs of the combinators added ([plus_t]).
 
     The theorem is about terms, not functionals: a complexity is that of a
@@ -335,11 +335,11 @@ Module BFFFeasibility (Import M : TimeCostModel).
     intro x. exact (J x tt (N.size_nat x) (le_n _) (le_n _)).
   Qed.
 
-  (** At type [(N ⇒ N) ⇒ N ⇒ N]: let [a] be a monotone bound on the costs
+  (** At type [(N ⇒ N) ⇒ N ⇒ N]: let `a` be a monotone bound on the costs
       of the argument [f] (with complexity [cf]) and on the lengths of its
       values, in the length of their arguments. The cost of [⟦t⟧ f x] (the
       application to [f], then to [x]) and the length of its value are
-      bounded by a higher-order polynomial of type 2 in [a] and the length
+      bounded by a higher-order polynomial of type 2 in `a` and the length
       of [x].
 
       The higher-order polynomial is bounded by a second-order polynomial
@@ -369,10 +369,10 @@ Module BFFFeasibility (Import M : TimeCostModel).
     eapply Nat.le_trans; [exact (Nat.add_le_mono _ _ _ _ Hc Hx) | lia].
   Qed.
 
-  (** The same bound with a second-order polynomial in [a] and the length
+  (** The same bound with a second-order polynomial in `a` and the length
       of [x], as Kapron and Cook's: [p] is a second-order polynomial
       ([hpoly_sopoly]). Their bound is in the
-      length function of [f] only, with oracle calls cheap, whereas [a]
+      length function of [f] only, with oracle calls cheap, whereas `a`
       also bounds the cost of [f]. *)
   Corollary BFF2_sopoly_bound (t : term pv [] ((tN ⇒ tN) ⇒ tN ⇒ tN)) :
     exists c (q : sopoly), CBound _ ⟦t⟧ c /\

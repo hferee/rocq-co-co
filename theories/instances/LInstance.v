@@ -13,8 +13,8 @@
       step-indexed by a budget of model cost, which is what
       [fix_complexity] needs.
     - A function with complexity [cf] is realised by an L value whose
-      application to the realiser of an argument [a] reduces in at most
-      [K * cost (cf a)] steps to a realiser of the result.
+      application to the realiser of an argument `a` reduces in at most
+      `K * cost (cf a)` steps to a realiser of the result.
     - Ground data are realised by Scott encodings. Lists, options and pairs
       are realised element-wise, so that they are representable whenever
       their elements are. The environments of closures ([Combinators]) are
@@ -1053,7 +1053,7 @@ Module LZM <: ZTimeCostModel LCM LBT.
 
 End LZM.
 
-(** Fixpoints. The unfolding equation, pointwise, gives [f = F f] with functional extensionality. [f] is realised by L's fixpoint operator [rho] applied to a realiser of [F], by induction on the budget: one unfolding takes 3 beta-steps and costs at least one, and the recursive calls have a smaller budget. *)
+(** Fixpoints. The unfolding equation, pointwise, gives `f = F f` with functional extensionality. [f] is realised by L's fixpoint operator [rho] applied to a realiser of `F`, by induction on the budget: one unfolding takes 3 beta-steps and costs at least one, and the recursive calls have a smaller budget. *)
 Module LFX <: FixTimeCostModel LCM LBT LCB.
   Import LCM LBT.
   Definition c_fix := 1.

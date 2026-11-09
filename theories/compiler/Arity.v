@@ -14,7 +14,7 @@ Fixpoint pw_eq {T} (ar : Arity T) : T -> T -> Prop :=
   | ar_fun A B ar => fun f g => forall a : A, pw_eq ar (f a) (g a)
   end.
 
-(** [f] is a fixpoint of [F]: [f a x1 .. xn = F f a x1 .. xn] for all
+(** [f] is a fixpoint of `F`: `f a x1 .. xn = F f a x1 .. xn` for all
     arguments, where [ar] gives the number [n] of extra arguments. *)
 Definition is_fixpoint {A B} (ar : Arity B) (F : (A -> B) -> A -> B) (f : A -> B) : Prop :=
   forall a : A, pw_eq ar (f a) (F f a).

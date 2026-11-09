@@ -105,7 +105,7 @@ Ltac2 rec bracket_compile (t : constr) : constr :=
   | _ => t
   end.
 
-(** In a goal [@ComplexityBound A CA R f c], replace [f] by its compiled
+(** In a goal `@ComplexityBound A CA R f c`, replace [f] by its compiled
     form. *)
 Ltac2 bracket_compile_goal () :=
   match kind (Control.goal ()) with

@@ -157,7 +157,7 @@ Module Type CombinatorTimeCostAxioms
   (** ** Closures *)
 
   (** [Lam c e] is the closure of code [c] and environment [e]; applying it
-      to [a] runs [c] in the environment [e] extended with [a]. *)
+      to `a` runs [c] in the environment [e] extended with `a`. *)
   #[global] Declare Instance Lam_complexity :
     forall {E CE A CA B CB} `{Repr E CE} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Lam E A B)
@@ -183,7 +183,7 @@ Module Type CombinatorTimeCostAxioms
        fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => c_clo ⋉
        fun ca : ℂI A CA => c_step ⊕ pot <$> cf · (cg · ca)).
 
-  (** [Cc f a x = f x a]. *)
+  (** `Cc f a x = f x a`. *)
   #[global] Declare Instance Cc_complexity :
     forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Cc X A B)

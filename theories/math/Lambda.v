@@ -1,13 +1,13 @@
 (** * Simply typed λ-calculus over a signature
 
     The terms of the simply typed λ-calculus over one base type and a
-    signature [C] of typed constants, with de Bruijn variables
-    ([term C Γ σ], in the context [Γ]), and their denotations in the
-    functionals over a type [B] ([sem B σ]), for an interpretation of the
-    constants ([Interp C B]).
+    signature `C` of typed constants, with de Bruijn variables
+    (`term C Γ σ`, in the context [Γ]), and their denotations in the
+    functionals over a type `B` (`sem B σ`), for an interpretation of the
+    constants (`Interp C B`).
 
     The denotation of a term in the context [Γ] is a function of the
-    environment ([envT B Γ], the values of the variables), built from the
+    environment (`envT B Γ`, the values of the variables), built from the
     closure combinators of the categorical abstract machine
     ([Combinators]): it is the closure conversion of the term, so that the
     cost model gives its complexity ([BFFFeasibility]). On a closed term,
@@ -36,7 +36,7 @@ Infix "⇒" := tArr (at level 60, right associativity).
 Definition ty_eq_dec (σ τ : ty) : {σ = τ} + {σ <> τ}.
 Proof. decide equality. Defined.
 
-(** The functionals of type [σ] over base type [B]. *)
+(** The functionals of type [σ] over base type `B`. *)
 Fixpoint sem (B : Type) (σ : ty) : Type :=
   match σ with tN => B | σ ⇒ τ => sem B σ -> sem B τ end.
 
@@ -73,7 +73,7 @@ Arguments tapp {C Γ σ τ}.
 
 (** ** Denotation *)
 
-(** The interpretation of the constants of [C] as functionals over [B]. *)
+(** The interpretation of the constants of `C` as functionals over `B`. *)
 Class Interp (C : ty -> Type) (B : Type) := cinterp : forall σ, C σ -> sem B σ.
 #[global] Hint Mode Interp + - : typeclass_instances.
 
@@ -137,7 +137,7 @@ Fixpoint csubst {C D} (s : forall σ, C σ -> term D [] σ) {Γ σ} (t : term C 
 
 (** ** Logical relations
 
-    A relation [R] between functionals, defined at arrow types from its
+    A relation `R` between functionals, defined at arrow types from its
     values at the argument and result types, relates the denotations of a
     term in related environments, when it relates the constants to
     themselves ([rel_interp]), and the denotation of a closed term to its
@@ -212,8 +212,8 @@ Qed.
 
 (** ** Terms with binders
 
-    [pterm C V σ]: the terms whose variables are Rocq variables of types
-    [V σ]. A closed term is a term for every [V] ([PTerm]). *)
+    `pterm C V σ`: the terms whose variables are Rocq variables of types
+    `V σ`. A closed term is a term for every `V` ([PTerm]). *)
 Section PTerms.
   Variables (C : ty -> Type) (V : ty -> Type).
 

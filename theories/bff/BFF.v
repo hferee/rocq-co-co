@@ -4,7 +4,7 @@
     over the natural numbers that are computable in polynomial time. They are
     the functionals defined by the closed terms of the simply typed
     λ-calculus over constants for polynomial-time functions and a recursor
-    [R], bounded recursion on notation: Cook & Urquhart's system PV^ω
+    `R`, bounded recursion on notation: Cook & Urquhart's system PV^ω
     ([pv], [is_BFF]). At type 2, they are the functionals computed by oracle
     Turing machines in time bounded by a second-order polynomial in the
     lengths of their inputs (Kapron & Cook).
@@ -108,7 +108,7 @@ Definition cond (x y z : N) : N := match x with N0 => y | Npos _ => z end.
     collection of polynomial-time functions (all of them, in Cook and
     Kapron's version), which must contain such a test: the other functions
     do not depend on the values of the bits of their arguments, except for
-    [cond] which tests [0], and neither does the recursor [R] (whose step
+    [cond] which tests [0], and neither does the recursor `R` (whose step
     function receives the whole argument), so that they do not define the
     parity. *)
 Definition par (x : N) : N :=
@@ -141,11 +141,11 @@ Proof.
     match goal with p : positive |- _ => destruct p; reflexivity end.
 Qed.
 
-(** [R a F h w]: the recursion on notation of step [F] from [a], each value
-    being bounded by the length of [h]:
-    - [R a F h 0 = a];
-    - [R a F h w = t] if [|t| <= |h w|], and [h w] otherwise, where
-      [t = F w (R a F h ⌊w / 2⌋)] ([bnd t (h w)]).
+(** `R a F h w`: the recursion on notation of step `F` from `a`, each value
+    being bounded by the length of `h`:
+    - `R a F h 0 = a`;
+    - `R a F h w = t` if `|t| <= |h w|`, and `h w` otherwise, where
+      `t = F w (R a F h ⌊w / 2⌋)` (`bnd t (h w)`).
 
     It is Cook and Urquhart's recursor, on numbers instead of strings (as
     restated by Kapron and Steinberg, with [w] the string [c i] of digit
@@ -178,7 +178,7 @@ Proof.
     cbn; unfold bnd; rewrite len_le_spec; reflexivity.
 Qed.
 
-(** The values of [R] are bounded by the length of [h]. *)
+(** The values of `R` are bounded by the length of `h`. *)
 Lemma R_size a F h w : w <> 0 -> (N.size_nat (R a F h w) <= N.size_nat (h w))%nat.
 Proof.
   intro Hw. rewrite R_step by exact Hw. cbn zeta.
@@ -248,7 +248,7 @@ Qed.
     The terms of PV^ω are the simply typed λ-terms ([Lambda]) over the
     constants [pv], interpreted by the functions above. They are written
     with binders, as [<{ λ f x, f (f x) }>], where [s0], [s1], [tr], [pad],
-    [chop], [smash], [cond], [par] and [R] are the constants, and the
+    [chop], [smash], [cond], [par] and `R` are the constants, and the
     numerals are built from [0], [s0] and [s1]. A basic feasible functional
     is a functional equal to the denotation of a closed term of PV^ω
     ([is_BFF]), as a functional ([ext_eq]: equal on equal arguments). *)
@@ -482,7 +482,7 @@ Qed.
 
     [vmaj σ f m]: the lengths of the values of [f] are bounded by [m], at
     every type: at [N], [m] bounds the length of the number; at [σ ⇒ τ],
-    [m a] bounds [f x] for every argument [x] bounded by a monotone [a].
+    `m a` bounds [f x] for every argument [x] bounded by a monotone `a`.
     Every term of PV^ω has a higher-order polynomial majorant: the same
     term, with each constant replaced by its majorant ([pv_maj],
     [BFF_majorant]). Unlike [BFF_hpoly_bound] ([BFFFeasibility]), this is

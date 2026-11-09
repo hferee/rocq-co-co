@@ -24,7 +24,7 @@ Module ETHCost (Import M : TimeStdlib).
     (fun cx => 7 ⋉ fun cl =>
        (length (val cl) * (37 * val cx + 115) + 2) ⋉ tt) := _.
 
-  (** [eqbN a b]: recursive on its first argument, matches the second one. *)
+  (** `eqbN a b`: recursive on its first argument, matches the second one. *)
   Global Instance eqbN_complexity : ComplexityBound eqbN
     (fun ca => 5 ⋉ fun cb =>
        (37 * list_sum (val ca) + 96 * length (val ca) + 15) ⋉ tt).

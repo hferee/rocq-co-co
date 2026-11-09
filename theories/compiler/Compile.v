@@ -90,7 +90,7 @@ Ltac2 rec peel_b (n : int) (t : constr) : binder list * constr :=
   end.
 Ltac2 peel (n : int) (t : constr) : constr := let (_, t) := peel_b n t in t.
 
-(** [body] is under [a] binders; the free variables [ks] (outside these
+(** [body] is under `a` binders; the free variables [ks] (outside these
     binders) become [r] new binders, inside them. *)
 Ltac2 lift_vars (a : int) (ks : int list) (body : constr) : constr :=
   let r := List.length ks in
@@ -301,7 +301,7 @@ Ltac2 replace_goal_arg (i : int) (y : constr) :=
   | _ => fail_msg "replace_goal_arg: the goal is not an application"
   end.
 
-(** In a goal [@ComplexityBound A CA R f c], replace [f] (the argument before
+(** In a goal `@ComplexityBound A CA R f c`, replace [f] (the argument before
     last) by its compiled form. *)
 Ltac2 compile_goal () :=
   match kind (Control.goal ()) with
@@ -314,8 +314,8 @@ Ltac2 compile_goal () :=
 (** ** Fixpoints
 
     [fix_equation], in a goal [ComplexityBound f c] where [f] is a recursive
-    function, proves the unfolding equation [is_fixpoint ar F f] of [f], for
-    its functional [F] (the body of the fixpoint, abstracted over the
+    function, proves the unfolding equation `is_fixpoint ar F f` of [f], for
+    its functional `F` (the body of the fixpoint, abstracted over the
     recursive calls, with its case analyses lifted by [lift_cases]), and
     adds it as a premise of the goal. It is proved by case analysis of the
     recursive argument and of the matched values. [f] may be a
@@ -410,11 +410,11 @@ Ltac2 fix_functional (f : constr) : constr * int * int :=
   | _ => fail_msg "fix_equation: not a fixpoint"
   end.
 
-(** Prove [pw_eq ar (f a) (F' f a)] (for all [a]), where [F'] is
-    [lift_cases F], for [n] arguments, recursive on argument [k]: the
-    equation [f a = F f a] holds by case analysis of the recursive argument
-    and conversion, and [F f a = F' f a] by case analysis of the values
-    matched by [F]. [pre] are the arguments given before (for mutual
+(** Prove `pw_eq ar (f a) (F' f a)` (for all `a`), where [F'] is
+    `lift_cases F`, for [n] arguments, recursive on argument [k]: the
+    equation `f a = F f a` holds by case analysis of the recursive argument
+    and conversion, and `F f a = F' f a` by case analysis of the values
+    matched by `F`. [pre] are the arguments given before (for mutual
     recursion). *)
 Ltac2 prove_unfolding (ff : constr) (f : constr) (pre : constr list) (n : int) (k : int) :=
   ltac1:(intro; cbn [pw_eq]; intros);

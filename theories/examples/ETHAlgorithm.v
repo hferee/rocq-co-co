@@ -511,7 +511,7 @@ Fixpoint lift_coeffs_aux (fuel : nat) (p : zpoly) : list (Z * Z) :=
    Since deg p_ℓ < 2ℓ, ℓ successive divisions suffice. *)
 Definition lift_coeffs (l : nat) : list (Z * Z) := lift_coeffs_aux l (parity_poly l).
 
-(** ** 7. The coefficient ring Q[z]/(z^J) [V]/(V^ℓ) *)
+(** ** 7. The coefficient ring Q[z]/(z^J) `V`/(V^ℓ) *)
 
 (* Element Σ_s a_s V^s, stored as the list of the truncated polynomials a_s(z). *)
 Definition rv := list qpoly.
