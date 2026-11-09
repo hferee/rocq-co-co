@@ -7,7 +7,7 @@
     ([Zpower2_Psize]); the facts below follow from them, or by case
     analysis. *)
 
-From Stdlib Require Import Arith PArith ZArith Zpow_facts Lia.
+From Stdlib Require Import Arith PArith NArith ZArith Zpow_facts Lia.
 
 (** ** Positive numbers *)
 
@@ -30,11 +30,28 @@ Qed.
 Lemma size_nat_le_to_nat p : Pos.size_nat p <= Pos.to_nat p.
 Proof. induction p; cbn [Pos.size_nat]; rewrite ?Pos2Nat.inj_xI, ?Pos2Nat.inj_xO; lia. Qed.
 
+(** A number is less than [2] to its bit size. *)
+Lemma to_nat_lt_pow_size_nat p : Pos.to_nat p < 2 ^ Pos.size_nat p.
+Proof.
+  induction p as [p IH|p IH|]; cbn [Pos.size_nat];
+    rewrite ?Pos2Nat.inj_xI, ?Pos2Nat.inj_xO, ?Nat.pow_succ_r'; cbn; lia.
+Qed.
+
 Lemma size_nat_of_succ_nat n : Pos.size_nat (Pos.of_succ_nat n) <= S n.
 Proof. pose proof (size_nat_le_to_nat (Pos.of_succ_nat n)). rewrite SuccNat2Pos.id_succ in H. exact H. Qed.
 
 Lemma size_nat_of_nat n : Pos.size_nat (Pos.of_nat n) <= S n.
 Proof. pose proof (size_nat_le_to_nat (Pos.of_nat n)). rewrite Nat2Pos.id_max in H. lia. Qed.
+
+(** The powers of [2]. *)
+Lemma size_nat_pow_pos p : Pos.size_nat (2 ^ p) = S (Pos.to_nat p).
+Proof.
+  induction p as [|p IH] using Pos.peano_ind; [reflexivity|].
+  rewrite Pos.pow_succ_r, Pos2Nat.inj_succ. cbn [Pos.mul Pos.size_nat]. rewrite IH. reflexivity.
+Qed.
+
+Lemma size_nat_pow (x : N) : N.size_nat (2 ^ x) = S (N.to_nat x).
+Proof. destruct x as [|p]; [reflexivity|]. exact (size_nat_pow_pos p). Qed.
 
 (** Add [1 <= Pos.size_nat p] for the sizes [Pos.size_nat p] of the goal. *)
 Ltac size_facts :=

@@ -499,8 +499,10 @@ Module LCM <: CostModel.
     ComplexityBound f c -> has_complexity f c.
   Proof. intros [(c0 & Hc & s & H)]. exists s. intro k. exact (rl_mono Hc (H k)). Qed.
 
-  (** The bounds in the size of the inputs ([Bounds]). *)
+  (** The bounds in the size of the inputs ([Bounds]), and at higher types
+      ([HOBounds]). *)
   Include Bounds.
+  Include HOBounds.
 End LCM.
 
 (** Higher-order primitives. *)

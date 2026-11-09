@@ -5,12 +5,11 @@
     and the lengths of its values are bounded by a λ-term over [+] and [×]
     applied to bounds on its arguments ([BFF_hpoly_bound]).
 
-    The majorization is a logical relation over the types ([maj]):
-    - at [N], a bound [m] majorizes a number of length at most [m];
-    - at [σ ⇒ τ], [m] majorizes a function [f] of complexity [c] when, for
-      every argument [x] majorized by a monotone `a`, the cost of [f x] is
-      at most the value of `m a` at [0]s ([baseM]), and `m a` majorizes
-      [f x].
+    The majorization ([maj]) and the higher-order polynomial bounds
+    ([HPolyBound]) are those of the cost model ([HOBounds]), at the types
+    [bits σ]: the ground type is [N], whose size is the length of its
+    binary representation ([N.size_nat]). At [N], a bound [m] majorizes a
+    number of length at most [m].
 
     The denotation of a term is its closure conversion ([Lambda]), whose
     complexity follows from the axioms of the combinators. The proof is by
@@ -22,7 +21,8 @@
 
     The theorem is about terms, not functionals: a complexity is that of a
     program. A functional equal to a BFF ([is_BFF]) may be computed by
-    other, slower programs. *)
+    other, slower programs. Every BFF also has a bound on
+    sized arguments ([BFF_hpolyS]). *)
 
 From Complexity Require Export BFFComplexity SOPoly.
 From Stdlib Require Import NArith.
@@ -40,16 +40,26 @@ Fixpoint cty (σ : ty) : Type :=
 Fixpoint cenv (Γ : list ty) : Type :=
   match Γ with [] => unit | σ :: Γ => cenv Γ * cty σ end.
 
+(** [norm_types] unfolds the types of the functionals ([den], [cty]) at
+    known types. The same term can be elaborated with [den (tN ⇒ tN)] or
+    [N -> N], with [cty σ] folded or not; [lia] compares terms
+    syntactically, so it needs them normalized. *)
+Ltac norm_types := cbn [sem cty] in *.
+
 Module BFFFeasibility (Import M : TimeCostModel).
 
   Module BC := BFFComplexity M.
   Import BC.
 
-  Fixpoint repr (σ : ty) : Repr (den σ) (cty σ) :=
-    match σ return Repr (den σ) (cty σ) with
-    | tN => Repr_N
-    | σ ⇒ τ => Repr_arr (repr σ) (repr τ)
+  (** The types of PV^ω as higher-order types ([HOBounds]): the ground type
+      is [N], whose size is the length [N.size_nat]. *)
+  Fixpoint bits (σ : ty) : HigherOrder σ (den σ) (cty σ) :=
+    match σ return HigherOrder σ (den σ) (cty σ) with
+    | tN => ho_ground Repr_N N.size_nat
+    | σ ⇒ τ => ho_arr (bits σ) (bits τ)
     end.
+
+  Definition repr (σ : ty) : Repr (den σ) (cty σ) := ho_repr (bits σ).
 
   Fixpoint renv (Γ : list ty) : Repr (envT N Γ) (cenv Γ) :=
     match Γ return Repr (envT N Γ) (cenv Γ) with
@@ -65,95 +75,57 @@ Module BFFFeasibility (Import M : TimeCostModel).
   Definition CBoundE Γ σ (f : envT N Γ -> den σ) (c : ℂI (envT N Γ) (cenv Γ) -> ℂO (cty σ)) :=
     @ComplexityBound _ (@repr_ctype _ _ (Repr_arr (renv Γ) (repr σ))) (Repr_arr (renv Γ) (repr σ)) f c.
 
-  (** ** Majorization: ground values are majorized by their size and
-  function by functions mapping majorants of their inputs to majorants of their outputs. *)
-  Fixpoint maj (σ : ty) : den σ -> cty σ -> M σ -> Prop :=
-    match σ return den σ -> cty σ -> M σ -> Prop with
-    | tN => fun x _ m => N.size_nat x <= m
-    | σ ⇒ τ => fun f c m => forall x cx a, monotone σ a -> maj σ x cx a ->
-        cost (c (x ⋊ cx)) <= baseM τ (m a) /\
-        maj τ (f x) (res (c (x ⋊ cx))) (m a)
-    end.
-
-  Lemma maj_mle σ f c m m' : maj σ f c m -> mle σ m m' -> maj σ f c m'.
-  Proof.
-    revert f c m m'; induction σ as [|σ _ τ IH]; intros f c m m' Hf Hm; cbn in *; [lia|].
-    intros x cx a Ha Hx. destruct (Hf x cx a Ha Hx) as [Hc Hv].
-    pose proof (Hm a a Ha). split; [pose proof (baseM_mono τ _ _ H); lia | exact (IH _ _ _ _ Hv H)].
-  Qed.
-
-  Lemma maj_plus σ Γ (e : envT nat Γ) y cy k m : maj σ y cy m -> maj σ y cy (interp (plus_t σ) e k m).
-  Proof.
-    revert Γ e y cy m; induction σ as [|σ _ τ IH]; intros Γ e y cy m H.
-    - rewrite interp_plus_tN. cbn in *. lia.
-    - intros x cx a Ha Hx. destruct (H x cx a Ha Hx) as [Hc Hm]. rewrite interp_plus_arr.
-      split; [rewrite baseM_plus_t; lia | apply IH, Hm].
-  Qed.
-
-  (** ** Higher-order polynomial bounds
-
-      [HPolyBound σ f]: [f] has a complexity bound majorized by a
-      higher-order polynomial. The constants of PV^ω are instances. *)
-  Class HPolyBound (σ : ty) (f : den σ) : Prop :=
-    hpoly_bound : exists (c : cty σ) (p : hpoly σ), CBound σ f c /\ maj σ f c ⟦p⟧.
-
-  (** The bound [p] comes before the proof obligations, so that it is
-      elaborated with its type ([db]). *)
-  Lemma hpoly_intro σ f (p : hpoly σ) c : CBound σ f c -> maj σ f c ⟦p⟧ -> HPolyBound σ f.
-  Proof. intros C J. exists c, p. split; assumption. Qed.
-  Arguments hpoly_intro & σ f p c _ _.
-
   Ltac simpl_c := cbv [app cost_add fmap ret_I ret cost res val pot] in *; autounfold with costs in *.
 
-  Global Instance zero_hpoly : HPolyBound tN 0%N.
+  Global Instance zero_hpoly : HPolyBound (bits tN) 0%N.
   Proof. refine (hpoly_intro _ _ (db <{ 0 }>) _ (N_complexity 0) _). cbn. lia. Qed.
 
-  Global Instance s0_hpoly : HPolyBound (tN ⇒ tN) s0.
+  Global Instance s0_hpoly : HPolyBound (bits (tN ⇒ tN)) s0.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a, a + 7 }>) _ s0_complexity _). simpl_hp.
     intros x cx a _ Hx. cbn in *. pose proof (size_s0 x). lia.
   Qed.
 
-  Global Instance s1_hpoly : HPolyBound (tN ⇒ tN) s1.
+  Global Instance s1_hpoly : HPolyBound (bits (tN ⇒ tN)) s1.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a, a + 7 }>) _ s1_complexity _). simpl_hp.
     intros x cx a _ Hx. cbn in *. pose proof (size_s1 x). lia.
   Qed.
 
-  Global Instance tr_hpoly : HPolyBound (tN ⇒ tN) tr.
+  Global Instance tr_hpoly : HPolyBound (bits (tN ⇒ tN)) tr.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a, a + 3 }>) _ tr_complexity _). simpl_hp.
     intros x cx a _ Hx. cbn in *. pose proof (size_tr x). lia.
   Qed.
 
-  Global Instance par_hpoly : HPolyBound (tN ⇒ tN) par.
+  Global Instance par_hpoly : HPolyBound (bits (tN ⇒ tN)) par.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a, a + 3 }>) _ par_complexity _). simpl_hp.
     intros x cx a _ Hx. cbn in *. pose proof (size_par x). lia.
   Qed.
 
-  Global Instance pad_hpoly : HPolyBound (tN ⇒ tN ⇒ tN) pad.
+  Global Instance pad_hpoly : HPolyBound (bits (tN ⇒ tN ⇒ tN)) pad.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a b, a + 43 * b + 13 }>) _ pad_complexity _). simpl_hp.
     intros x cx a _ Hx. split; [cbn; lia|].
     intros y cy b _ Hy. cbn in *. pose proof (size_pad x y). lia.
   Qed.
 
-  Global Instance chop_hpoly : HPolyBound (tN ⇒ tN ⇒ tN) chop.
+  Global Instance chop_hpoly : HPolyBound (bits (tN ⇒ tN ⇒ tN)) chop.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a b, a + 39 * b + 13 }>) _ chop_complexity _). simpl_hp.
     intros x cx a _ Hx. split; [cbn; lia|].
     intros y cy b _ Hy. cbn in *. pose proof (size_chop x y). lia.
   Qed.
 
-  Global Instance smash_hpoly : HPolyBound (tN ⇒ tN ⇒ tN) smash.
+  Global Instance smash_hpoly : HPolyBound (bits (tN ⇒ tN ⇒ tN)) smash.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a b, b * (44 * a + 62) + 14 }>) _ smash_complexity _).
     simpl_hp. intros x cx a _ Hx. split; [cbn; lia|].
     intros y cy b _ Hy. cbn in *. pose proof (size_smash x y). nia.
   Qed.
 
-  Global Instance cond_hpoly : HPolyBound (tN ⇒ tN ⇒ tN ⇒ tN) cond.
+  Global Instance cond_hpoly : HPolyBound (bits (tN ⇒ tN ⇒ tN ⇒ tN)) cond.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a b c, b + c + 21 }>) _ cond_complexity _). simpl_hp.
     intros x cx a _ Hx. split; [cbn; lia|].
@@ -161,7 +133,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
     intros z cz c _ Hz. cbn in *. pose proof (size_cond x y z). lia.
   Qed.
 
-  Global Instance R_hpoly : HPolyBound (tN ⇒ (tN ⇒ tN ⇒ tN) ⇒ (tN ⇒ tN) ⇒ tN ⇒ tN) R.
+  Global Instance R_hpoly : HPolyBound (bits (tN ⇒ (tN ⇒ tN ⇒ tN) ⇒ (tN ⇒ tN) ⇒ tN ⇒ tN)) R.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ am mF mh wm,
       wm * (mF wm 0 + mF wm (am + mh wm) + mh wm + 53 * mh wm + 195) + 31 + (am + mh wm) }>)
@@ -170,7 +142,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
     intros a ca am _ Ha. split; [cbn; lia|].
     intros F cF mF HmF HF. split; [cbn; lia|].
     intros h ch mh Hmh Hh. split; [cbn; lia|].
-    intros w cw wm _ Hw. cbn [maj baseM] in *. simpl_c.
+    intros w cw wm _ Hw. cbn [maj bits baseM] in *. simpl_c.
     assert (HF' : forall w r, cost (cF (w ⋊ tt)) + cost (res (cF (w ⋊ tt)) (r ⋊ tt))
                               <= mF (N.size_nat w) 0 + mF (N.size_nat w) (N.size_nat r)).
     { intros w' r. destruct (HF w' tt (N.size_nat w') (le_n _) (le_n _)) as [H1 H2].
@@ -196,7 +168,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
     pose proof (Hl' w). cbn in *. simpl_c. split; lia.
   Qed.
 
-  Lemma pv_hpoly σ (c : pv σ) : HPolyBound σ (cinterp σ c).
+  Lemma pv_hpoly σ (c : pv σ) : HPolyBound (bits σ) (cinterp σ c).
   Proof. destruct c; exact _. Qed.
 
   (** ** Open terms
@@ -210,7 +182,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
     match Γ with
     | [] => fun _ _ _ => True
     | σ :: Γ => fun e ce me =>
-        maj_env Γ (etl e) (fst ce) (etl me) /\ monotone σ (ehd me) /\ maj σ (ehd e) (snd ce) (ehd me)
+        maj_env Γ (etl e) (fst ce) (etl me) /\ monotone σ (ehd me) /\ maj (bits σ) (ehd e) (snd ce) (ehd me)
     end.
 
   Lemma maj_env_mono Γ e ce me : maj_env Γ e ce me -> rel_env mle Γ me me.
@@ -222,7 +194,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
   Definition maj_open Γ σ (f : envT N Γ -> den σ) (c : ℂI (envT N Γ) (cenv Γ) -> ℂO (cty σ))
     (p : term hpc Γ σ) : Prop :=
     forall e ce me, maj_env Γ e ce me ->
-      cost (c (e ⋊ ce)) <= baseM σ (interp p me) /\ maj σ (f e) (res (c (e ⋊ ce))) (interp p me).
+      cost (c (e ⋊ ce)) <= baseM σ (interp p me) /\ maj (bits σ) (f e) (res (c (e ⋊ ce))) (interp p me).
 
   (** Variables: [lookup x] costs at most [k], and gives the complexity of
       the variable in the environment. *)
@@ -247,7 +219,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
   Qed.
 
   Lemma maj_lookup Γ σ (x : var Γ σ) e ce me : maj_env Γ e ce me ->
-    monotone σ (lookup x me) /\ maj σ (lookup x e) (clookup x ce) (lookup x me).
+    monotone σ (lookup x me) /\ maj (bits σ) (lookup x e) (clookup x ce) (lookup x me).
   Proof.
     revert e ce me. induction x as [Γ σ|Γ σ τ x IH]; intros e ce me He;
       [exact (proj2 He) | exact (IH _ _ _ (proj1 He))].
@@ -315,13 +287,17 @@ Module BFFFeasibility (Import M : TimeCostModel).
 
   (** ** The theorem *)
 
-  Theorem BFF_hpoly_bound σ (t : term pv [] σ) : HPolyBound σ ⟦t⟧.
+  Theorem BFF_hpoly_bound σ (t : term pv [] σ) : HPolyBound (bits σ) ⟦t⟧.
   Proof.
     destruct (interp_hpoly [] σ t) as (c & p & C & J).
     exists (res (c (tt ⋊ tt))), p. split.
     - exact (@apply_complexity _ _ _ _ Repr_unit (repr σ) tt (interp t) tt c tt_complexity C).
     - exact (proj2 (J tt tt tt I)).
   Qed.
+
+  (** Every basic feasible functional has a bound on sized arguments. *)
+  Corollary BFF_hpolyS σ (t : term pv [] σ) : HPolyBoundS (bits σ) ⟦t⟧.
+  Proof. exact (hpoly_hpolyS _ _ (BFF_hpoly_bound _ t)). Qed.
 
   (** At type [N ⇒ N]: the cost of [⟦t⟧ x] and the length of its value are
       bounded by a higher-order polynomial of type [N ⇒ N] in the length of
@@ -356,7 +332,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
     destruct (BFF_hpoly_bound _ t) as (c & p & C & J).
     exists c, p. split; [exact C|].
     intros f cf a Ha Hf x.
-    assert (Hmaj : maj (tN ⇒ tN) f cf a).
+    assert (Hmaj : maj (bits (tN ⇒ tN)) f cf a).
     { intros y [] m _ Hy. destruct (Hf y) as [H1 H2]. pose proof (Ha _ _ Hy). cbn. lia. }
     destruct (J f cf a Ha Hmaj) as [Hc Hm].
     destruct (Hm x tt (N.size_nat x) (le_n _) (le_n _)) as [Hx Hl].

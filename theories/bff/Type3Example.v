@@ -30,16 +30,18 @@
     linear in [x], that is exponential in [|x|] ([W_cost]). The argument
     above bounds it by the cost of `F` only under an assumption that the
     cost model does not provide: that `F` pays for the size of its queries
-    ([W_cost_paid]).
+    ([W_cost_paid]). The assumption holds when the potential of `F` is a
+    size bound ([CSized], [sized_query]).
 
     `V` is a BFF: it is equal, as a functional, to a PV^ω term ([V_BFF]).
     [W] is not: no BFF is equal to it ([W_not_BFF]), since every BFF has a
     polynomial majorant.
     In terms of higher-order polynomial bounds in the cost model
     ([BFFFeasibility]): `V` has one ([V_hpoly]), [W] has none, whatever its
-    complexity ([W_not_hpoly]). *)
+    complexity ([W_not_hpoly]). On sized arguments, both have one
+    ([V_hpolyS], [W_hpolyS], [W_sized_contrast]). *)
 
-From Complexity Require Import PosComplexity BFFFeasibility.
+From Complexity Require Import PosComplexity BFFFeasibility BitSize ListFacts.
 From Stdlib Require Import PArith NArith NArithRing.
 From Stdlib Require List.
 Import List.ListNotations.
@@ -226,6 +228,7 @@ Definition V_cost (F : (N -> N) -> N) (pF : ℂI (N -> N) (ℂI N unit -> ℂO u
   cost (pF (C x ⋊ C_pot x)) + cost (pF (zero ⋊ zero_pot)) + 50 * N.size_nat (F (C x)) + 55.
 Arguments V_cost F pF x /.
 
+(* A running-time bound for W. Note that it is intentional : it depends on the values of F, not simply on its output size. *)
 Definition W_cost (F : (N -> N) -> N) (pF : ℂI (N -> N) (ℂI N unit -> ℂO unit) -> ℂO unit)
   (x : N) : nat :=
   V_cost F pF x + if (F (C x) =? F zero)%N then 3 else 96 * N.to_nat x + 9.
@@ -265,6 +268,78 @@ Module Type3Complexity (Import M : TimePos).
   Module BF := BFFFeasibility M.
   Import BF.
 
+  (** ** Sized arguments ([HOBounds])
+
+      The potentials of `C x` and [zero] are size bounds ([CSized]);
+      [C_pot x] is also a size of [zero], which only differs from [C x] at
+      [2^x]. *)
+  Lemma C_sized x : CSized (bits (tN ⇒ tN)) (C x) (C_pot x).
+  Proof.
+    apply CSized_1. intros y.
+    assert (N.size_nat (C x (val y)) <= 1) by (rewrite C_spec; destruct (_ =? _)%N; cbn; lia).
+    unfold C_pot. cbn [cost]. nia.
+  Qed.
+
+  Lemma zero_sized x : CSized (bits (tN ⇒ tN)) zero (C_pot x).
+  Proof. apply CSized_const. intros y. cbn. lia. Qed.
+
+  Lemma zero_sized_pot : CSized (bits (tN ⇒ tN)) zero zero_pot.
+  Proof. apply CSized_const. intros y. cbn. lia. Qed.
+
+  (** If [F] is sized by [cF] and distinguishes [C x] from [zero],
+      then it asks [C x] the question [2^x], whose weight is more than [x]:
+      the cost of [cF] on [C x] is more than [x]. It is the hypothesis of
+      [W_cost_paid], from the size of [F] alone. *)
+  Theorem sized_query F cF x :
+    CSized (bits ((tN ⇒ tN) ⇒ tN)) F cF ->
+    F (C x) <> F zero ->
+    N.to_nat x < cost (cF (C x ⋊ C_pot x)).
+  Proof.
+    intros HF Hd. destruct (CSized_2 _ _ _ _ _ _ F cF (C x) (C_pot x) HF (C_sized x)) as (ys & Hw & Hm).
+    destruct (List.in_dec N.eq_dec (2 ^ x)%N ys) as [Hin | Hout].
+    - (* [F] asks [2^x], which costs more than [x] *)
+      match type of Hw with context [List.list_sum (List.map ?w ys)] =>
+        assert (Hs : w (2 ^ x)%N <= List.list_sum (List.map w ys)) by exact (list_sum_In _ _ (List.in_map w _ _ Hin));
+        assert (Hx : S (N.to_nat x) <= w (2 ^ x)%N)
+      end.
+      { unfold C_pot. cbn [cost val]. rewrite size_nat_pow. nia. }
+      norm_types. lia.
+    - (* otherwise [zero] answers like [C x] to all the questions *)
+      exfalso. apply Hd. symmetry. apply (Hm zero (zero_sized x)).
+      intros y Hy. symmetry. apply C_zero. intros ->. exact (Hout Hy).
+  Qed.
+
+  (** On a sized `F`, [W] costs at most [97] times `V`, and its value is not
+      longer than the cost of `F` on `C x`: the hypothesis of [W_cost_paid]
+      holds ([sized_query]). *)
+  Lemma W_cost_sized F cF x :
+    CSized (bits ((tN ⇒ tN) ⇒ tN)) F cF -> W_cost F cF x <= 97 * V_cost F cF x.
+  Proof.
+    intros HF. apply (W_cost_paid F cF x). intros E.
+    apply Nat.lt_le_incl, (sized_query F); [exact HF | apply N.eqb_neq, E].
+  Qed.
+
+  Lemma W_size_sized F cF x :
+    CSized (bits ((tN ⇒ tN) ⇒ tN)) F cF -> N.size_nat (W F x) <= cost (cF (C x ⋊ C_pot x)).
+  Proof.
+    intros HF. rewrite W_spec. destruct (N.eqb_spec (F (C x)) (F zero)) as [|Hd]; [cbn; lia|].
+    rewrite size_nat_pow. pose proof (sized_query F cF x HF Hd). lia.
+  Qed.
+
+  (** The argument of [W_not_hpoly], which asks [2^x] at the cost [|x|], is
+      not sized by its potential. *)
+  Lemma free_query_unsized x :
+    ~ CSized (bits ((tN ⇒ tN) ⇒ tN)) (fun f => if (f (2 ^ x) =? 0)%N then 0%N else 1%N)
+        (fun _ => N.size_nat x ⋉ tt).
+  Proof.
+    intros H.
+    assert (Hq : N.to_nat x < N.size_nat x).
+    { apply (sized_query _ _ x H). rewrite !C_spec, N.eqb_refl. cbn. unfold zero. discriminate. }
+    destruct x as [|p]; [cbn in Hq; lia|].
+    pose proof (size_nat_le_to_nat p). cbn [N.size_nat N.to_nat] in Hq. lia.
+  Qed.
+
+
   (** [zeros p q] makes [2 p - 1] calls. *)
   Global Instance zeros_complexity : ComplexityBound zeros
     (fun cp => 5 ⋉ fun cq => (48 * (2 * Pos.to_nat (val cp) - 1)) ⋉ tt).
@@ -302,6 +377,41 @@ Module Type3Complexity (Import M : TimePos).
     (fun cF => 2 ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt).
   Proof. cbound. all: rewrite E; lia. Qed.
 
+  (** ** Bounds in the size of the arguments ([Bounds])
+
+      The bounds above are in the lengths of the numbers ([N.size_nat],
+      [Pos.size_nat]), as the majorants of [BFFFeasibility] are. In the sizes
+      of the model ([Size]), which bound the lengths ([N_size_fact],
+      [positive_size_fact]), the first-order functions have the following
+      bounds. *)
+  Global Instance pred_N_linear_bound : LinearBound Pos.pred_N := _.
+  Global Instance N_pred_linear_bound : LinearBound N.pred := _.
+  Global Instance N_eqb_linear_bound : LinearBound N.eqb := _.
+  Global Instance pow2_eq_pos_polynomial_bound : PolynomialBound pow2_eq_pos := _.
+  Global Instance C_polynomial_bound : PolynomialBound C := _.
+  Global Instance zero_constant_bound : ConstantBound zero := _.
+
+  (** [pow2] and [zeros] are linear in the value of their first argument,
+      that is exponential in its size: they have no polynomial bound. *)
+  Lemma pos_to_nat_le_pow_size (p : positive) : Pos.to_nat p <= 2 ^ size p.
+  Proof.
+    pose proof (to_nat_lt_pow_size_nat p). pose proof (size_nat_le_size p).
+    pose proof (Nat.pow_le_mono_r 2 _ _ ltac:(lia) H0). lia.
+  Qed.
+
+  Lemma N_to_nat_le_pow_size (x : N) : N.to_nat x <= 2 ^ size x.
+  Proof.
+    destruct x as [|p]; [cbn; lia|].
+    pose proof (pos_to_nat_le_pow_size p). pose proof (size_Npos p).
+    pose proof (Nat.pow_le_mono_r 2 _ _ ltac:(lia) (Nat.lt_le_incl _ _ H0)). cbn [N.to_nat]. lia.
+  Qed.
+
+  Lemma zeros_size_bound : FirstOrderBound zeros (fun ss => 96 * 2 ^ List.nth 0 ss 0 + 5).
+  Proof. cost_split. all: pose proof (pos_to_nat_le_pow_size ca); lia. Qed.
+
+  Lemma pow2_size_bound : FirstOrderBound pow2 (fun ss => 96 * 2 ^ List.nth 0 ss 0 + 2).
+  Proof. cost_split. pose proof (N_to_nat_le_pow_size ca). lia. Qed.
+
   (** ** Higher-order polynomial bounds ([BFFFeasibility]) *)
 
   Lemma size_C x y : N.size_nat (C x y) <= 1.
@@ -309,28 +419,66 @@ Module Type3Complexity (Import M : TimePos).
 
   (** [V'], the denotation of a term of PV^ω equal to `V`, has a
       higher-order polynomial bound, as every term ([BFF_hpoly_bound]). *)
-  Global Instance V'_hpoly : HPolyBound (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) V' :=
+  Global Instance V'_hpoly : HPolyBound (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) V' :=
     BFF_hpoly_bound _ V'_pv.
 
-  (** `V` has a higher-order polynomial bound: its costs are those of `F`
-      on `C x` and on [zero], whose majorants are polynomials in [|x|]. *)
-  Lemma V_hpoly : HPolyBound (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) V.
+  (** The majorants: [C_maj a] of `C x` for [|x| <= a], [fun _ => 1] of
+      [zero], and the majorants of `V` and [W], in the majorant [mF] of `F`
+      and the bound [a] of [|x|]. They are the higher-order polynomials
+      written with [db] below, named so that [lia] sees them as atoms. *)
+  Definition C_maj (a : nat) : M (tN ⇒ tN) := fun b => b * (16 * a + 52) + 16.
+  Definition V_maj (mF : M ((tN ⇒ tN) ⇒ tN)) (a : nat) : nat :=
+    51 * mF (C_maj a) + mF (fun _ => 1) + 55.
+  Definition W_maj (mF : M ((tN ⇒ tN) ⇒ tN)) (a : nat) : nat := 97 * V_maj mF a.
+
+  (** The same majorants as higher-order polynomials: [C_poly a] is the
+      majorant of the potential [C_pot x] for [|x| <= a], and [V_poly],
+      [W_poly] are written with it. They evaluate to [C_maj], [V_maj] and
+      [W_maj]. *)
+  Definition C_poly : hpoly (tN ⇒ tN ⇒ tN) := db <{ λ a b, b * (16 * a + 52) + 16 }>.
+
+  Definition V_poly : hpoly (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) :=
+    tapp (db <{ λ c mF a, 51 * mF (c a) + mF (λ _, 1) + 55 }>
+          : hpoly ((tN ⇒ tN ⇒ tN) ⇒ ((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) C_poly.
+
+  Definition W_poly : hpoly (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) :=
+    tapp (db <{ λ v mF a, 97 * v mF a }>
+          : hpoly ((((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) ⇒ ((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) V_poly.
+
+  Lemma C_maj_mono a : monotone (tN ⇒ tN) (C_maj a).
+  Proof. intros b b' Hb. cbn in *. unfold C_maj. nia. Qed.
+
+  Lemma const_mono k : monotone (tN ⇒ tN) (fun _ => k).
+  Proof. intros ? ? ?. cbn. lia. Qed.
+
+  Lemma maj_C x a : N.size_nat x <= a -> maj (bits (tN ⇒ tN)) (C x) (C_pot x) (C_maj a).
+  Proof. intros Hx y cy b _ Hy. cbn in *. unfold C_maj. pose proof (size_C x y). split; nia. Qed.
+
+  Lemma maj_zero : maj (bits (tN ⇒ tN)) zero zero_pot (fun _ => 1).
+  Proof. intros y cy b _ _. cbn. lia. Qed.
+
+  (** The costs of `F` in `V`, on `C x` and on [zero], are bounded by its
+      majorant: so is [V_cost]. *)
+  Lemma V_cost_bound F cF mF x a :
+    monotone ((tN ⇒ tN) ⇒ tN) mF -> maj (bits ((tN ⇒ tN) ⇒ tN)) F cF mF -> N.size_nat x <= a ->
+    cost (cF (C x ⋊ C_pot x)) <= mF (C_maj a) /\ V_cost F cF x <= V_maj mF a.
   Proof.
-    refine (hpoly_intro _ _
-      (db <{ λ mF a, 51 * mF (λ b, b * (16 * a + 52) + 16) + mF (λ _, 1) + 55 }>)
-      _ V_complexity _).
-    simpl_hp. intros F cF mF HmF HF. split; [cbn; lia|].
-    intros x cx a _ Hx. cbn [maj baseM] in *.
-    assert (HC : maj (tN ⇒ tN) (C x) (C_pot x) (fun b => b * (16 * a + 52) + 16)).
-    { intros y cy b _ Hy. cbn in *. pose proof (size_C x y). split; nia. }
-    assert (HCm : monotone (tN ⇒ tN) (fun b => b * (16 * a + 52) + 16)).
-    { intros b b' Hb. cbn in *. nia. }
-    assert (Hz : maj (tN ⇒ tN) zero zero_pot (fun _ => 1)).
-    { intros y cy b _ _. cbn. lia. }
-    assert (Hzm : monotone (tN ⇒ tN) (fun _ => 1)) by (intros ? ? ?; cbn; lia).
-    destruct (HF _ _ _ HCm HC) as [HC1 HC2]. destruct (HF _ _ _ Hzm Hz) as [Hz1 _].
-    cbn -[Nat.mul] in *. split; [lia|].
-    unfold V. destruct (_ =? _)%N; cbn; lia.
+    intros HmF HF Hx.
+    destruct (HF _ _ _ (C_maj_mono a) (maj_C x a Hx)) as [HC1 HC2].
+    destruct (HF _ _ _ (const_mono 1) maj_zero) as [Hz1 _].
+    unfold V_maj. cbn [maj bits baseM V_cost] in *. norm_types. split; lia.
+  Qed.
+
+  (** `V` has a higher-order polynomial bound: its costs are those of `F`
+      on `C x` and on [zero] ([V_cost_bound]). *)
+  Lemma V_hpoly : HPolyBound (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) V.
+  Proof.
+    refine (hpoly_intro _ _ V_poly _ V_complexity _).
+    change ⟦_⟧ with V_maj.
+    intros F cF mF HmF HF. split; [cbn; unfold V_maj; lia|].
+    intros x cx a _ Hx. destruct (V_cost_bound F cF mF x a HmF HF Hx) as [_ HV].
+    cbn [maj bits cost res val pot baseM]. split; [exact HV|].
+    unfold V, V_maj. destruct (_ =? _)%N; cbn; lia.
   Qed.
 
   (** [W] has no higher-order polynomial bound, whatever its complexity: a
@@ -339,14 +487,14 @@ Module Type3Complexity (Import M : TimePos).
       [fun _ => 1], but the length [x + 1] of `W F x` is exponential in
       [|x|], whereas a higher-order polynomial of type [N ⇒ N] is bounded by
       a polynomial ([hpoly_growth], [pow2_not_poly]). *)
-  Lemma W_not_hpoly : ~ HPolyBound (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) W.
+  Lemma W_not_hpoly : ~ HPolyBound (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W.
   Proof.
     intros (c & m & _ & Hm).
     apply (pow2_not_poly (W_bound m)). intro n.
     change (2 ^ n <= ⟦m⟧ (fun _ => 1) (n + 1)). rewrite Nat.add_1_r.
     set (x0 := pow2 (N.of_nat n)).
     set (F := fun f : N -> N => if (f (pow2 x0) =? 0)%N then 0%N else 1%N).
-    assert (HF : maj ((tN ⇒ tN) ⇒ tN) F (fun _ => 0 ⋉ tt) (fun _ => 1)).
+    assert (HF : maj (bits ((tN ⇒ tN) ⇒ tN)) F (fun _ => 0 ⋉ tt) (fun _ => 1)).
     { intros g cg mg _ _. cbn. split; [lia|]. unfold F. destruct (_ =? 0)%N; cbn; lia. }
     assert (Hv : N.to_nat x0 = 2 ^ n).
     { unfold x0. rewrite pow2_spec, N2Nat.inj_pow, Nat2N.id. reflexivity. }
@@ -359,4 +507,27 @@ Module Type3Complexity (Import M : TimePos).
     cbn in Hs. unfold W in Hs. rewrite HCx in Hs. cbn in Hs. rewrite size_nat_pow2, Hv in Hs.
     lia.
   Qed.
+
+  (** ** Bounds on sized arguments ([BFFFeasibility]) *)
+
+  Corollary V_hpolyS : HPolyBoundS (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) V.
+  Proof. exact (hpoly_hpolyS _ _ V_hpoly). Qed.
+
+  (** [W] costs at most [97] times `V` on sized arguments
+      ([W_cost_sized]), and its value is not longer than the cost of `F`
+      on `C x` ([W_size_sized]), which `V` bounds ([V_cost_bound]). *)
+  Theorem W_hpolyS : HPolyBoundS (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W.
+  Proof.
+    refine (hpoly_introS _ _ W_poly _ W_complexity _). change ⟦_⟧ with W_maj.
+    intros F cF mF HmF HFs HF. split; [cbn; unfold W_maj, V_maj; lia|].
+    intros x cx a _ _ Hx. destruct (V_cost_bound F cF mF x a HmF HF Hx) as [HC HV].
+    pose proof (W_cost_sized F cF x HFs) as HW. pose proof (W_size_sized F cF x HFs) as HS.
+    cbn [smaj bits cost res val pot baseM]. unfold W_maj, V_maj in *. split; lia.
+  Qed.
+
+  (** The contrast: no bound over all the potentials of [F], one over the
+      sized ones. *)
+  Corollary W_sized_contrast :
+    ~ HPolyBound (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W /\ HPolyBoundS (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W.
+  Proof. exact (conj W_not_hpoly W_hpolyS). Qed.
 End Type3Complexity.
