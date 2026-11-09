@@ -17,6 +17,7 @@
     abstract syntax ([pterm], with the notation [<{ .. }>]), and converted
     to de Bruijn terms by computation ([of_pterm], [db]).
 
+    Reference:
     A. Chlipala. Parametric higher-order abstract syntax for mechanized
     semantics. ICFP 2008. *)
 
@@ -35,7 +36,7 @@ Infix "⇒" := tArr (at level 60, right associativity).
 Definition ty_eq_dec (σ τ : ty) : {σ = τ} + {σ <> τ}.
 Proof. decide equality. Defined.
 
-(** The functionals of type [σ] over [B]. *)
+(** The functionals of type [σ] over base type [B]. *)
 Fixpoint sem (B : Type) (σ : ty) : Type :=
   match σ with tN => B | σ ⇒ τ => sem B σ -> sem B τ end.
 

@@ -14,6 +14,7 @@
     only point where [C x] and [zero] differ, so that a machine running [F]
     has written down [2^x], and [W] can write it once more.
 
+    References:
     J. S. Royer. A feasible type-3 functional that fails to be basic
     feasible. DIMACS workshop on computational complexity and programming
     languages, 1996.
@@ -171,9 +172,15 @@ Proof.
            with (S (Pos.size_nat p - 1)) by lia; rewrite Nat.pow_succ_r'); cbn; lia.
 Qed.
 
-(** ** [W] is not a basic feasible functional
+(** ** [W] is not a basic feasible functional *)
 
-    Every term of PV^ω has a polynomial majorant ([BFF_majorant]). Applied
+(** The bound [n ↦ m (λ _, 1) (n + 1)] on the lengths of [W F x], for a
+    majorant [m] of [W] and a 0-1 valued [F], with [|x| = n + 1]. *)
+Definition W_bound (m : hpoly (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) : hpoly (tN ⇒ tN) :=
+  tapp (db <{ λ g n, g (λ _, 1) (n + 1) }>
+          : hpoly ((((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) ⇒ tN ⇒ tN)) m.
+
+(** Every term of PV^ω has a polynomial majorant ([BFF_majorant]). Applied
     to the majorant [fun _ => 1] of a 0-1 valued [F], it gives a
     higher-order polynomial of type [N ⇒ N], bounded by a polynomial
     ([hpoly_growth]). But it would bound the length [x + 1] of [W F x] when
@@ -182,8 +189,8 @@ Qed.
 Corollary W_not_BFF : ~ is_BFF (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) W.
 Proof.
   intros (t & HE). pose proof (BFF_majorant _ t) as Hv. set (m := csubst pv_maj t) in Hv.
-  destruct (hpoly_growth (tapp m (db <{ λ _, 1 }>))) as (c & d & Hc).
-  apply (pow2_not_poly (c * 2 ^ d) d). intro n.
+  apply (pow2_not_poly (W_bound m)). intro n.
+  change (2 ^ n <= ⟦m⟧ (fun _ => 1) (n + 1)). rewrite Nat.add_1_r.
   set (x0 := pow2 (N.of_nat n)).
   set (F := fun f : N -> N => if (f (pow2 x0) =? 0)%N then 0%N else 1%N).
   assert (HF : vmaj ((tN ⇒ tN) ⇒ tN) F (fun _ => 1%nat)).
@@ -200,11 +207,7 @@ Proof.
   assert (HCx : F (C x0) = 1%N).
   { unfold F. rewrite C_spec, pow2_spec, N.eqb_refl. reflexivity. }
   cbn in Hb. rewrite HW in Hb. unfold W in Hb. rewrite HCx in Hb. cbn in Hb.
-  rewrite size_nat_pow2, Hv0 in Hb. specialize (Hc (S n)).
-  change (⟦tapp m (db <{ λ _, 1 }>)⟧ (S n)) with (⟦m⟧ (fun _ => 1) (S n)) in Hc.
-  assert ((S n + 1) ^ d <= 2 ^ d * (n + 1) ^ d).
-  { rewrite <- Nat.pow_mul_l. apply Nat.pow_le_mono_l. lia. }
-  nia.
+  rewrite size_nat_pow2, Hv0 in Hb. lia.
 Qed.
 
 (** ** Complexity *)
@@ -228,7 +231,9 @@ Definition W_cost (F : (N -> N) -> N) (pF : ℂI (N -> N) (ℂI N unit -> ℂO u
   V_cost F pF x + if (F (C x) =? F zero)%N then 3 else 96 * N.to_nat x + 9.
 Arguments W_cost F pF x /.
 
-(** ** Running time
+(** ** Feasibility of W.
+
+
 
     [W_complexity] below gives the cost of [W]: [W_cost] is [V_cost] plus,
     when [F] distinguishes [C x] from [zero], [96 x + 9] for writing
@@ -241,13 +246,14 @@ Arguments W_cost F pF x /.
     its argument (as a beta-step of L).
 
     Royer's argument does relate them, for oracle machines, which write
-    their queries: if [F (C x) <> F zero], then [F] queried [2^x] on
-    [zero] and paid [x + 1] steps for writing it. Under this assumption,
-    the cost of [W] is at most a constant times the cost of [V]
+    their queries: if [F (C x) <> F zero], then [F] queried its argument
+    at [2^x], and the call [F (C x)] paid at least [x] steps for writing
+    it (a lower bound on the cost [pF (C x ⋊ C_pot x)]). Under this
+    assumption, the cost of [W] is at most a constant times the cost of [V]
     ([W_cost_paid]), so that [W] is as feasible as [V], although it is not
     basic feasible. *)
 Lemma W_cost_paid F pF x :
-  ((F (C x) =? F zero)%N = false -> N.to_nat x <= cost (pF (zero ⋊ zero_pot))) ->
+  ((F (C x) =? F zero)%N = false -> N.to_nat x <= cost (pF (C x ⋊ C_pot x))) ->
   W_cost F pF x <= 97 * V_cost F pF x.
 Proof.
   intro Hq. cbn [W_cost V_cost].
@@ -336,8 +342,8 @@ Module Type3Complexity (Import M : TimePos).
   Lemma W_not_hpoly : ~ HPolyBound (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) W.
   Proof.
     intros (c & m & _ & Hm).
-    destruct (hpoly_growth (tapp m (db <{ λ _, 1 }>))) as (k & d & Hk).
-    apply (pow2_not_poly (k * 2 ^ d) d). intro n.
+    apply (pow2_not_poly (W_bound m)). intro n.
+    change (2 ^ n <= ⟦m⟧ (fun _ => 1) (n + 1)). rewrite Nat.add_1_r.
     set (x0 := pow2 (N.of_nat n)).
     set (F := fun f : N -> N => if (f (pow2 x0) =? 0)%N then 0%N else 1%N).
     assert (HF : maj ((tN ⇒ tN) ⇒ tN) F (fun _ => 0 ⋉ tt) (fun _ => 1)).
@@ -351,10 +357,6 @@ Module Type3Complexity (Import M : TimePos).
     destruct (Hm F _ (fun _ => 1) ltac:(intros ? ? ?; cbn; lia) HF) as [_ H].
     destruct (H x0 tt (S n) ltac:(cbn; lia) ltac:(cbn; lia)) as [_ Hs].
     cbn in Hs. unfold W in Hs. rewrite HCx in Hs. cbn in Hs. rewrite size_nat_pow2, Hv in Hs.
-    specialize (Hk (S n)).
-    change (⟦tapp m (db <{ λ _, 1 }>)⟧ (S n)) with (⟦m⟧ (fun _ => 1) (S n)) in Hk.
-    assert ((S n + 1) ^ d <= 2 ^ d * (n + 1) ^ d).
-    { rewrite <- Nat.pow_mul_l. apply Nat.pow_le_mono_l. lia. }
-    nia.
+    lia.
   Qed.
 End Type3Complexity.

@@ -1,22 +1,22 @@
 (** * Higher-order polynomials
 
     The higher-order polynomials are the closed simply typed λ-terms over
-    the numerals, addition and multiplication ([hpoly], [Lambda]), denoting
-    functionals over the natural numbers ([M σ]). At type [N ⇒ .. ⇒ N],
-    they contain the usual polynomials ([ptrans], [poly_hpoly]); at type 2,
+    the numerals, addition and multiplication. They denote functionals over
+    the natural numbers. At type [N ⇒ .. ⇒ N],
+    they contain the usual polynomials ; at type 2,
     the second-order polynomials of Kapron and Cook ([SOPoly]). They are
     monotone, in the sense of Bezem's strong majorization
     ([hpoly_monotone]). At type [N ⇒ N] they are bounded by polynomials
-    ([hpoly_growth]), and at type [(N ⇒ N) ⇒ N ⇒ N] by second-order
-    polynomials, on monotone functions ([SOPoly]). They bound the basic
-    feasible functionals ([BFF], [BFFFeasibility]).
+    ([hpoly_growth]), and at type [(N ⇒ N) ⇒ N ⇒ N] they are exactly the
+    second-order polynomials ([SOPoly]). They bound the basic feasible
+    functionals ([BFF], [BFFFeasibility]).
 
+    References: 
     B. M. Kapron, S. A. Cook. A new characterization of type-2 feasibility.
     SIAM Journal on Computing 25(1):117-132, 1996.
 
     M. Bezem. Strongly majorizable functionals of finite type: a model for
-    bar recursion containing discontinuous functionals. Journal of Symbolic
-    Logic 50(3):652-660, 1985. *)
+    bar recursion containing discontinuous functionals. *)
 
 From Complexity Require Export Lambda.
 From Complexity Require Import Poly.
@@ -285,9 +285,12 @@ Proof.
   set (k := 2 * (a + b) + 4) in *. set (P := 2 ^ k) in *. nia.
 Qed.
 
-Theorem pow2_not_poly c d : ~ (forall n, 2 ^ n <= c * (n + 1) ^ d).
-Proof.
-  intro H. destruct (lin_lt_pow2 d (c + 1)) as [j Hj].
+Theorem pow2_not_poly (p : hpoly (tN ⇒ tN)) : ~ (forall n, 2 ^ n <= ⟦p⟧ n). 
+Proof. 
+  destruct (hpoly_growth p) as (c & d & Hgrowth).
+  intro Hf. assert(forall n, 2 ^ n <= c * (n + 1) ^ d).
+  { intro n. now transitivity (⟦p⟧ n). }
+  destruct (lin_lt_pow2 d (c + 1)) as [j Hj].
   assert (Hj1 : 1 <= 2 ^ j) by (apply Nat.pow_le_mono_r with (a := 2) (b := 0); lia).
   specialize (H (2 ^ j - 1)). replace (2 ^ j - 1 + 1) with (2 ^ j) in H by lia.
   rewrite <- Nat.pow_mul_r in H.

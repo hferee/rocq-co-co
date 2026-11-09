@@ -65,12 +65,14 @@ Module BFFFeasibility (Import M : TimeCostModel).
   Definition CBoundE Γ σ (f : envT N Γ -> den σ) (c : ℂI (envT N Γ) (cenv Γ) -> ℂO (cty σ)) :=
     @ComplexityBound _ (@repr_ctype _ _ (Repr_arr (renv Γ) (repr σ))) (Repr_arr (renv Γ) (repr σ)) f c.
 
-  (** ** Majorization *)
+  (** ** Majorization: ground values are majorized by their size and
+  function by functions mapping majorants of their inputs to majorants of their outputs. *)
   Fixpoint maj (σ : ty) : den σ -> cty σ -> M σ -> Prop :=
     match σ return den σ -> cty σ -> M σ -> Prop with
     | tN => fun x _ m => N.size_nat x <= m
     | σ ⇒ τ => fun f c m => forall x cx a, monotone σ a -> maj σ x cx a ->
-        cost (c (x ⋊ cx)) <= baseM τ (m a) /\ maj τ (f x) (res (c (x ⋊ cx))) (m a)
+        cost (c (x ⋊ cx)) <= baseM τ (m a) /\
+        maj τ (f x) (res (c (x ⋊ cx))) (m a)
     end.
 
   Lemma maj_mle σ f c m m' : maj σ f c m -> mle σ m m' -> maj σ f c m'.
@@ -368,7 +370,8 @@ Module BFFFeasibility (Import M : TimeCostModel).
   Qed.
 
   (** The same bound with a second-order polynomial in [a] and the length
-      of [x] ([hpoly_sopoly]), as Kapron and Cook's. Their bound is in the
+      of [x], as Kapron and Cook's: [p] is a second-order polynomial
+      ([hpoly_sopoly]). Their bound is in the
       length function of [f] only, with oracle calls cheap, whereas [a]
       also bounds the cost of [f]. *)
   Corollary BFF2_sopoly_bound (t : term pv [] ((tN ⇒ tN) ⇒ tN ⇒ tN)) :
@@ -384,7 +387,6 @@ Module BFFFeasibility (Import M : TimeCostModel).
     destruct (hpoly_sopoly p) as [q Hq].
     exists c, q. split; [exact C|].
     intros f cf a Ha Hf x. destruct (J f cf a Ha Hf x) as [H1 H2].
-    pose proof (Hq a (N.size_nat x) Ha) as H.
-    split; eapply Nat.le_trans; [exact H1 | exact (Nat.mul_le_mono_l _ _ 2 H) | exact H2 | exact H].
+    rewrite Hq in H1, H2. split; [exact H1 | exact H2].
   Qed.
 End BFFFeasibility.
