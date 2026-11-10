@@ -10,7 +10,7 @@ From Complexity Require Export NatComplexity.
 From Stdlib Require Import List.
 Import ListNotations.
 
-Module ListComplexity (Import M : TimeNat).
+Module ListComplexity (Import Time : TimeNat).
 
 
   (** ** Sizes *)
@@ -31,24 +31,24 @@ Module ListComplexity (Import M : TimeNat).
 
   (** ** List tail *)
   Instance complexity_tl {A} `{Ground A} :
-    ComplexityBound (@tl A) (fun lc => 4 ⋉ tt) := _.
+    Time.ComplexityBound (@tl A) (fun lc => 4 ⋉ tt) := _.
 
-  Global Instance length_complexity {A} `{Ground A} : ComplexityBound (@length A)
+  Global Instance length_complexity {A} `{Ground A} : Time.ComplexityBound (@length A)
     (fun cl => (17 * length (val cl) + 9) ⋉ tt) := _.
 
-  Global Instance app_complexity {A} `{Ground A} : ComplexityBound (@app A)
+  Global Instance app_complexity {A} `{Ground A} : Time.ComplexityBound (@app A)
     (fun cl => 5 ⋉ fun cm =>
        (47 * length (val cl) + 14) ⋉ tt) := _.
 
   (** [seq] is recursive on its second argument; the first one changes. *)
-  Global Instance seq_complexity : ComplexityBound seq
+  Global Instance seq_complexity : Time.ComplexityBound seq
     (fun cs => 7 ⋉ fun cn => (29 * val cn + 2) ⋉ tt) := _.
 
   (** [fold_left] with a function whose partial and full applications cost at
       most [c1] and [c2] (on ground data): a higher-order bound. *)
   Lemma fold_left_complexity {A B} `{Ground A} `{Ground B} (f : A -> B -> A) (c1 c2 : nat) :
-    ComplexityBound f (fun _ => c1 ⋉ fun _ => c2 ⋉ tt) ->
-    ComplexityBound (fold_left f)
+    Time.ComplexityBound f (fun _ => c1 ⋉ fun _ => c2 ⋉ tt) ->
+    Time.ComplexityBound (fold_left f)
       (fun cl => 5 ⋉ fun cx =>
          ((c1 + c2 + 45) * length (val cl) + 14) ⋉ tt).
   Proof. intro Hf. cbound. Qed.
@@ -57,8 +57,8 @@ Module ListComplexity (Import M : TimeNat).
 
       [fold_left] is higher-order: its bound depends on the one of its
       function. *)
-  Global Instance tl_constant_bound {A} `{Ground A} `{Size A} : ConstantBound (@tl A) := _.
-  Global Instance length_linear_bound {A} `{Ground A} `{Size A} : LinearBound (@length A) := _.
-  Global Instance app_linear_bound {A} `{Ground A} `{Size A} : LinearBound (@app A) := _.
-  Global Instance seq_linear_bound : LinearBound seq := _.
+  Global Instance tl_constant_bound {A} `{Ground A} `{Size A} : Time.ConstantBound (@tl A) := _.
+  Global Instance length_linear_bound {A} `{Ground A} `{Size A} : Time.LinearBound (@length A) := _.
+  Global Instance app_linear_bound {A} `{Ground A} `{Size A} : Time.LinearBound (@app A) := _.
+  Global Instance seq_linear_bound : Time.LinearBound seq := _.
 End ListComplexity.

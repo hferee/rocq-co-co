@@ -46,9 +46,9 @@ Fixpoint cenv (Γ : list ty) : Type :=
     syntactically, so it needs them normalized. *)
 Ltac norm_types := cbn [sem cty] in *.
 
-Module BFFFeasibility (Import M : TimeCostModel).
+Module BFFFeasibility (Import Time : TimeCostModel).
 
-  Module BC := BFFComplexity M.
+  Module BC := BFFComplexity Time.
   Import BC.
 
   (** The types of PV^ω as higher-order types ([HOBounds]): the ground type
@@ -70,62 +70,62 @@ Module BFFFeasibility (Import M : TimeCostModel).
   (** [f] has the complexity [c], at type [σ]; [f], a function of the
       environments of [Γ], has the complexity [c]. *)
   Definition CBound (σ : ty) (f : den σ) (c : cty σ) : Prop :=
-    @ComplexityBound (den σ) (@repr_ctype _ _ (repr σ)) (repr σ) f c.
+    @Time.ComplexityBound (den σ) (@repr_ctype _ _ (repr σ)) (repr σ) f c.
 
   Definition CBoundE Γ σ (f : envT N Γ -> den σ) (c : ℂI (envT N Γ) (cenv Γ) -> ℂO (cty σ)) :=
-    @ComplexityBound _ (@repr_ctype _ _ (Repr_arr (renv Γ) (repr σ))) (Repr_arr (renv Γ) (repr σ)) f c.
+    @Time.ComplexityBound _ (@repr_ctype _ _ (Repr_arr (renv Γ) (repr σ))) (Repr_arr (renv Γ) (repr σ)) f c.
 
   Ltac simpl_c := cbv [app cost_add fmap ret_I ret cost res val pot] in *; autounfold with costs in *.
 
-  Global Instance zero_hpoly : HPolyBound (bits tN) 0%N.
+  Global Instance zero_hpoly : Time.HPolyBound (bits tN) 0%N.
   Proof. refine (hpoly_intro _ _ (db <{ 0 }>) _ (N_complexity 0) _). cbn. lia. Qed.
 
-  Global Instance s0_hpoly : HPolyBound (bits (tN ⇒ tN)) s0.
+  Global Instance s0_hpoly : Time.HPolyBound (bits (tN ⇒ tN)) s0.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a, a + 7 }>) _ s0_complexity _). simpl_hp.
     intros x cx a _ Hx. cbn in *. pose proof (size_s0 x). lia.
   Qed.
 
-  Global Instance s1_hpoly : HPolyBound (bits (tN ⇒ tN)) s1.
+  Global Instance s1_hpoly : Time.HPolyBound (bits (tN ⇒ tN)) s1.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a, a + 7 }>) _ s1_complexity _). simpl_hp.
     intros x cx a _ Hx. cbn in *. pose proof (size_s1 x). lia.
   Qed.
 
-  Global Instance tr_hpoly : HPolyBound (bits (tN ⇒ tN)) tr.
+  Global Instance tr_hpoly : Time.HPolyBound (bits (tN ⇒ tN)) tr.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a, a + 3 }>) _ tr_complexity _). simpl_hp.
     intros x cx a _ Hx. cbn in *. pose proof (size_tr x). lia.
   Qed.
 
-  Global Instance par_hpoly : HPolyBound (bits (tN ⇒ tN)) par.
+  Global Instance par_hpoly : Time.HPolyBound (bits (tN ⇒ tN)) par.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a, a + 3 }>) _ par_complexity _). simpl_hp.
     intros x cx a _ Hx. cbn in *. pose proof (size_par x). lia.
   Qed.
 
-  Global Instance pad_hpoly : HPolyBound (bits (tN ⇒ tN ⇒ tN)) pad.
+  Global Instance pad_hpoly : Time.HPolyBound (bits (tN ⇒ tN ⇒ tN)) pad.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a b, a + 43 * b + 13 }>) _ pad_complexity _). simpl_hp.
     intros x cx a _ Hx. split; [cbn; lia|].
     intros y cy b _ Hy. cbn in *. pose proof (size_pad x y). lia.
   Qed.
 
-  Global Instance chop_hpoly : HPolyBound (bits (tN ⇒ tN ⇒ tN)) chop.
+  Global Instance chop_hpoly : Time.HPolyBound (bits (tN ⇒ tN ⇒ tN)) chop.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a b, a + 39 * b + 13 }>) _ chop_complexity _). simpl_hp.
     intros x cx a _ Hx. split; [cbn; lia|].
     intros y cy b _ Hy. cbn in *. pose proof (size_chop x y). lia.
   Qed.
 
-  Global Instance smash_hpoly : HPolyBound (bits (tN ⇒ tN ⇒ tN)) smash.
+  Global Instance smash_hpoly : Time.HPolyBound (bits (tN ⇒ tN ⇒ tN)) smash.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a b, b * (44 * a + 62) + 14 }>) _ smash_complexity _).
     simpl_hp. intros x cx a _ Hx. split; [cbn; lia|].
     intros y cy b _ Hy. cbn in *. pose proof (size_smash x y). nia.
   Qed.
 
-  Global Instance cond_hpoly : HPolyBound (bits (tN ⇒ tN ⇒ tN ⇒ tN)) cond.
+  Global Instance cond_hpoly : Time.HPolyBound (bits (tN ⇒ tN ⇒ tN ⇒ tN)) cond.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ a b c, b + c + 21 }>) _ cond_complexity _). simpl_hp.
     intros x cx a _ Hx. split; [cbn; lia|].
@@ -133,7 +133,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
     intros z cz c _ Hz. cbn in *. pose proof (size_cond x y z). lia.
   Qed.
 
-  Global Instance R_hpoly : HPolyBound (bits (tN ⇒ (tN ⇒ tN ⇒ tN) ⇒ (tN ⇒ tN) ⇒ tN ⇒ tN)) R.
+  Global Instance R_hpoly : Time.HPolyBound (bits (tN ⇒ (tN ⇒ tN ⇒ tN) ⇒ (tN ⇒ tN) ⇒ tN ⇒ tN)) R.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ am mF mh wm,
       wm * (mF wm 0 + mF wm (am + mh wm) + mh wm + 53 * mh wm + 195) + 31 + (am + mh wm) }>)
@@ -168,7 +168,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
     pose proof (Hl' w). cbn in *. simpl_c. split; lia.
   Qed.
 
-  Lemma pv_hpoly σ (c : pv σ) : HPolyBound (bits σ) (cinterp σ c).
+  Lemma pv_hpoly σ (c : pv σ) : Time.HPolyBound (bits σ) (cinterp σ c).
   Proof. destruct c; exact _. Qed.
 
   (** ** Open terms
@@ -287,7 +287,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
 
   (** ** The theorem *)
 
-  Theorem BFF_hpoly_bound σ (t : term pv [] σ) : HPolyBound (bits σ) ⟦t⟧.
+  Theorem BFF_hpoly_bound σ (t : term pv [] σ) : Time.HPolyBound (bits σ) ⟦t⟧.
   Proof.
     destruct (interp_hpoly [] σ t) as (c & p & C & J).
     exists (res (c (tt ⋊ tt))), p. split.
@@ -296,7 +296,7 @@ Module BFFFeasibility (Import M : TimeCostModel).
   Qed.
 
   (** Every basic feasible functional has a bound on sized arguments. *)
-  Corollary BFF_hpolyS σ (t : term pv [] σ) : HPolyBoundS (bits σ) ⟦t⟧.
+  Corollary BFF_hpolyS σ (t : term pv [] σ) : Time.HPolyBoundS (bits σ) ⟦t⟧.
   Proof. exact (hpoly_hpolyS _ _ (BFF_hpoly_bound _ t)). Qed.
 
   (** At type [N ⇒ N]: the cost of [⟦t⟧ x] and the length of its value are

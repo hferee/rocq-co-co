@@ -96,7 +96,7 @@ Section Feasibility.
   Proof. destruct w as [|q]; [reflexivity | apply rec_cost_bound]. Qed.
 End Feasibility.
 
-Module BFFComplexity (Import M : TimeCostModel).
+Module BFFComplexity (Import Time : TimeCostModel).
 
   (** ** Sizes *)
   Lemma pos_size_nat_le_size (p : positive) : Pos.size_nat p <= size p.
@@ -112,79 +112,79 @@ Module BFFComplexity (Import M : TimeCostModel).
 
   (** ** Constants *)
 
-  Global Instance s0_complexity : ComplexityBound s0 (fun cx => 7 ⋉ tt) := _.
+  Global Instance s0_complexity : Time.ComplexityBound s0 (fun cx => 7 ⋉ tt) := _.
 
-  Global Instance s1_complexity : ComplexityBound s1 (fun cx => 7 ⋉ tt) := _.
+  Global Instance s1_complexity : Time.ComplexityBound s1 (fun cx => 7 ⋉ tt) := _.
 
-  Global Instance tr_complexity : ComplexityBound tr (fun cx => 3 ⋉ tt) := _.
+  Global Instance tr_complexity : Time.ComplexityBound tr (fun cx => 3 ⋉ tt) := _.
 
-  Global Instance par_complexity : ComplexityBound par (fun cx => 3 ⋉ tt) := _.
+  Global Instance par_complexity : Time.ComplexityBound par (fun cx => 3 ⋉ tt) := _.
 
-  Global Instance cond_complexity : ComplexityBound cond
+  Global Instance cond_complexity : Time.ComplexityBound cond
     (fun cx => 2 ⋉ fun cy => 2 ⋉ fun cz => 21 ⋉ tt) := _.
 
-  Global Instance pad_pos_complexity : ComplexityBound pad_pos
+  Global Instance pad_pos_complexity : Time.ComplexityBound pad_pos
     (fun cx => 5 ⋉ fun cq => (43 * Pos.size_nat (val cq)) ⋉ tt) := _.
 
-  Global Instance pad_complexity : ComplexityBound pad
+  Global Instance pad_complexity : Time.ComplexityBound pad
     (fun cx => 9 ⋉ fun cy => (43 * N.size_nat (val cy) + 13) ⋉ tt) := _.
 
-  Global Instance chop_pos_complexity : ComplexityBound chop_pos
+  Global Instance chop_pos_complexity : Time.ComplexityBound chop_pos
     (fun cx => 5 ⋉ fun cq => (39 * Pos.size_nat (val cq)) ⋉ tt) := _.
 
-  Global Instance chop_complexity : ComplexityBound chop
+  Global Instance chop_complexity : Time.ComplexityBound chop
     (fun cx => 9 ⋉ fun cy => (39 * N.size_nat (val cy) + 13) ⋉ tt) := _.
 
-  Global Instance smash_pos_complexity : ComplexityBound smash_pos
+  Global Instance smash_pos_complexity : Time.ComplexityBound smash_pos
     (fun cx => 5 ⋉ fun cq =>
        (Pos.size_nat (val cq) * (43 * N.size_nat (val cx) + 62)) ⋉ tt) := _.
 
-  Global Instance smash_complexity : ComplexityBound smash
+  Global Instance smash_complexity : Time.ComplexityBound smash
     (fun cx => 4 ⋉ fun cy =>
        (N.size_nat (val cy) * (43 * N.size_nat (val cx) + 62) + 13) ⋉ tt) := _.
 
-  Global Instance pos_len_le_complexity : ComplexityBound pos_len_le
+  Global Instance pos_len_le_complexity : Time.ComplexityBound pos_len_le
     (fun cp => 5 ⋉ fun cq =>
        (53 * Nat.min (Pos.size_nat (val cp)) (Pos.size_nat (val cq)) + 17) ⋉ tt) := _.
 
-  Global Instance len_le_complexity : ComplexityBound len_le
+  Global Instance len_le_complexity : Time.ComplexityBound len_le
     (fun ct => 2 ⋉ fun cu =>
        (53 * Nat.min (N.size_nat (val ct)) (N.size_nat (val cu)) + 47) ⋉ tt) := _.
 
-  Global Instance bnd_complexity : ComplexityBound bnd
+  Global Instance bnd_complexity : Time.ComplexityBound bnd
     (fun ct => 2 ⋉ fun cb =>
        (53 * Nat.min (N.size_nat (val ct)) (N.size_nat (val cb)) + 71) ⋉ tt) := _.
 
   (** ** Bounded recursion on notation *)
 
-  Global Instance rec_pos_complexity : ComplexityBound rec_pos
+  Global Instance rec_pos_complexity : Time.ComplexityBound rec_pos
     (fun ca => 5 ⋉
      fun cF => 2 ⋉
      fun ch => 2 ⋉
      fun cq =>
        rec_cost (val ca) (val cF) (val ch) (pot cF) (pot ch) (val cq) ⋉ tt) := _.
 
-  Global Instance R_complexity : ComplexityBound R
+  Global Instance R_complexity : Time.ComplexityBound R
     (fun ca => 2 ⋉
      fun cF => 2 ⋉
      fun ch => 13 ⋉
      fun cw =>
        (R_cost (val ca) (val cF) (val ch) (pot cF) (pot ch) (val cw) + 31) ⋉ tt) := _.
 
-  Lemma twice_complexity : ComplexityBound twice
+  Lemma twice_complexity : Time.ComplexityBound twice
     (fun cf => 2 ⋉ fun cx =>
        (cost (pot cf (val cx ⋊ tt)) + cost (pot cf (val cf (val cx) ⋊ tt)) + 10) ⋉ tt).
   Proof. cbound. Qed.
 
   (** ** Bounds in the size of the arguments *)
-  Global Instance s0_linear_bound : LinearBound s0 := _.
-  Global Instance s1_linear_bound : LinearBound s1 := _.
-  Global Instance tr_linear_bound : LinearBound tr := _.
-  Global Instance par_linear_bound : LinearBound par := _.
-  Global Instance cond_linear_bound : LinearBound cond := _.
-  Global Instance pad_linear_bound : LinearBound pad := _.
-  Global Instance chop_linear_bound : LinearBound chop := _.
-  Global Instance len_le_linear_bound : LinearBound len_le := _.
-  Global Instance bnd_linear_bound : LinearBound bnd := _.
-  Global Instance smash_polynomial_bound : PolynomialBound smash := _.
+  Global Instance s0_linear_bound : Time.LinearBound s0 := _.
+  Global Instance s1_linear_bound : Time.LinearBound s1 := _.
+  Global Instance tr_linear_bound : Time.LinearBound tr := _.
+  Global Instance par_linear_bound : Time.LinearBound par := _.
+  Global Instance cond_linear_bound : Time.LinearBound cond := _.
+  Global Instance pad_linear_bound : Time.LinearBound pad := _.
+  Global Instance chop_linear_bound : Time.LinearBound chop := _.
+  Global Instance len_le_linear_bound : Time.LinearBound len_le := _.
+  Global Instance bnd_linear_bound : Time.LinearBound bnd := _.
+  Global Instance smash_polynomial_bound : Time.PolynomialBound smash := _.
 End BFFComplexity.

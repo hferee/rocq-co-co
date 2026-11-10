@@ -27,14 +27,14 @@ Fixpoint tower (n : nat) : nat -> nat :=
 
 Definition tower_eval (n : nat) : nat := tower n 0.
 
-Module Examples (Import M : TimeCostModel).
+Module Examples (Import Time : TimeCostModel).
 
   (** ** Conversion
 
       [ComplexityBound] is a predicate on Rocq values: it cannot distinguish
       convertible terms. A thousand iterations of the identity cost as much
       as the identity. *)
-  Example iter_conv : ComplexityBound (fun n : nat => Nat.iter 1000 (fun x => x) n)
+  Example iter_conv : Time.ComplexityBound (fun n : nat => Nat.iter 1000 (fun x => x) n)
     (fun cn => 1 ⋉ pot cn).
   Proof. exact (@id_complexity nat unit _). Qed.
 
@@ -44,8 +44,8 @@ Module Examples (Import M : TimeCostModel).
       fixpoint of the functional that ignores its recursive calls and
       returns any function pointwise equal to it. *)
   Lemma complexity_ext {A B CA CB} `{Repr A CA} `{Repr B CB} (ar : Arity B) (f g : A -> B) (cg : ℂI A CA -> ℂO CB) :
-    (forall a, pw_eq ar (f a) (g a)) -> ComplexityBound g cg ->
-    ComplexityBound f (fun ca => 2 ⊕ cg ca).
+    (forall a, pw_eq ar (f a) (g a)) -> Time.ComplexityBound g cg ->
+    Time.ComplexityBound f (fun ca => 2 ⊕ cg ca).
   Proof.
     intros Hfg Hg.
     eapply (fix_complexity ar f (fun _ => g) (fun _ => 1 ⋉ cg));
@@ -54,7 +54,7 @@ Module Examples (Import M : TimeCostModel).
   Qed.
 
   (** [slow_id n] takes [2 ^ n] steps, but it is the identity. *)
-  Lemma slow_id_complexity : ComplexityBound slow_id (fun _ => 3 ⋉ tt).
+  Lemma slow_id_complexity : Time.ComplexityBound slow_id (fun _ => 3 ⋉ tt).
   Proof.
     capply. apply (complexity_ext (ar_val nat) slow_id (fun n => n)).
     - exact slow_id_id.
@@ -66,12 +66,12 @@ Module Examples (Import M : TimeCostModel).
 
       [tower n x] performs [2 ^ n] compositions. Building [tower n] costs a
       linear number of steps, but applying it costs [3 * 2 ^ n - 1]. *)
-  Global Instance tower_complexity : ComplexityBound tower
+  Global Instance tower_complexity : Time.ComplexityBound tower
     (fun cn => (20 * val cn + 7) ⋉
      fun cx => (3 * 2 ^ val cn - 1) ⋉ tt).
   Proof. cbound. all: assert (2 ^ cn <> 0) by (apply Nat.pow_nonzero; lia); lia. Qed.
 
-  Lemma tower_eval_complexity : ComplexityBound tower_eval
+  Lemma tower_eval_complexity : Time.ComplexityBound tower_eval
     (fun cn => (20 * val cn + 3 * 2 ^ val cn + 10) ⋉ tt).
   Proof. cbound. all: assert (2 ^ cn <> 0) by (apply Nat.pow_nonzero; lia); lia. Qed.
 End Examples.

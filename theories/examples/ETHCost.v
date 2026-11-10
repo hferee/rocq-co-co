@@ -10,44 +10,44 @@ From Complexity Require Export TimeStdlib ETHAlgorithm.
 From Stdlib Require Import List.
 Import ListNotations.
 
-Module ETHCost (Import M : TimeStdlib).
+Module ETHCost (Import Time : TimeStdlib).
 
 
   (** [memN x l]: recursive on its second argument. Each step compares with
       [Nat.eqb], whose cost is linear in [x] (unary numbers); [orb] evaluates
       both arguments. *)
-  Global Instance memN_complexity : ComplexityBound memN
+  Global Instance memN_complexity : Time.ComplexityBound memN
     (fun cx => 7 ⋉ fun cl =>
        (length (val cl) * (37 * val cx + 71) + 2) ⋉ tt) := _.
 
-  Global Instance countN_complexity : ComplexityBound countN
+  Global Instance countN_complexity : Time.ComplexityBound countN
     (fun cx => 7 ⋉ fun cl =>
        (length (val cl) * (37 * val cx + 115) + 2) ⋉ tt) := _.
 
   (** `eqbN a b`: recursive on its first argument, matches the second one. *)
-  Global Instance eqbN_complexity : ComplexityBound eqbN
+  Global Instance eqbN_complexity : Time.ComplexityBound eqbN
     (fun ca => 5 ⋉ fun cb =>
        (37 * list_sum (val ca) + 96 * length (val ca) + 15) ⋉ tt).
   Proof. cbound. all: unfold list_sum in *; lia. Qed.
 
   (** [insert_uniq x l]: the recursive call only happens in the last
       branch; its other branches return [l] itself. *)
-  Global Instance insert_uniq_complexity : ComplexityBound insert_uniq
+  Global Instance insert_uniq_complexity : Time.ComplexityBound insert_uniq
     (fun cx => 5 ⋉ fun cl =>
        (length (val cl) * (76 * val cx + 207) + 18) ⋉ tt) := _.
 
   (** [range n = seq 0 n]: not recursive, it follows from [seq]. *)
-  Global Instance range_complexity : ComplexityBound range
+  Global Instance range_complexity : Time.ComplexityBound range
     (fun cn => (29 * val cn + 2) ⋉ tt) := _.
 
   (** [fold_left Nat.add]: the cost of each addition is linear in the
       accumulator, so the bound depends on the values. *)
-  Global Instance fold_left_add_complexity : ComplexityBound (fold_left Nat.add)
+  Global Instance fold_left_add_complexity : Time.ComplexityBound (fold_left Nat.add)
     (fun cl => 5 ⋉ fun ca =>
        (length (val cl) * (36 * (val ca + list_sum (val cl)) + 64) + 14) ⋉ tt).
   Proof. cbound. all: unfold list_sum in *; nia. Qed.
 
-  Global Instance sumN_complexity : ComplexityBound sumN
+  Global Instance sumN_complexity : Time.ComplexityBound sumN
     (fun cl =>
        (length (val cl) * (36 * list_sum (val cl) + 64) + 23) ⋉ tt) := _.
 End ETHCost.

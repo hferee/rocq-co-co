@@ -18,7 +18,7 @@
 From Complexity Require Import TimeCostModel BracketCompile.
 From Stdlib Require Import PArith.
 
-Module BracketComparison (Import M : TimeCostModel).
+Module BracketComparison (Import Time : TimeCostModel).
 
   (** [cbound] with bracket abstraction ([bcbc] with the search of
       [cbound], [csearch]). *)
@@ -28,29 +28,29 @@ Module BracketComparison (Import M : TimeCostModel).
      else (eapply ComplexityBound_mono; [idtac | unfold_fun; bcbc_found]));
     cfinish.
 
-  Lemma add_complexity : ComplexityBound Nat.add
+  Lemma add_complexity : Time.ComplexityBound Nat.add
     (fun cn => 35 ⋉ fun cm => (55 * val cn + 7) ⋉ tt).
   Proof. bcbound. Qed.
   Existing Instance add_complexity.
 
-  Lemma mul_complexity : ComplexityBound Nat.mul
+  Lemma mul_complexity : Time.ComplexityBound Nat.mul
     (fun cn => 9 ⋉ fun cm =>
        (val cn * (55 * val cm + 67) + 13) ⋉ tt).
   Proof. bcbound. Qed.
 
-  Lemma andb_complexity : ComplexityBound andb
+  Lemma andb_complexity : Time.ComplexityBound andb
     (fun ca => 1 ⋉ fun cb => 8 ⋉ tt).
   Proof. bcbound. Qed.
 
-  Lemma orb_complexity : ComplexityBound orb
+  Lemma orb_complexity : Time.ComplexityBound orb
     (fun ca => 1 ⋉ fun cb => 6 ⋉ tt).
   Proof. bcbound. Qed.
 
-  Lemma length_complexity {A} `{Ground A} : ComplexityBound (@length A)
+  Lemma length_complexity {A} `{Ground A} : Time.ComplexityBound (@length A)
     (fun cl => (10 * length (val cl) + 8) ⋉ tt).
   Proof. bcbound. Qed.
 
-  Lemma succ_complexity : ComplexityBound Pos.succ
+  Lemma succ_complexity : Time.ComplexityBound Pos.succ
     (fun cp => (11 * Pos.size_nat (val cp)) ⋉ tt).
   Proof. bcbound. Qed.
 End BracketComparison.

@@ -169,20 +169,20 @@ Proof. induction k; cbn [unfs Nat.pow]; [lia | pose proof (qn_closed k); lia]. Q
 
 (** Quadtrees are ground data, with constructors and a case analysis. *)
 Module Type QMatTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import ZD : ZData CM).
+  (Import Time : CostModel) (Import BT : BasicTimeCostModel Time) (Import ZD : ZData Time).
 
   #[global] Declare Instance Repr_qmat : Ground qmat.
-  #[global] Declare Instance qmat_complexity : forall q : qmat, ComplexityBound q tt.
+  #[global] Declare Instance qmat_complexity : forall q : qmat, Time.ComplexityBound q tt.
 
   Parameter c_qmat c_case_qmat : nat.
   #[global] Hint Unfold c_qmat c_case_qmat : costs.
 
-  #[global] Declare Instance QLeaf_complexity : ComplexityBound QLeaf (fun _ => c_qmat ⋉ tt).
-  #[global] Declare Instance QNode_complexity : ComplexityBound QNode
+  #[global] Declare Instance QLeaf_complexity : Time.ComplexityBound QLeaf (fun _ => c_qmat ⋉ tt).
+  #[global] Declare Instance QNode_complexity : Time.ComplexityBound QNode
     (fun _ => c_clo ⋉ fun _ => c_clo ⋉ fun _ => c_clo ⋉ fun _ => c_qmat ⋉ tt).
 
   #[global] Declare Instance qmat_case_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@qmat_case A)
+    Time.ComplexityBound (@qmat_case A)
       (fun cl : ℂI (Z -> A) (ℂI Z unit -> ℂO CA) => c_clo ⋉
        fun cn : ℂI (qmat -> qmat -> qmat -> qmat -> A)
                    (ℂI qmat unit -> ℂO (ℂI qmat unit -> ℂO (ℂI qmat unit -> ℂO
@@ -198,17 +198,17 @@ End QMatTimeCostModel.
     multiplication cost as on numbers ([c_add], [c_mul]), a subtraction
     [c_sub]. *)
 Module Type ZOpsTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import ZD : ZData CM)
-  (Import ND : NatData CM) (Import NA : NatArithTimeCostModel CM ND).
+  (Import Time : CostModel) (Import BT : BasicTimeCostModel Time) (Import ZD : ZData Time)
+  (Import ND : NatData Time) (Import NA : NatArithTimeCostModel Time ND).
 
   Parameter c_sub : nat.
   #[global] Hint Unfold c_sub : costs.
 
-  #[global] Declare Instance Zadd_complexity : ComplexityBound Z.add
+  #[global] Declare Instance Zadd_complexity : Time.ComplexityBound Z.add
     (fun _ => c_clo ⋉ fun _ => c_add ⋉ tt).
-  #[global] Declare Instance Zsub_complexity : ComplexityBound Z.sub
+  #[global] Declare Instance Zsub_complexity : Time.ComplexityBound Z.sub
     (fun _ => c_clo ⋉ fun _ => c_sub ⋉ tt).
-  #[global] Declare Instance Zmul_complexity : ComplexityBound Z.mul
+  #[global] Declare Instance Zmul_complexity : Time.ComplexityBound Z.mul
     (fun _ => c_clo ⋉ fun _ => c_mul ⋉ tt).
 End ZOpsTimeCostModel.
 
@@ -218,7 +218,7 @@ Module Type ParamStrassenTimeCostModel := ArithOpsTimeCostModel <+ ZData <+ ZOps
 Module Type StrassenTimeCostModel := ParamStrassenTimeCostModel
   with Definition c_qmat := 0 with Definition c_case_qmat := 0.
 
-Module StrassenCount (Import M : StrassenTimeCostModel).
+Module StrassenCount (Import Time : StrassenTimeCostModel).
 
   Section Counts.
   Hypothesis Hfix : 1 <= c_fix.
@@ -227,11 +227,11 @@ Module StrassenCount (Import M : StrassenTimeCostModel).
       one unfolding for each of the four recursive calls of each node. *)
   Definition qop_cost (c : nat) (a : qmat) : nat := qleaves a * c + 4 * qnodes a * c_fix.
 
-  Instance qadd_complexity : ComplexityBound qadd
+  Instance qadd_complexity : Time.ComplexityBound qadd
     (fun ca => c_fix ⋉ fun cb => qop_cost c_add (val ca) ⋉ tt).
   Proof. unfold qop_cost. cbound. Qed.
 
-  Instance qsub_complexity : ComplexityBound qsub
+  Instance qsub_complexity : Time.ComplexityBound qsub
     (fun ca => c_fix ⋉ fun cb => qop_cost c_sub (val ca) ⋉ tt).
   Proof. unfold qop_cost. cbound. Qed.
 
@@ -272,7 +272,7 @@ Module StrassenCount (Import M : StrassenTimeCostModel).
         end
     end.
 
-  Instance strassen_complexity : ComplexityBound strassen
+  Instance strassen_complexity : Time.ComplexityBound strassen
     (fun cd => c_fix ⋉ fun ca => 0 ⋉ fun cb => strassen_cost (val cd) (val ca) (val cb) ⋉ tt).
   Proof. cbound. all: unfold qcall; lia. Qed.
   End Counts.

@@ -8,30 +8,30 @@
 From Complexity Require Import ETHCost.
 From Stdlib Require Import List PArith.
 
-Module BoundExamples (Import M : TimeStdlib).
+Module BoundExamples (Import Time : TimeStdlib).
 
-  Module EC := ETHCost M.
+  Module EC := ETHCost Time.
   Import EC.
 
   (** ** Instances of the standard library *)
 
-  Example add_linear : LinearBound Nat.add := _.
-  Example mul_polynomial : PolynomialBound Nat.mul := _.
+  Example add_linear : Time.LinearBound Nat.add := _.
+  Example mul_polynomial : Time.PolynomialBound Nat.mul := _.
 
   (** Three arguments. *)
-  Example compare_cont_linear : LinearBound Pos.compare_cont := _.
+  Example compare_cont_linear : Time.LinearBound Pos.compare_cont := _.
 
   (** A linear bound is a polynomial bound; the elements of the lists need
       sizes. *)
-  Example app_polynomial {A} `{Ground A} `{Size A} : PolynomialBound (@app A) := _.
+  Example app_polynomial {A} `{Ground A} `{Size A} : Time.PolynomialBound (@app A) := _.
 
   (** ** Derived bounds *)
 
   (** The cost [length l * x] is quadratic in the size. *)
-  Lemma insert_uniq_polynomial : PolynomialBound insert_uniq.
+  Lemma insert_uniq_polynomial : Time.PolynomialBound insert_uniq.
   Proof. cpolynomial. Qed.
 
   (** By typeclass search alone, from the bounds of [ETHCost]. *)
-  Example range_linear : LinearBound range := _.
-  Example memN_polynomial : PolynomialBound memN := _.
+  Example range_linear : Time.LinearBound range := _.
+  Example memN_polynomial : Time.PolynomialBound memN := _.
 End BoundExamples.
