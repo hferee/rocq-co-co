@@ -1,0 +1,14 @@
+[
+ [
+  "Abbreviation rec_len := 0 (only parsing).",
+  "Abbreviation rec_len := «Rb» (only parsing)."
+ ],
+ [
+  "Abbreviation rec_last := 0 (only parsing).",
+  "Abbreviation rec_last := «Rh» (only parsing)."
+ ],
+ [
+  "Abbreviation rec_step := 0 (only parsing).",
+  "Abbreviation rec_step := «Rs» (only parsing)."
+ ]
+]

@@ -31,26 +31,26 @@ Module ListComplexity (Import Time : TimeNat).
 
   (** ** List tail *)
   Instance complexity_tl {A} `{Ground A} :
-    Time.ComplexityBound (@tl A) (fun lc => 4 ⋉ tt) := _.
+    Time.ComplexityBound (@tl A) (fun lc => 3 ⋉ tt) := _.
 
   Global Instance length_complexity {A} `{Ground A} : Time.ComplexityBound (@length A)
-    (fun cl => (17 * length (val cl) + 9) ⋉ tt) := _.
+    (fun cl => (14 * length (val cl) + 6) ⋉ tt) := _.
 
   Global Instance app_complexity {A} `{Ground A} : Time.ComplexityBound (@app A)
-    (fun cl => 5 ⋉ fun cm =>
-       (47 * length (val cl) + 14) ⋉ tt) := _.
+    (fun cl => 4 ⋉ fun cm =>
+       (31 * length (val cl) + 6) ⋉ tt) := _.
 
   (** [seq] is recursive on its second argument; the first one changes. *)
   Global Instance seq_complexity : Time.ComplexityBound seq
-    (fun cs => 7 ⋉ fun cn => (29 * val cn + 2) ⋉ tt) := _.
+    (fun cs => 4 ⋉ fun cn => (31 * val cn + 4) ⋉ tt) := _.
 
   (** [fold_left] with a function whose partial and full applications cost at
       most [c1] and [c2] (on ground data): a higher-order bound. *)
   Lemma fold_left_complexity {A B} `{Ground A} `{Ground B} (f : A -> B -> A) (c1 c2 : nat) :
     Time.ComplexityBound f (fun _ => c1 ⋉ fun _ => c2 ⋉ tt) ->
     Time.ComplexityBound (fold_left f)
-      (fun cl => 5 ⋉ fun cx =>
-         ((c1 + c2 + 45) * length (val cl) + 14) ⋉ tt).
+      (fun cl => 4 ⋉ fun cx =>
+         ((c1 + c2 + 29) * length (val cl) + 6) ⋉ tt).
   Proof. intro Hf. cbound. Qed.
 
   (** ** Bounds in the size of the arguments
@@ -61,4 +61,15 @@ Module ListComplexity (Import Time : TimeNat).
   Global Instance length_linear_bound {A} `{Ground A} `{Size A} : Time.LinearBound (@length A) := _.
   Global Instance app_linear_bound {A} `{Ground A} `{Size A} : Time.LinearBound (@app A) := _.
   Global Instance seq_linear_bound : Time.LinearBound seq := _.
+  (** ** Bounds in the sizes of the arguments, with their constants
+
+      The bounds above are in the values and lengths of the arguments;
+      each of these is at most the size ([#|x|], [SizeFact]), so that
+      they give bounds in the sizes ([csize]). *)
+
+  Lemma seq_size_complexity :
+    Time.ComplexityBound seq
+      (fun cs => 4 ⋉ fun (cn : ℂI nat _) => (31 * #|val cn| + 4) ⋉ tt).
+  Proof. csize_using seq_complexity. Qed.
+
 End ListComplexity.

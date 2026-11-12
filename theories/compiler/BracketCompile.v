@@ -84,9 +84,19 @@ Ltac2 rec abs (t : constr) : constr :=
   | _ => fail_msg "abs: unsupported term (local fixpoint, dependent match, ...)"
   end.
 
+(** The value at position [k] of the environment [Rel 1]:
+    [ehd (etl^k (Rel 1))]. *)
+Ltac2 rec env_access (k : int) : constr :=
+  let rec tl k := if Int.equal k 0 then mkrel 1
+                  else mkapp constr:(@etl) [| hole (); hole (); tl (Int.sub k 1) |] in
+  mkapp constr:(@ehd) [| hole (); hole (); tl k |].
+
 (** [bracket_compile t]: a term convertible to [t], built from combinators: every
     lambda is abstracted, and a [match] becomes an application of the case
-    combinator, whose branches are closures. *)
+    combinator: its branches and its matched value are closures, functions
+    of an environment, abstracted as the other lambdas. The environment is
+    the matched value when it is a variable (read by [Ic]), the empty
+    environment [tt] otherwise. *)
 Ltac2 rec bracket_compile (t : constr) : constr :=
   match kind t with
   | Lambda _ body => abs (bracket_compile body)
@@ -94,14 +104,26 @@ Ltac2 rec bracket_compile (t : constr) : constr :=
   | LetIn b v body => bracket_compile (mkapp (mklam b body) [| v |])
   | Cast c _ _ => bracket_compile c
   | Case ci _ _ scrut branches =>
-      let rec lams n body :=
-        if Int.equal n 0 then bracket_compile body
-        else abs (lams (Int.sub n 1) body) in
       let data := Ind.data (Case.inductive ci) in
-      mkapp_l (case_comb_of (Case.inductive ci))
-        (List.append (holes (Int.add (Ind.nparams data) 1))
-           (List.append (List.map (fun (b, a) => lams a (peel a b)) (case_branches ci branches))
-              [bracket_compile scrut]))
+      (* the arguments of the constructor are read in the environment: the
+         last one is its head *)
+      let code j a :=
+        let b := Array.get branches j in
+        if Int.equal a 0 then mklam (binder (hole ())) (liftn 1 1 b)
+        else mklam (binder (hole ()))
+               (substnl (List.init a env_access) 0 (liftn 1 (Int.add a 1) (peel a b))) in
+      let codes := List.mapi code (Array.to_list (Ind.constructor_nargs data)) in
+      (* a matched variable is the environment, read by the identity: the
+         case analysis is then a partial application in this variable *)
+      let (scode, e) :=
+        match kind scrut with
+        | Rel _ => (mkapp constr:(@Ic) [| hole () |], scrut)
+        | _ => (mklam (binder constr:(unit)) (liftn 1 1 scrut), constr:(tt))
+        end in
+      bracket_compile
+        (mkapp_l (case_comb_of (Case.inductive ci))
+           (List.append (holes (Int.add (Ind.nparams data) 2))
+              (List.append codes [scode; e])))
   | _ => t
   end.
 

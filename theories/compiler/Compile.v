@@ -3,9 +3,10 @@
     - [compile t] rewrites the lambda-term [t] into a convertible term built
       from the combinators of [Combinators], by closure conversion: every
       lambda becomes a closure, i.e. its code applied to the environment
-      where it is built. Matches become case combinators. It only uses
-      conversion: the goal before and after is the same proposition. (The
-      former compiler, by bracket abstraction, is in [BracketCompile].)
+      where it is built. Matches become case combinators. A closed function
+      needs no closure: its argument is its environment ([closed]). It only
+      uses conversion: the goal before and after is the same proposition.
+      (The former compiler, by bracket abstraction, is in [BracketCompile].)
     - [fix_equation] and [fix_equation_mutual] state and prove the unfolding
       equation of a recursive function, as required by [fix_complexity]
       ([TimeFix]). *)
@@ -64,9 +65,6 @@ Ltac2 rec type_params (t : constr) : int :=
   | _ => 0
   end.
 
-(** A branch for a constant constructor becomes a thunk. *)
-Ltac2 thunk (b : constr) : constr := mklam (binder constr:(unit)) (liftn 1 1 b).
-
 (** The case combinator [I_case] of the inductive type [I]. *)
 Ltac2 case_comb_of (i : inductive) : constr :=
   let name := String.app (ref_name (Std.IndRef i)) "_case" in
@@ -90,46 +88,16 @@ Ltac2 rec peel_b (n : int) (t : constr) : binder list * constr :=
   end.
 Ltac2 peel (n : int) (t : constr) : constr := let (_, t) := peel_b n t in t.
 
-(** [body] is under `a` binders; the free variables [ks] (outside these
-    binders) become [r] new binders, inside them. *)
-Ltac2 lift_vars (a : int) (ks : int list) (body : constr) : constr :=
-  let r := List.length ks in
-  let rec index k l i := match l with
-    | [] => None
-    | k' :: l => if Int.equal k k' then Some i else index k l (Int.add i 1) end in
-  let img i :=
-    if Int.le i a then mkrel (Int.add i r)
-    else match index (Int.sub i a) ks 1 with
-      | Some m => mkrel (Int.add (Int.sub r m) 1)
-      | None => mkrel (Int.add i r)
-      end in
-  substnl (List.init (max_rel body) (fun i => img (Int.add i 1))) 0 body.
-
-(** The branches of a [match], with their arities (constant constructors
-    get a thunk). *)
-Ltac2 case_branches (ci : case) (branches : constr array) : (constr * int) list :=
-  List.mapi (fun j a =>
-      let b := Array.get branches j in
-      if Int.equal a 0 then (thunk b, 1) else (b, a))
-    (Array.to_list (Ind.constructor_nargs (Ind.data (Case.inductive ci)))).
-
 (** ** Closure conversion *)
 
-(** Matches become applications of the case combinators, whose branches are
-    functions of the arguments of the constructors (thunks for constant
-    constructors); let-ins become beta-redexes. *)
+(** Let-ins become beta-redexes; matches are kept, and compiled by [conv]. *)
 Ltac2 rec decase (t : constr) : constr :=
   match kind t with
   | Lambda b body => mklam b (decase body)
   | App f args => mkapp (decase f) (Array.map decase args)
   | LetIn b v body => decase (mkapp (mklam b body) [| v |])
   | Cast c _ _ => decase c
-  | Case ci _ _ scrut branches =>
-      let data := Ind.data (Case.inductive ci) in
-      mkapp_l (case_comb_of (Case.inductive ci))
-        (List.append (holes (Int.add (Ind.nparams data) 1))
-           (List.append (List.map (fun (b, _) => decase b) (case_branches ci branches))
-              [decase scrut]))
+  | Case ci r iv scrut branches => make (Case ci r iv (decase scrut) (Array.map decase branches))
   | _ => t
   end.
 
@@ -190,82 +158,96 @@ Ltac2 simple_lambda (b : binder) (body : constr) : constr option :=
   | _ => None
   end.
 
-(** [conv t]: a closed term [u] such that [u e] is convertible to [t] where
-    each variable [Rel i] is the value at position [i - 1] of the
-    environment [e] (the latest bound first). The terms that do not use [e]
-    are closed, and evaluated once ([Kc]); an application is [Sc], or
-    [compose] (B) and [Cc] when one of its parts is closed. A lambda becomes
-    a closure [Lam c e]: the environment [e] extended with the argument is
-    the one of its body [c] ([simple_lambda] needs no closure). *)
-Ltac2 rec conv (t : constr) : constr :=
+(** The environment at position [p] of an environment: [etl^p e] ([Ic]
+    for [p = 0]). *)
+Ltac2 rec base_access (p : int) : constr :=
+  if Int.equal p 0 then mkapp constr:(@Ic) [| hole () |]
+  else if Int.equal p 1 then mkapp constr:(@etl) [| hole (); hole () |]
+  else mkapp constr:(@compose)
+         [| hole (); hole (); hole (); mkapp constr:(@etl) [| hole (); hole () |];
+            base_access (Int.sub p 1) |].
+
+(** [base] shifted by [k] binders ([0]: no base). *)
+Ltac2 shift (base : int) (k : int) : int :=
+  if Int.equal base 0 then 0 else Int.add base k.
+
+(** [conv base t]: a closed term [u] such that [u e] is convertible to [t]
+    where each variable [Rel i] is the value at position [i - 1] of the
+    environment [e] (the latest bound first), except [Rel base] (if
+    [base > 0]), which is the environment at position [base - 1] itself
+    (the argument of a closed function, [closed]). The terms that do not use [e] are closed, and evaluated
+    once ([Kc]); an application is [Sc], or [compose] (B) and [Cc] when one
+    of its parts is closed. A lambda becomes a closure [Lam c e]: the
+    environment [e] extended with the argument is the one of its body [c]
+    ([simple_lambda] needs no closure). A match becomes the application of
+    its case combinator to the code of its branches and of its matched
+    value ([case_code]): no closure. *)
+Ltac2 rec conv (base : int) (t : constr) : constr :=
   if is_closed t then mkapp constr:(@Kc) [| hole (); hole (); closed t |]
   else match kind t with
-  | Rel i => access (Int.sub i 1)
+  | Rel i => if Int.equal i base then base_access (Int.sub i 1) else access (Int.sub i 1)
   | App f args =>
       let n := Array.length args in
       let last := Array.get args (Int.sub n 1) in
       let init := mkapp f (Array.sub args 0 (Int.sub n 1)) in
       if is_closed init then
-        mkapp constr:(@compose) [| hole (); hole (); hole (); closed init; conv last |]
+        mkapp constr:(@compose) [| hole (); hole (); hole (); closed init; conv base last |]
       else if is_closed last then
-        mkapp constr:(@Cc) [| hole (); hole (); hole (); conv init; closed last |]
-      else mkapp constr:(@Sc) [| hole (); hole (); hole (); conv init; conv last |]
+        mkapp constr:(@Cc) [| hole (); hole (); hole (); conv base init; closed last |]
+      else mkapp constr:(@Sc) [| hole (); hole (); hole (); conv base init; conv base last |]
   | Lambda b body =>
       match simple_lambda b body with
-      | Some u => conv u
-      | None => mkapp constr:(@Lam) [| hole (); binder_type b; hole (); conv body |]
+      | Some u => conv base u
+      | None => mkapp constr:(@Lam) [| hole (); binder_type b; hole (); conv (shift base 1) body |]
       end
+  | Case ci _ _ scrut branches => case_code base ci scrut branches
   | _ => fail_msg "compile: unsupported term (local fixpoint, dependent match, ...)"
   end
 
-(** [closed t], for a closed term [t]: its closed lambdas are closures with
-    the empty environment [tt]. *)
+(** The code of a match, for its environment [e]: the case combinator
+    applied to the code of each branch, in [e] extended with the arguments
+    of the constructor, and to the code of the matched value. *)
+with case_code (base : int) (ci : case) (scrut : constr) (branches : constr array) : constr :=
+  let data := Ind.data (Case.inductive ci) in
+  mkapp_l (case_comb_of (Case.inductive ci))
+    (List.append (holes (Int.add (Ind.nparams data) 2))
+       (List.append (branch_codes base ci branches) [conv base scrut]))
+
+with branch_codes (base : int) (ci : case) (branches : constr array) : constr list :=
+  List.mapi (fun j a => conv (shift base a) (peel a (Array.get branches j)))
+    (Array.to_list (Ind.constructor_nargs (Ind.data (Case.inductive ci))))
+
+(** [closed t], for a closed term [t]. A closed lambda needs no closure:
+    its code, with its argument as the environment ([conv] with [base]
+    [1]), is the function itself. A closed [fun x => match x with ... end]
+    is thus the case combinator, with [x] as its environment, read by [Ic];
+    a closed [fun x y => b] is [Lam c], [c] being the code of [b] in the
+    environment [ECons x y]. *)
 with closed (t : constr) : constr :=
   match kind t with
   | Lambda b body =>
       match simple_lambda b body with
       | Some u => closed u
-      | None =>
-          mkapp constr:(@Lam) [| constr:(unit); binder_type b; hole (); conv body; constr:(tt) |]
+      | None => conv 1 body
       end
   | App f args => mkapp (closed f) (Array.map closed args)
+  | Case ci _ _ scrut branches => mkapp (case_code 0 ci scrut branches) [| constr:(tt) |]
   | _ => t
   end.
 
 (** [compile t]: a term convertible to [t], built from combinators. *)
 Ltac2 compile (t : constr) : constr := closed (decase t).
 
-(** [lift_cases t]: [t] where each [match] is replaced by an application of
-    the case combinator, whose branches are closures, and the variables used
-    in several branches are passed to the selected branch, after the case
-    analysis. The result is equal to [t] for all
-    values of its free variables, but not convertible to it: it is only
-    used for functionals of fixpoints ([fix_equation]), whose unfolding
-    equation is proved by case analysis. *)
+(** [lift_cases t]: [t] without its let-ins' casts. The matches are kept:
+    the case combinators work on environments, so that a variable used in
+    several branches costs nothing ([case_code]). [fix_equation] proves the
+    unfolding equation of the functional [lift_cases F] by case analysis. *)
 Ltac2 rec lift_cases (t : constr) : constr :=
   match kind t with
   | Lambda b body => mklam b (lift_cases body)
   | App f args => mkapp (lift_cases f) (Array.map lift_cases args)
   | LetIn b v body => make (LetIn b (lift_cases v) (lift_cases body))
   | Cast c _ _ => lift_cases c
-  | Case ci _ _ scrut branches =>
-      let brs := case_branches ci branches in
-      let m := List.fold_left (fun m (b, _) => if Int.lt m (max_rel b) then max_rel b else m) 0 brs in
-      let ks := List.filter (fun k =>
-                  Int.le 2 (List.length (List.filter (fun (b, _) => Bool.neg (noccurn k b)) brs)))
-                  (List.init m (fun k => Int.add k 1)) in
-      let r := List.length ks in
-      let mk (b, a) :=
-        let (bs, body) := peel_b a b in
-        let body := lift_cases (lift_vars a ks body) in
-        List.fold_right mklam (List.append bs (List.init r (fun _ => binder (hole ())))) body in
-      let data := Ind.data (Case.inductive ci) in
-      (* the result type takes the lifted variables *)
-      let rec res n := if Int.equal n 0 then hole () else mkprod (binder (hole ())) (res (Int.sub n 1)) in
-      let c := mkapp_l (case_comb_of (Case.inductive ci))
-                 (List.append (holes (Ind.nparams data))
-                    (res r :: List.append (List.map mk brs) [lift_cases scrut])) in
-      mkapp_l c (List.map mkrel ks)
   | _ => t
   end.
 

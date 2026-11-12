@@ -12,13 +12,29 @@ Module LNC := NatComplexity L.
 
 Module LNA <: NatArithTimeCostModel L L.
   Import L.
-  Definition c_add_clo := 5.
-  Definition c_add_n := 36.
-  Definition c_add := 14.
-  Definition c_mul_clo := 5.
-  Definition c_mul_nm := 36.
-  Definition c_mul_n := 52.
-  Definition c_mul := 10.
+  (** The constants are those of the bounds of [NatComplexity], read in
+      their statements: they follow the analyses. *)
+  Definition c_add_clo : nat := ltac:(
+    lazymatch type of LNC.Nat_add_complexity with
+    | ComplexityBound _ (fun _ => ?a ⋉ _) => exact a end).
+  Definition c_add_n : nat := ltac:(
+    lazymatch type of LNC.Nat_add_complexity with
+    | ComplexityBound _ (fun cn => _ ⋉ fun _ => (?b * @?v cn + _) ⋉ _) => exact b end).
+  Definition c_add : nat := ltac:(
+    lazymatch type of LNC.Nat_add_complexity with
+    | ComplexityBound _ (fun cn => _ ⋉ fun _ => (_ * @?v cn + ?c) ⋉ _) => exact c end).
+  Definition c_mul_clo : nat := ltac:(
+    lazymatch type of LNC.Nat_mul_complexity with
+    | ComplexityBound _ (fun _ => ?a ⋉ _) => exact a end).
+  Definition c_mul_nm : nat := ltac:(
+    lazymatch type of LNC.Nat_mul_complexity with
+    | ComplexityBound _ (fun cn => _ ⋉ fun cm => (@?n cn * (?b * @?m cm + _) + _) ⋉ _) => exact b end).
+  Definition c_mul_n : nat := ltac:(
+    lazymatch type of LNC.Nat_mul_complexity with
+    | ComplexityBound _ (fun cn => _ ⋉ fun cm => (@?n cn * (_ * @?m cm + ?c) + _) ⋉ _) => exact c end).
+  Definition c_mul : nat := ltac:(
+    lazymatch type of LNC.Nat_mul_complexity with
+    | ComplexityBound _ (fun cn => _ ⋉ fun cm => (@?n cn * (_ * @?m cm + _) + ?d) ⋉ _) => exact d end).
 
   Definition add_complexity := LNC.Nat_add_complexity.
   Definition mul_complexity := LNC.Nat_mul_complexity.

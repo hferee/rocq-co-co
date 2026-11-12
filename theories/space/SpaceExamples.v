@@ -14,10 +14,12 @@
     - [repeat x n] builds [n] cells; [length l] builds the [|l|]
       successors of its result.
 
-    The constants also count the closures of the compiled code (the
-    branches of a [match] are thunks, [Compile]) and the frame of each
-    recursive call ([c_fix]). This is why [Nat.eqb], which builds no data,
-    still allocates linearly: one frame and the closures of each step. *)
+    The constants also count the closures built by the compiled code
+    ([Compile]: partial applications, recursive functions) and the frame of
+    each recursive call ([c_fix]); a [match] allocates nothing, its
+    branches are code run in the environment of the closure. This is why
+    [Nat.eqb], which builds no data, still allocates linearly: one frame
+    and the closures of each step. *)
 
 From Complexity Require Export SpaceCostModel.
 From Stdlib Require Import List.
@@ -28,48 +30,48 @@ Module SpaceExamples (Import Space : SpaceCostModel).
   (** ** Natural numbers *)
 
   Global Instance Nat_add_space : Space.ComplexityBound Nat.add
-    (fun cn => 3 ⋉ fun cm => (7 * val cn + 3) ⋉ tt).
+    (fun cn => 3 ⋉ fun cm => (4 * val cn) ⋉ tt).
   Proof. cbound. Qed.
 
   (** No data, but one frame and the closures of each step. *)
   Global Instance Nat_eqb_space : Space.ComplexityBound Nat.eqb
-    (fun cn => 3 ⋉ fun cm => (7 * val cn + 3) ⋉ tt).
+    (fun cn => 3 ⋉ fun cm => (3 * val cn) ⋉ tt).
   Proof. cbound. Qed.
 
   (** [n] additions of [m]: quadratic. *)
   Global Instance Nat_mul_space : Space.ComplexityBound Nat.mul
-    (fun cn => 3 ⋉ fun cm => (val cn * (7 * val cm + 11) + 3) ⋉ tt).
+    (fun cn => 3 ⋉ fun cm => (val cn * (4 * val cm + 6)) ⋉ tt).
   Proof. cbound. Qed.
 
   (** ** Lists *)
 
   Global Instance length_space {A} `{Ground A} : Space.ComplexityBound (@length A)
-    (fun cl => (7 * length (val cl) + 4) ⋉ tt).
+    (fun cl => (3 * length (val cl) + 2) ⋉ tt).
   Proof. cbound. Qed.
 
   (** [app l m] copies [l] and shares [m]. *)
   Global Instance app_space {A} `{Ground A} : Space.ComplexityBound (@app A)
-    (fun cl => 3 ⋉ fun cm => (9 * length (val cl) + 3) ⋉ tt).
+    (fun cl => 3 ⋉ fun cm => (5 * length (val cl)) ⋉ tt).
   Proof. cbound. Qed.
 
   Global Instance repeat_space {A} `{Ground A} : Space.ComplexityBound (@repeat A)
-    (fun cx => 4 ⋉ fun cn => (9 * val cn + 3) ⋉ tt).
+    (fun cx => 3 ⋉ fun cn => (5 * val cn) ⋉ tt).
   Proof. cbound. Qed.
 
   (** Naive reversal: quadratic. *)
   Global Instance rev_space {A} `{Ground A} : Space.ComplexityBound (@rev A)
-    (fun cl => (length (val cl) * (9 * length (val cl) + 9) + 3) ⋉ tt).
+    (fun cl => (length (val cl) * (3 * length (val cl) + 4) + 2) ⋉ tt).
   Proof. cbound. all: rewrite ?length_rev; nia. Qed.
 
   (** Reversal with an accumulator: linear. *)
   Global Instance rev_append_space {A} `{Ground A} : Space.ComplexityBound (@rev_append A)
-    (fun cl => 3 ⋉ fun cm => (9 * length (val cl) + 3) ⋉ tt).
+    (fun cl => 3 ⋉ fun cm => (5 * length (val cl)) ⋉ tt).
   Proof. cbound. Qed.
 
   (** [map f l] allocates [|l|] cells, and [f] on each element. *)
   Lemma map_space {A B} `{Ground A} `{Ground B} (f : A -> B) (c : nat) :
     Space.ComplexityBound f (fun _ => c ⋉ tt) ->
-    Space.ComplexityBound (map f) (fun cl => ((c + 9) * length (val cl) + 3) ⋉ tt).
+    Space.ComplexityBound (map f) (fun cl => ((c + 4) * length (val cl) + 2) ⋉ tt).
   Proof. intros Hf. cbound. Qed.
 
   (** ** Bounds in the size of the arguments ([Bounds]) *)
@@ -79,4 +81,30 @@ Module SpaceExamples (Import Space : SpaceCostModel).
 
   Global Instance Nat_add_space_linear : Space.LinearBound Nat.add := _.
   Global Instance Nat_mul_space_polynomial : Space.PolynomialBound Nat.mul := _.
+  (** ** Bounds in the sizes of the arguments, with their constants
+
+      The bounds above are in the values and lengths of the arguments;
+      each of these is at most the size ([#|x|], [SizeFact]), so that
+      they give bounds in the sizes ([csize]). *)
+
+  Lemma Nat_add_space_size_complexity :
+    Space.ComplexityBound Nat.add
+      (fun (cn : ℂI nat _) => 3 ⋉ fun cm => (4 * #|val cn|) ⋉ tt).
+  Proof. csize_using Nat_add_space. Qed.
+
+  Lemma Nat_eqb_space_size_complexity :
+    Space.ComplexityBound Nat.eqb
+      (fun (cn : ℂI nat _) => 3 ⋉ fun cm => (3 * #|val cn|) ⋉ tt).
+  Proof. csize_using Nat_eqb_space. Qed.
+
+  Lemma Nat_mul_space_size_complexity :
+    Space.ComplexityBound Nat.mul
+      (fun (cn : ℂI nat _) => 3 ⋉ fun (cm : ℂI nat _) => (#|val cn| * (4 * #|val cm| + 6)) ⋉ tt).
+  Proof. csize_using Nat_mul_space. Qed.
+
+  Lemma repeat_space_size_complexity {A} `{Ground A} :
+    Space.ComplexityBound (@repeat A)
+      (fun cx => 3 ⋉ fun (cn : ℂI nat _) => (5 * #|val cn|) ⋉ tt).
+  Proof. csize_using repeat_space. Qed.
+
 End SpaceExamples.

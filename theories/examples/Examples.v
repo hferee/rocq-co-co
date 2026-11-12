@@ -67,11 +67,11 @@ Module Examples (Import Time : TimeCostModel).
       [tower n x] performs [2 ^ n] compositions. Building [tower n] costs a
       linear number of steps, but applying it costs [3 * 2 ^ n - 1]. *)
   Global Instance tower_complexity : Time.ComplexityBound tower
-    (fun cn => (20 * val cn + 7) ⋉
-     fun cx => (3 * 2 ^ val cn - 1) ⋉ tt).
+    (fun cn => (17 * val cn + 6) ⋉
+     fun cx => (2 * 2 ^ val cn - 1) ⋉ tt).
   Proof. cbound. all: assert (2 ^ cn <> 0) by (apply Nat.pow_nonzero; lia); lia. Qed.
 
   Lemma tower_eval_complexity : Time.ComplexityBound tower_eval
-    (fun cn => (20 * val cn + 3 * 2 ^ val cn + 10) ⋉ tt).
+    (fun cn => (17 * val cn + 2 * 2 ^ val cn + 8) ⋉ tt).
   Proof. cbound. all: assert (2 ^ cn <> 0) by (apply Nat.pow_nonzero; lia); lia. Qed.
 End Examples.

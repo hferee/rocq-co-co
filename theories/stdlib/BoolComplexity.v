@@ -8,13 +8,13 @@ From Complexity Require Export TimeCostModel.
 
 Module BoolComplexity (Import Time : TimeCostModel).
 
-  Global Instance negb_complexity : Time.ComplexityBound negb (fun cb => 2 ⋉ tt) := _.
+  Global Instance negb_complexity : Time.ComplexityBound negb (fun cb => 3 ⋉ tt) := _.
 
   Global Instance andb_complexity : Time.ComplexityBound andb
-    (fun ca => 2 ⋉ fun cb => 14 ⋉ tt) := _.
+    (fun ca => 1 ⋉ fun cb => 4 ⋉ tt) := _.
 
   Global Instance orb_complexity : Time.ComplexityBound orb
-    (fun ca => 2 ⋉ fun cb => 12 ⋉ tt) := _.
+    (fun ca => 1 ⋉ fun cb => 4 ⋉ tt) := _.
 
   (** ** Bounds in the size of the arguments: constant *)
   Global Instance negb_constant_bound : Time.ConstantBound negb := _.

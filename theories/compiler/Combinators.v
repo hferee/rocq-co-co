@@ -58,9 +58,13 @@ Create HintDb comb.
 
     The case combinator of an inductive type `I` is named `I_case` and is
     defined with the cost model of `I` (e.g. [nat_case] in
-    [TimeDatatypes]). Its arguments are the type parameters of `I` and
-    the type of the result, the branches in the order of the constructors,
-    and the matched value. Branches are closures (thunks, taking [tt], for
-    constant constructors), so that only the selected branch is evaluated.
-    [Compile] finds it by its name. Each case combinator must be declared
-    opaque for typeclass search, and added to the hint database [comb]. *)
+    [TimeDatatypes]). It works on environments, as the code of closures:
+    its arguments are the type parameters of `I`, the type [E] of the
+    environment and the type of the result, the code of the branches in the
+    order of the constructors, the code of the matched value, and the
+    environment. The branch of a constructor with arguments runs in the
+    environment extended with them (the first argument first), the branch
+    of a constant constructor in the environment itself: a match builds no
+    closure, and only the selected branch is evaluated. [Compile] finds the
+    combinator by its name. Each case combinator must be declared opaque
+    for typeclass search, and added to the hint database [comb]. *)

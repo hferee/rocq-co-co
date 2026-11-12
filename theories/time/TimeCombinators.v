@@ -255,7 +255,82 @@ Module CombinatorTactics
     | |- ComplexityBound ?f _ => notypeclasses refine (@found_ok _ _ _ f _)
     end;
     typeclasses eauto.
-  Ltac cbc_found := unshelve (compile_goal; csearch); try exact unit.
+
+  (** When the search fails, the constants of the compiled function whose
+      complexity is not known ([missing_bounds]) are reported: their bounds
+      must be proved first, as instances. *)
+  Ltac2 is_combinator (f : constr) : bool :=
+    Bool.or (is_case_comb f)
+      (List.exist (fun c => Constr.equal f c)
+         [constr:(@Lam); constr:(@ehd); constr:(@etl); constr:(@Kc); constr:(@Ic);
+          constr:(@Sc); constr:(@Cc); constr:(@compose)]).
+
+  (** The constants and constructors of [t], applied to their type
+      arguments. *)
+  Ltac2 rec consts_of (t : constr) (acc : constr list) : constr list :=
+    match Constr.Unsafe.kind t with
+    | Constr.Unsafe.App f args =>
+        let acc := Array.fold_left (fun acc a => consts_of a acc) acc args in
+        match Constr.Unsafe.kind f with
+        | Constr.Unsafe.Constant _ _ =>
+            if is_combinator f then acc else
+            let n := let p := type_params (Constr.type f) in let l := Array.length args in if Int.lt p l then p else l in
+            mkapp f (Array.sub args 0 n) :: acc
+        | Constr.Unsafe.Constructor _ _ =>
+            let n := let p := type_params (Constr.type f) in let l := Array.length args in if Int.lt p l then p else l in
+            mkapp f (Array.sub args 0 n) :: acc
+        | _ => consts_of f acc
+        end
+    | Constr.Unsafe.Constant _ _ => if is_combinator t then acc else t :: acc
+    | Constr.Unsafe.Constructor _ _ => t :: acc
+    | Constr.Unsafe.Lambda _ b => consts_of b acc
+    | _ => acc
+    end.
+
+  (** Whether the complexity of [c] is found by typeclass search. *)
+  Ltac2 has_found (c : constr) : bool :=
+    match Control.case (fun () =>
+            ltac1:(c |- assert (Found c) by (typeclasses eauto)) (Ltac1.of_constr c);
+            Control.zero Not_found) with
+    | Err Not_found => true
+    | _ => false
+    end.
+
+  Ltac2 missing_bounds (t : constr) : constr list :=
+    let cs := consts_of t [] in
+    let cs := List.fold_right (fun c acc =>
+                if List.exist (Constr.equal c) acc then acc else c :: acc) cs [] in
+    List.filter (fun c => Bool.and (Bool.neg (is_arity (Constr.type c)))
+                                   (Bool.neg (has_found c))) cs.
+
+  Ltac2 missing_message (ms : constr list) : message :=
+    match ms with
+    | [] =>
+        Advice.cat [Message.of_string "cbound: the search for the complexity of the compiled function failed, although its constants have known bounds.";
+                    Advice.nl (); Message.of_string "A type of its values may have no representation (Repr)."]
+    | _ =>
+        Advice.cat [Message.of_string "cbound: no complexity bound is known for:";
+                    Advice.cat (List.map (fun c => Advice.cat [Message.of_string " "; Message.of_constr c]) ms);
+                    Message.of_string ".";
+                    Advice.nl (); Message.of_string "The function analysed uses it: prove a bound for it first, and declare it as an instance, e.g.";
+                    Advice.nl (); Message.of_string "  Global Instance g_complexity : Time.ComplexityBound g (fun cx => ... ⋉ tt).";
+                    Advice.nl (); Message.of_string "  Proof. cbound. Qed.";
+                    Advice.nl (); Message.of_string "(or Existing Instance after a Lemma)."]
+    end.
+
+  Ltac2 csearch_diag () : unit :=
+    match Control.case (fun () => ltac1:(csearch)) with
+    | Val _ => ()
+    | Err _ =>
+        match Constr.Unsafe.kind (Control.goal ()) with
+        | Constr.Unsafe.App _ args =>
+            let t := Array.get args (Int.sub (Array.length args) 2) in
+            Control.zero (Tactic_failure (Some (missing_message (missing_bounds t))))
+        | _ => Control.zero (Tactic_failure (Some (missing_message [])))
+        end
+    end.
+
+  Ltac cbc_found := unshelve (compile_goal; ltac2:(csearch_diag ())); try exact unit.
 
   (** ** Proofs of bounds
 
@@ -349,14 +424,14 @@ Module CombinatorTactics
 
   Ltac cbound_constant :=
     unfold ConstantBound; eexists; split; cycle 1;
-    [ cbound_split; ltac2:(constant_constants ()); cbn [Poly.peval List.nth];
-      try solve [lia | nia]
+    [ cbound_split; ltac2:(constant_constants_any ()); cbn [Poly.peval List.nth];
+      try solve [lia | nia]; ltac2:(degree_advice 0 "constant")
     | reflexivity ].
 
   Ltac cbound_linear :=
     unfold LinearBound; eexists; split; cycle 1;
-    [ cbound_split; ltac2:(linear_constants ()); cbn [Poly.peval List.nth];
-      try solve [lia | nia]
+    [ cbound_split; ltac2:(linear_constants_any ()); cbn [Poly.peval List.nth];
+      try solve [lia | nia]; ltac2:(degree_advice 1 "linear")
     | cbn; lia ].
 
   Ltac cbound_polynomial :=
@@ -366,14 +441,89 @@ Module CombinatorTactics
 
   (** [cbound] proves [ComplexityBound f c] ([cbound_start], then
       [cfinish]), and [ConstantBound f], [LinearBound f] and
-      [PolynomialBound f] with the tactics above. *)
-  Ltac cbound :=
+      [PolynomialBound f] with the tactics above. The inequalities that it
+      leaves are explained ([cadvice], [Advice]): a counterexample shows
+      that the claimed bound is too small; [cexplain] suggests facts for
+      the others. [cbound_core] is [cbound] without advice, for the proofs
+      tried by typeclass search. *)
+  Ltac cbound_core :=
     lazymatch goal with
     | |- ConstantBound _ => cbound_constant
     | |- LinearBound _ => cbound_linear
     | |- PolynomialBound _ => cbound_polynomial
     | |- _ => ltac2:(cbound_start ()); cfinish
     end.
+  (** Whether [f] (a constant, possibly applied) is defined by a fixpoint. *)
+  Ltac2 rec is_fix (t : constr) : bool :=
+    match Constr.Unsafe.kind t with
+    | Constr.Unsafe.Fix _ _ _ _ => true
+    | Constr.Unsafe.Lambda _ b => is_fix b
+    | _ => false
+    end.
+  Ltac2 is_recursive (f : constr) : bool :=
+    let (h, _) := split_app f in
+    match Constr.Unsafe.kind h with
+    | Constr.Unsafe.Constant _ _ => is_fix (Std.eval_red h)
+    | _ => false
+    end.
+
+  (** A bound in the sizes of a recursive function [f] may not follow from
+      its definition: the recurrence may need the growth of the sizes, which
+      the model does not give. It follows from a bound in the values of its
+      arguments ([clinear], [cpolynomial]). *)
+  Ltac2 size_bound_note (f : constr) : unit :=
+    if Bool.and (Int.lt 0 (Control.numgoals ())) (is_recursive f) then
+      Message.print (Advice.cat
+        [Message.of_string "cbound: "; Message.of_constr f;
+         Message.of_string " is recursive, and has no ComplexityBound instance:";
+         Advice.nl (); Message.of_string "cbound could not prove this bound in the sizes from its definition (the recurrence may need the";
+         Advice.nl (); Message.of_string "growth of the sizes). Prove a bound in the values of its arguments first (Global Instance ... :";
+         Advice.nl (); Message.of_string "Time.ComplexityBound ...): this bound then follows from it (cbound, clinear, cpolynomial)."])
+    else ().
+
+  (** [cbound] is [cbound_core] with advice: on the inequalities left
+      ([cadvice]), and, for a bound in the sizes of a recursive function
+      without a [ComplexityBound] instance, on how to proceed. A bound in
+      the sizes of a function with an instance follows from it ([clinear],
+      ...). *)
+  Ltac cbound_sizes f kind :=
+    tryif assert_succeeds (eassert (ComplexityBound f _) by typeclasses eauto)
+    then lazymatch kind with
+         | 0 => cconstant | 1 => clinear | _ => cpolynomial end
+    else (let note := ltac2:(f |- match Ltac1.to_constr f with
+                                   | Some f => size_bound_note f
+                                   | None => ()
+                                   end) in
+          cbound_core; cadvice; note f).
+  Ltac cbound :=
+    lazymatch goal with
+    | |- ConstantBound ?f => cbound_sizes f 0
+    | |- LinearBound ?f => cbound_sizes f 1
+    | |- PolynomialBound ?f => cbound_sizes f 2
+    | |- _ => cbound_core; cadvice
+    end.
+
+  (** [csize] proves a bound in the sizes of the arguments ([#|x|], [Size])
+      from the bound of the function found by typeclass search, which is in
+      their values or lengths: each one is at most the size ([SizeFact],
+      [add_size_facts]). *)
+  Ltac csize_by tac :=
+    eapply ComplexityBound_mono; [idtac | tac];
+    csimpl; bo_split; destr_inputs; ccases; cunit; add_size_facts;
+    try solve [lia | nia]; cadvice.
+  Ltac csize := csize_by ltac:(typeclasses eauto).
+
+  (** [csize_using H]: the same, from the bound [H]. *)
+  Ltac csize_using H := csize_by ltac:(exact H).
+
+  (** [cproject H v] proves [ComplexityBound f c] from the bound [H] of a
+      function [g] such that [g v] is [f], for example the bound of
+      [fun b => if b then f1 else f2] for mutually recursive functions [f1]
+      and [f2] ([cbound], [TimeFix]): [cproject H true] proves the bounds of
+      [f1], [cproject H false] those of [f2]. *)
+  Ltac cproject H v :=
+    eapply ComplexityBound_mono; [idtac | exact (apply_complexity (v := v) _ _ H)];
+    cfinish; cadvice.
 
   (** [cweaken] proves [ComplexityBound f c] from the bound of [f] found by
       typeclass search (an instance), when [c] is larger. *)
@@ -396,7 +546,7 @@ Module CombinatorTactics
       slowly than a [Qed]. The name must not depend on the file only: the
       analyses of several files are included in one module type
       ([TimeStdlib]). *)
-  Ltac cbound_auto := first [solve [once cweaken] | solve [once cbound]].
+  Ltac cbound_auto := first [solve [once cweaken] | solve [once cbound_core]].
 
   Ltac2 cbound_lemma_name () : ident option :=
     match Constr.Unsafe.kind (Control.goal ()) with

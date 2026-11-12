@@ -36,9 +36,12 @@ Inductive qmat : Type :=
 | QNode (a11 a12 a21 a22 : qmat).
 
 (** Case combinator (see [Combinators]). *)
-Definition qmat_case {A : Type} (fl : Z -> A) (fn : qmat -> qmat -> qmat -> qmat -> A)
-  (q : qmat) : A :=
-  match q with QLeaf z => fl z | QNode a b c d => fn a b c d end.
+Definition qmat_case {E A : Type} (fl : env E Z -> A)
+  (fn : env (env (env (env E qmat) qmat) qmat) qmat -> A) (q : E -> qmat) (e : E) : A :=
+  match q e with
+  | QLeaf z => fl (ECons e z)
+  | QNode a b c d => fn (ECons (ECons (ECons (ECons e a) b) c) d)
+  end.
 
 #[global] Typeclasses Opaque qmat_case.
 #[global] Hint Unfold qmat_case : comb.
@@ -169,7 +172,8 @@ Proof. induction k; cbn [unfs Nat.pow]; [lia | pose proof (qn_closed k); lia]. Q
 
 (** Quadtrees are ground data, with constructors and a case analysis. *)
 Module Type QMatTimeCostModel
-  (Import Time : CostModel) (Import BT : BasicTimeCostModel Time) (Import ZD : ZData Time).
+  (Import Time : CostModel) (Import BT : BasicTimeCostModel Time)
+  (Import CB : CombinatorTimeCostModel Time BT) (Import ZD : ZData Time).
 
   #[global] Declare Instance Repr_qmat : Ground qmat.
   #[global] Declare Instance qmat_complexity : forall q : qmat, Time.ComplexityBound q tt.
@@ -181,16 +185,18 @@ Module Type QMatTimeCostModel
   #[global] Declare Instance QNode_complexity : Time.ComplexityBound QNode
     (fun _ => c_clo ⋉ fun _ => c_clo ⋉ fun _ => c_clo ⋉ fun _ => c_qmat ⋉ tt).
 
-  #[global] Declare Instance qmat_case_complexity : forall {A CA} `{Repr A CA},
-    Time.ComplexityBound (@qmat_case A)
-      (fun cl : ℂI (Z -> A) (ℂI Z unit -> ℂO CA) => c_clo ⋉
-       fun cn : ℂI (qmat -> qmat -> qmat -> qmat -> A)
-                   (ℂI qmat unit -> ℂO (ℂI qmat unit -> ℂO (ℂI qmat unit -> ℂO
-                   (ℂI qmat unit -> ℂO CA)))) => c_clo ⋉
-       fun cq : ℂI qmat unit => c_case_qmat ⊕
-         match val cq with
-         | QLeaf z => pot cl (z ⋊ tt)
-         | QNode a b c d => pot <$> cn · (a ⋊ tt) · (b ⋊ tt) · (c ⋊ tt) · (d ⋊ tt)
+  #[global] Declare Instance qmat_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    Time.ComplexityBound (@qmat_case E A)
+      (fun cl : ℂI (env E Z -> A) (ℂI (env E Z) (CE * unit) -> ℂO CA) => c_clo ⋉
+       fun cn : ℂI (env (env (env (env E qmat) qmat) qmat) qmat -> A)
+                   (ℂI (env (env (env (env E qmat) qmat) qmat) qmat)
+                       ((((CE * unit) * unit) * unit) * unit) -> ℂO CA) => c_clo ⋉
+       fun cq : ℂI (E -> qmat) (ℂI E CE -> ℂO unit) => c_clo ⋉
+       fun ce : ℂI E CE => c_case_qmat ⊕ cost (pot cq ce) ⊕
+         match val cq (val ce) with
+         | QLeaf z => pot cl (ECons (val ce) z ⋊ (pot ce, tt))
+         | QNode a b c d =>
+             pot cn (ECons (ECons (ECons (ECons (val ce) a) b) c) d ⋊ ((((pot ce, tt), tt), tt), tt))
          end).
 End QMatTimeCostModel.
 

@@ -1,0 +1,89 @@
+{
+  "exclude": [
+    "instances/",
+    "model/",
+    "time/",
+    "compiler/",
+    "math/",
+    "examples/Tutorial.v",
+    "examples/UnguardedFix.v"
+  ],
+  "definitions": {
+    "bff/BFFComplexity.v": [
+      "rec_cost",
+      "step_bound"
+    ],
+    "bff/Type3Example.v": [
+      "C_pot",
+      "zero_pot",
+      "V_cost",
+      "W_cost",
+      "C_maj",
+      "V_maj",
+      "W_maj"
+    ]
+  },
+  "majorants": {
+    "bff/BFFFeasibility.v": "Global Instance (\\w+)_hpoly\\b(?:(?!Global Instance).)*?Proof\\.\\s*refine \\(hpoly_intro _ _ \\(db <\\{ (.*?) \\}>\\)"
+  },
+  "sections": [
+    [
+      "Natural numbers, booleans, lists, binary integers (stdlib)",
+      "stdlib/"
+    ],
+    [
+      "Basic feasible functionals (bff)",
+      "bff/"
+    ],
+    [
+      "Examples (examples)",
+      "examples/"
+    ],
+    [
+      "Space: total allocation (space)",
+      "space/"
+    ]
+  ],
+  "notes": {
+    "complexity_ext": "for f pointwise equal to g, from the bound cg of g",
+    "horner_complexity": "when 1 <= c_fix, in the counting model of the file",
+    "map_space": "when f allocates at most c",
+    "fold_left_complexity": "when f costs at most c1 ⋉ c2"
+  },
+  "names": {
+    "Pos_add_mutual_complexity": "fun b => if b then Pos.add else Pos.add_carry",
+    "complexity_tl": "tl"
+  },
+  "order": [
+    "stdlib/NatComplexity.v",
+    "stdlib/BoolComplexity.v",
+    "stdlib/ListComplexity.v",
+    "stdlib/PosComplexity.v",
+    "stdlib/ZComplexity.v",
+    "bff/BFFComplexity.v",
+    "bff/BFFFeasibility.v",
+    "bff/Type3Example.v",
+    "examples/Examples.v",
+    "examples/BracketComparison.v",
+    "examples/HornerCount.v",
+    "examples/StrassenCount.v",
+    "examples/ETHCost.v",
+    "examples/BoundExamples.v",
+    "space/SpaceExamples.v"
+  ],
+  "groups": [
+    "bff/BFFComplexity.v",
+    "bff/BFFFeasibility.v",
+    "bff/Type3Example.v"
+  ],
+  "table": {
+    "runs": [
+      "thunks",
+      "env",
+      "selfcase",
+      "argenv"
+    ],
+    "header": "bounds/header.md",
+    "output": "bounds-comparison.md"
+  }
+}

@@ -450,6 +450,34 @@ Ltac Lcase1_start := Lunfold_r; Lfun; Lstep; Lfun.
 Ltac Lcase_start := Lunfold_r; Lfun; Lstep; Lfun; Lstep; Lfun.
 Ltac Lcase3_start := Lunfold_r; Lfun; Lstep; Lfun; Lstep; Lfun; Lstep; Lfun.
 
+(** The case combinators in environments ([TimeDatatypes]): [caseE] takes
+    the code of the branches, the code [x] of the matched value and the
+    environment [e], evaluates [x e], and applies the value to one handler
+    per constructor, then to [Ic_r]. The handler of a constructor with [m]
+    arguments takes them, then a dummy argument, and calls the code of its
+    branch on [e] extended with them (the environments are pairs of
+    realisers, [env_rl]). [b] is the index of the code of the branch in the
+    context [e; x; branches], the last branch first. *)
+Definition hE0 (b : nat) := lam (app (var (S b)) (var 1)).
+Definition hE1 (b : nat) := lam (lam (app (var (S (S b))) (lam (app (app (var 0) (var 3)) (var 2))))).
+Definition hE2 (b : nat) :=
+  lam (lam (lam (app (var (S (S (S b))))
+    (lam (app (app (var 0) (lam (app (app (var 0) (var 5)) (var 4)))) (var 2)))))).
+
+Definition caseE1 (h1 : term) := lam (lam (lam (app (app (app (var 1) (var 0)) h1) Ic_r))).
+Definition caseE2 (h1 h2 : term) :=
+  lam (lam (lam (lam (app (app (app (app (var 1) (var 0)) h1) h2) Ic_r)))).
+Definition caseE3 (h1 h2 h3 : term) :=
+  lam (lam (lam (lam (lam (app (app (app (app (app (var 1) (var 0)) h1) h2) h3) Ic_r))))).
+
+Ltac LunfoldE := cbv [caseE1 caseE2 caseE3 hE0 hE1 hE2 Ic_r unit_enc]; intro k.
+Ltac LcaseE1_start := LunfoldE; Lfun; Lstep; Lfun; Lstep; Lfun.
+Ltac LcaseE2_start := LunfoldE; Lfun; Lstep; Lfun; Lstep; Lfun; Lstep; Lfun.
+Ltac LcaseE3_start := LunfoldE; Lfun; Lstep; Lfun; Lstep; Lfun; Lstep; Lfun; Lstep; Lfun.
+
+(** Unfold the encoding of the matched value in its evaluation. *)
+Ltac Lscrut x e := match goal with H : evalc _ (app x e) _ |- _ => cbn in H end.
+
 (** The unfolding equation of [fix_complexity] is pointwise. *)
 Lemma pw_eq_eq {T} (ar : Arity T) : forall x y, pw_eq ar x y -> x = y.
 Proof.
@@ -655,8 +683,8 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
 End LCB.
 
 (** [nat]. *)
-Module LNT <: NatTimeCostModel LCM LBT.
-  Import LCM LBT.
+Module LNT <: NatTimeCostModel LCM LBT LCB.
+  Import LCM LBT LCB.
   Definition c_S := 1.
   Definition c_case_nat := 1.
   Global Instance Repr_nat : Ground nat := ground_repr nat_enc' nat_enc_proc.
@@ -677,25 +705,35 @@ Module LNT <: NatTimeCostModel LCM LBT.
     apply has_complexity_bound. exists (lam (lam (lam (app (var 0) (var 2))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma nat_case_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@nat_case A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cs : ℂI (nat -> A) (ℂI nat unit -> ℂO CA) => 1 ⋉
-       fun cn : ℂI nat unit => 1 ⊕
-         match val cn with O => pot cz (tt ⋊ tt) | S k => pot cs (k ⋊ tt) end).
+  Lemma nat_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@nat_case E A)
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun cs : ℂI (env E nat -> A) (ℂI (env E nat) (CE * unit) -> ℂO CA) => 1 ⋉
+       fun cn : ℂI (E -> nat) (ℂI E CE -> ℂO unit) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cn ce) ⊕
+         match val cn (val ce) with
+         | O => pot cz ce
+         | S k => pot cs (ECons (val ce) k ⋊ (pot ce, tt))
+         end).
   Proof.
-    intros A CA RA. apply has_complexity_bound. exists (case2_r (hU 3) (h1 3)). Lcase_start.
-    destruct a1 as [| m]; cbn in Ha1; subst s1; cbn [cost res pot val] in *.
-    - Lcall Ha (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j1 - 1) tt) (j1 - 1). Lstep. Lend R.
+    intros E CE A CA RE RA. apply has_complexity_bound. exists (caseE2 (hE0 3) (hE1 2)).
+    LcaseE2_start. Lcall Ha1 Ha2 (j2 - 1). cbn in R. subst v. unfold nat_case.
+    set (b := j2 - 1 - cost (c1 (a2 ⋊ c2))).
+    destruct (a1 a2) as [| m]; cbn [cost res pot val] in *; Lscrut s1 s2.
+    - Lcall Ha Ha2 b. Lstep. Lend R.
     - pose proof (nat_enc_proc m).
-      Lcall Ha0 (ground_rl nat_enc' nat_enc_proc (j1 - 1) m) (j1 - 1). Lstep. Lend R.
+      assert (He : rl (env_repr RE Repr_nat) b (ECons a2 m) (c2, tt)
+                     (lam (app (app (var 0) s2) (nat_enc' m)))).
+      { exists s2, (nat_enc' m). split; [reflexivity|].
+        split; [exact (rl_down_ b Ha2 ltac:(unfold b; lia)) | exact (ground_rl nat_enc' nat_enc_proc b m)]. }
+      Lcall Ha0 He b. Lstep. Lend R.
   Qed.
 
 End LNT.
 
 (** [bool]. *)
-Module LBO <: BoolTimeCostModel LCM LBT.
-  Import LCM LBT.
+Module LBO <: BoolTimeCostModel LCM LBT LCB.
+  Import LCM LBT LCB.
   Definition c_case_bool := 1.
   Global Instance Repr_bool : Ground bool := ground_repr bool_enc bool_enc_proc.
 
@@ -708,24 +746,27 @@ Module LBO <: BoolTimeCostModel LCM LBT.
     intro b. apply has_complexity_bound. exists (bool_enc b). intro k. reflexivity.
   Qed.
 
-  Lemma bool_case_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@bool_case A)
-      (fun ct : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cf : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cb : ℂI bool unit => 1 ⊕
-         if val cb then pot ct (tt ⋊ tt) else pot cf (tt ⋊ tt)).
+  Lemma bool_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@bool_case E A)
+      (fun ct : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun cf : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun cb : ℂI (E -> bool) (ℂI E CE -> ℂO unit) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cb ce) ⊕
+         if val cb (val ce) then pot ct ce else pot cf ce).
   Proof.
-    intros A CA RA. apply has_complexity_bound. exists (case2_r (hU 3) (hU 2)). Lcase_start.
-    destruct a1; cbn in Ha1; subst s1; cbn [cost res pot val] in *.
-    - Lcall Ha (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j1 - 1) tt) (j1 - 1). Lstep. Lend R.
-    - Lcall Ha0 (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j1 - 1) tt) (j1 - 1). Lstep. Lend R.
+    intros E CE A CA RE RA. apply has_complexity_bound. exists (caseE2 (hE0 3) (hE0 2)).
+    LcaseE2_start. Lcall Ha1 Ha2 (j2 - 1). cbn in R. subst v. unfold bool_case.
+    set (b := j2 - 1 - cost (c1 (a2 ⋊ c2))).
+    destruct (a1 a2); cbn [cost res pot val] in *; Lscrut s1 s2.
+    - Lcall Ha Ha2 b. Lstep. Lend R.
+    - Lcall Ha0 Ha2 b. Lstep. Lend R.
   Qed.
 
 End LBO.
 
 (** Lists. *)
-Module LLM <: ListTimeCostModel LCM LBT.
-  Import LCM LBT.
+Module LLM <: ListTimeCostModel LCM LBT LCB.
+  Import LCM LBT LCB.
   Definition c_cons := 1.
   Definition c_case_list := 1.
   Global Instance Repr_list {A} (RA : Ground A) : Ground (list A) := list_repr RA.
@@ -756,31 +797,38 @@ Module LLM <: ListTimeCostModel LCM LBT.
     - exact (rl_down_ (j0 - 1) Ha0 ltac:(lia)).
   Qed.
 
-  Lemma list_case_complexity : forall {X A CA} `{Ground X} `{Repr A CA},
-    ComplexityBound (@list_case X A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cc : ℂI (X -> list X -> A) (ℂI X unit -> ℂO (ℂI (list X) unit -> ℂO CA)) => 1 ⋉
-       fun cl : ℂI (list X) unit => 1 ⊕
-         match val cl with
-         | nil => pot cz (tt ⋊ tt)
-         | cons h t => pot <$> cc · (h ⋊ tt) · (t ⋊ tt)
+  Lemma list_case_complexity : forall {X E CE A CA} `{Ground X} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@list_case X E A)
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun cc : ℂI (env (env E X) (list X) -> A)
+                   (ℂI (env (env E X) (list X)) ((CE * unit) * unit) -> ℂO CA) => 1 ⋉
+       fun cl : ℂI (E -> list X) (ℂI E CE -> ℂO unit) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cl ce) ⊕
+         match val cl (val ce) with
+         | nil => pot cz ce
+         | cons h t => pot cc (ECons (ECons (val ce) h) t ⋊ ((pot ce, tt), tt))
          end).
   Proof.
-    intros X A CA RX RA. apply has_complexity_bound. exists (case2_r (hU 3) (h2 4)). Lcase_start.
-    destruct a1 as [| x l]; cbn in Ha1;
-      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in *.
-    - subst s1. Lcall Ha (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j1 - 1) tt) (j1 - 1). Lstep. Lend R.
-    - destruct Ha1 as (r & t & -> & Hr & Ht). pose proof (rl_proc Hr).
-      assert (Ht' : rl (Repr_list RX) j1 l tt t) by exact Ht. pose proof (rl_proc Ht').
-      Lcall Ha0 Hr (j1 - 1). Lcall R Ht' (j1 - 1 - cost (c0 (x ⋊ tt))).
-      Lstep. Lend R0.
+    intros X E CE A CA RX RE RA. apply has_complexity_bound. exists (caseE2 (hE0 3) (hE2 2)).
+    LcaseE2_start. Lcall Ha1 Ha2 (j2 - 1). unfold list_case.
+    set (b := j2 - 1 - cost (c1 (a2 ⋊ c2))).
+    destruct (a1 a2) as [| x l]; cbn in R; cbn [cost res pot val] in *.
+    - subst v. Lscrut s1 s2. Lcall Ha Ha2 b. Lstep. Lend R.
+    - destruct R as (r & t & -> & Hr & Ht). pose proof (rl_proc Hr).
+      assert (Ht' : rl (Repr_list RX) b l tt t) by exact Ht. pose proof (rl_proc Ht').
+      assert (He : rl (env_repr (env_repr RE RX) (Repr_list RX)) b (ECons (ECons a2 x) l) ((c2, tt), tt)
+                     (lam (app (app (var 0) (lam (app (app (var 0) s2) r))) t))).
+      { exists (lam (app (app (var 0) s2) r)), t. split; [reflexivity|]. split; [| exact Ht'].
+        exists s2, r. split; [reflexivity|].
+        split; [exact (rl_down_ b Ha2 ltac:(unfold b; lia)) | exact Hr]. }
+      Lcall Ha0 He b. Lstep. Lend R.
   Qed.
 
 End LLM.
 
 (** Options. *)
-Module LOM <: OptionTimeCostModel LCM LBT.
-  Import LCM LBT.
+Module LOM <: OptionTimeCostModel LCM LBT LCB.
+  Import LCM LBT LCB.
   Definition c_Some := 1.
   Definition c_case_option := 1.
   Global Instance Repr_option {A} (RA : Ground A) : Ground (option A) := option_repr RA.
@@ -805,28 +853,34 @@ Module LOM <: OptionTimeCostModel LCM LBT.
     exists s. split; [reflexivity | eapply rl_down; [| exact Ha]; lia].
   Qed.
 
-  Lemma option_case_complexity : forall {X A CA} `{Ground X} `{Repr A CA},
-    ComplexityBound (@option_case X A)
-      (fun cs : ℂI (X -> A) (ℂI X unit -> ℂO CA) => 1 ⋉
-       fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun co : ℂI (option X) unit => 1 ⊕
-         match val co with
-         | Some x => pot cs (x ⋊ tt)
-         | None => pot cz (tt ⋊ tt)
+  Lemma option_case_complexity : forall {X E CE A CA} `{Ground X} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@option_case X E A)
+      (fun cs : ℂI (env E X -> A) (ℂI (env E X) (CE * unit) -> ℂO CA) => 1 ⋉
+       fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun co : ℂI (E -> option X) (ℂI E CE -> ℂO unit) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⊕ cost (pot co ce) ⊕
+         match val co (val ce) with
+         | Some x => pot cs (ECons (val ce) x ⋊ (pot ce, tt))
+         | None => pot cz ce
          end).
   Proof.
-    intros X A CA RX RA. apply has_complexity_bound. exists (case2_r (h1 4) (hU 2)). Lcase_start.
-    destruct a1 as [x |]; cbn in Ha1; cbn [cost res pot val] in *.
-    - destruct Ha1 as (r & -> & Hr). pose proof (rl_proc Hr).
-      Lcall Ha Hr (j1 - 1). Lstep. Lend R.
-    - subst s1. Lcall Ha0 (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j1 - 1) tt) (j1 - 1). Lstep. Lend R.
+    intros X E CE A CA RX RE RA. apply has_complexity_bound. exists (caseE2 (hE1 3) (hE0 2)).
+    LcaseE2_start. Lcall Ha1 Ha2 (j2 - 1). unfold option_case.
+    set (b := j2 - 1 - cost (c1 (a2 ⋊ c2))).
+    destruct (a1 a2) as [x |]; cbn in R; cbn [cost res pot val] in *.
+    - destruct R as (r & -> & Hr). pose proof (rl_proc Hr).
+      assert (He : rl (env_repr RE RX) b (ECons a2 x) (c2, tt) (lam (app (app (var 0) s2) r))).
+      { exists s2, r. split; [reflexivity|].
+        split; [exact (rl_down_ b Ha2 ltac:(unfold b; lia)) | exact Hr]. }
+      Lcall Ha He b. Lstep. Lend R.
+    - subst v. Lscrut s1 s2. Lcall Ha0 Ha2 b. Lstep. Lend R.
   Qed.
 
 End LOM.
 
 (** Pairs. *)
-Module LPM <: ProdTimeCostModel LCM LBT.
-  Import LCM LBT.
+Module LPM <: ProdTimeCostModel LCM LBT LCB.
+  Import LCM LBT LCB.
   Definition c_pair := 1.
   Definition c_case_prod := 1.
   Global Instance Repr_prod {A B} (RA : Ground A) (RB : Ground B) : Ground (A * B) :=
@@ -849,27 +903,36 @@ Module LPM <: ProdTimeCostModel LCM LBT.
     - eapply rl_down; [| exact Ha0]. lia.
   Qed.
 
-  Lemma prod_case_complexity : forall {X Y A CA} `{Ground X} `{Ground Y} `{Repr A CA},
-    ComplexityBound (@prod_case X Y A)
-      (fun cf : ℂI (X -> Y -> A) (ℂI X unit -> ℂO (ℂI Y unit -> ℂO CA)) => 1 ⋉
-       fun cp : ℂI (X * Y) unit => 1 ⊕
-         let (x, y) := val cp in
-         pot <$> cf · (x ⋊ tt) · (y ⋊ tt)).
+  Lemma prod_case_complexity :
+    forall {X Y E CE A CA} `{Ground X} `{Ground Y} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@prod_case X Y E A)
+      (fun cf : ℂI (env (env E X) Y -> A) (ℂI (env (env E X) Y) ((CE * unit) * unit) -> ℂO CA) =>
+         1 ⋉
+       fun cp : ℂI (E -> X * Y) (ℂI E CE -> ℂO unit) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cp ce) ⊕
+         let (x, y) := val cp (val ce) in
+         pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, tt), tt))).
   Proof.
-    intros X Y A CA RX RY RA. apply has_complexity_bound. exists (case1_r (h2 4)). Lcase1_start.
-    destruct a0 as [x y]; cbn [rl Repr_prod prod_repr prod_rl fst snd] in Ha0;
-      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in *.
-    destruct Ha0 as (r1 & r2 & -> & H1 & H2). cbn [fst snd] in H1, H2.
-    pose proof (rl_proc H1). pose proof (rl_proc H2).
-    Lcall Ha H1 (j0 - 1). Lcall R H2 (j0 - 1 - cost (c (x ⋊ tt))).
-    Lstep. Lend R0.
+    intros X Y E CE A CA RX RY RE RA. apply has_complexity_bound. exists (caseE1 (hE2 2)).
+    LcaseE1_start. Lcall Ha0 Ha1 (j1 - 1). unfold prod_case.
+    set (b := j1 - 1 - cost (c0 (a1 ⋊ c1))).
+    destruct (a0 a1) as [x y]; cbn [rl Repr_prod prod_repr prod_rl fst snd] in R;
+      cbn [cost res pot val] in *.
+    destruct R as (r1 & r2 & -> & Hr1 & Hr2). cbn [fst snd] in Hr1, Hr2.
+    pose proof (rl_proc Hr1). pose proof (rl_proc Hr2).
+    assert (He : rl (env_repr (env_repr RE RX) RY) b (ECons (ECons a1 x) y) ((c1, tt), tt)
+                   (lam (app (app (var 0) (lam (app (app (var 0) s1) r1))) r2))).
+    { exists (lam (app (app (var 0) s1) r1)), r2. split; [reflexivity|]. split; [| exact Hr2].
+      exists s1, r1. split; [reflexivity|].
+      split; [exact (rl_down_ b Ha1 ltac:(unfold b; lia)) | exact Hr1]. }
+    Lcall Ha He b. Lstep. Lend R.
   Qed.
 
 End LPM.
 
 (** [positive], [N], [Z], [comparison] and [Q]. *)
-Module LZM <: ZTimeCostModel LCM LBT.
-  Import LCM LBT.
+Module LZM <: ZTimeCostModel LCM LBT LCB.
+  Import LCM LBT LCB.
   Definition c_ctor_Z := 1.
   Definition c_case_Z := 1.
   Global Instance Repr_positive : Ground positive := ground_repr pos_enc pos_enc_proc.
@@ -965,92 +1028,139 @@ Module LZM <: ZTimeCostModel LCM LBT.
     apply has_complexity_bound. exists (lam (lam (lam (app (app (var 0) (var 2)) (var 1))))). intro k. Lfun. Lstep. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma positive_case_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@positive_case A)
-      (fun cI : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-       fun cO : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-       fun cH : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cp : ℂI positive unit => 1 ⊕
-         match val cp with
-         | xI q => pot cI (q ⋊ tt)
-         | xO q => pot cO (q ⋊ tt)
-         | xH => pot cH (tt ⋊ tt)
+  Lemma positive_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@positive_case E A)
+      (fun cI : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 ⋉
+       fun cO : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 ⋉
+       fun cH : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun cp : ℂI (E -> positive) (ℂI E CE -> ℂO unit) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cp ce) ⊕
+         match val cp (val ce) with
+         | xI q => pot cI (ECons (val ce) q ⋊ (pot ce, tt))
+         | xO q => pot cO (ECons (val ce) q ⋊ (pot ce, tt))
+         | xH => pot cH ce
          end).
   Proof.
-    intros A CA RA. apply has_complexity_bound. exists (case3_r (h1 5) (h1 4) (hU 2)). Lcase3_start.
-    destruct a2 as [q | q |]; cbn in Ha2; subst s2; cbn [cost res pot val] in *.
-    - pose proof (pos_enc_proc q). Lcall Ha (ground_rl pos_enc pos_enc_proc (j2 - 1) q) (j2 - 1). Lstep. Lend R.
-    - pose proof (pos_enc_proc q). Lcall Ha0 (ground_rl pos_enc pos_enc_proc (j2 - 1) q) (j2 - 1). Lstep. Lend R.
-    - Lcall Ha1 (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j2 - 1) tt) (j2 - 1). Lstep. Lend R.
+    intros E CE A CA RE RA. apply has_complexity_bound. exists (caseE3 (hE1 4) (hE1 3) (hE0 2)).
+    LcaseE3_start. Lcall Ha2 Ha3 (j3 - 1). cbn in R. subst v. unfold positive_case.
+    set (b := j3 - 1 - cost (c2 (a3 ⋊ c3))).
+    destruct (a2 a3) as [q | q |]; cbn [cost res pot val] in *; Lscrut s2 s3.
+    - pose proof (pos_enc_proc q).
+      assert (He : rl (env_repr RE Repr_positive) b (ECons a3 q) (c3, tt)
+                     (lam (app (app (var 0) s3) (pos_enc q)))).
+      { exists s3, (pos_enc q). split; [reflexivity|].
+        split; [exact (rl_down_ b Ha3 ltac:(unfold b; lia)) | exact (ground_rl pos_enc pos_enc_proc b q)]. }
+      Lcall Ha He b. Lstep. Lend R.
+    - pose proof (pos_enc_proc q).
+      assert (He : rl (env_repr RE Repr_positive) b (ECons a3 q) (c3, tt)
+                     (lam (app (app (var 0) s3) (pos_enc q)))).
+      { exists s3, (pos_enc q). split; [reflexivity|].
+        split; [exact (rl_down_ b Ha3 ltac:(unfold b; lia)) | exact (ground_rl pos_enc pos_enc_proc b q)]. }
+      Lcall Ha0 He b. Lstep. Lend R.
+    - Lcall Ha1 Ha3 b. Lstep. Lend R.
   Qed.
 
-  Lemma N_case_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@N_case A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-       fun cn : ℂI N unit => 1 ⊕
-         match val cn with N0 => pot cz (tt ⋊ tt) | Npos p => pot cp (p ⋊ tt) end).
-  Proof.
-    intros A CA RA. apply has_complexity_bound. exists (case2_r (hU 3) (h1 3)). Lcase_start.
-    destruct a1 as [| q]; cbn in Ha1; subst s1; cbn [cost res pot val] in *.
-    - Lcall Ha (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j1 - 1) tt) (j1 - 1). Lstep. Lend R.
-    - pose proof (pos_enc_proc q). Lcall Ha0 (ground_rl pos_enc pos_enc_proc (j1 - 1) q) (j1 - 1). Lstep. Lend R.
-  Qed.
-
-  Lemma Z_case_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@Z_case A)
-      (fun cz : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cp : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-       fun cn : ℂI (positive -> A) (ℂI positive unit -> ℂO CA) => 1 ⋉
-       fun cx : ℂI Z unit => 1 ⊕
-         match val cx with
-         | Z0 => pot cz (tt ⋊ tt)
-         | Zpos p => pot cp (p ⋊ tt)
-         | Zneg p => pot cn (p ⋊ tt)
+  Lemma N_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@N_case E A)
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 ⋉
+       fun cn : ℂI (E -> N) (ℂI E CE -> ℂO unit) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cn ce) ⊕
+         match val cn (val ce) with
+         | N0 => pot cz ce
+         | Npos p => pot cp (ECons (val ce) p ⋊ (pot ce, tt))
          end).
   Proof.
-    intros A CA RA. apply has_complexity_bound. exists (case3_r (hU 4) (h1 4) (h1 3)). Lcase3_start.
-    destruct a2 as [| q | q]; cbn in Ha2; subst s2; cbn [cost res pot val] in *.
-    - Lcall Ha (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j2 - 1) tt) (j2 - 1). Lstep. Lend R.
-    - pose proof (pos_enc_proc q). Lcall Ha0 (ground_rl pos_enc pos_enc_proc (j2 - 1) q) (j2 - 1). Lstep. Lend R.
-    - pose proof (pos_enc_proc q). Lcall Ha1 (ground_rl pos_enc pos_enc_proc (j2 - 1) q) (j2 - 1). Lstep. Lend R.
+    intros E CE A CA RE RA. apply has_complexity_bound. exists (caseE2 (hE0 3) (hE1 2)).
+    LcaseE2_start. Lcall Ha1 Ha2 (j2 - 1). cbn in R. subst v. unfold N_case.
+    set (b := j2 - 1 - cost (c1 (a2 ⋊ c2))).
+    destruct (a1 a2) as [| q]; cbn [cost res pot val] in *; Lscrut s1 s2.
+    - Lcall Ha Ha2 b. Lstep. Lend R.
+    - pose proof (pos_enc_proc q).
+      assert (He : rl (env_repr RE Repr_positive) b (ECons a2 q) (c2, tt)
+                     (lam (app (app (var 0) s2) (pos_enc q)))).
+      { exists s2, (pos_enc q). split; [reflexivity|].
+        split; [exact (rl_down_ b Ha2 ltac:(unfold b; lia)) | exact (ground_rl pos_enc pos_enc_proc b q)]. }
+      Lcall Ha0 He b. Lstep. Lend R.
   Qed.
 
-  Lemma comparison_case_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@comparison_case A)
-      (fun ce : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cl : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cg : ℂI (unit -> A) (ℂI unit unit -> ℂO CA) => 1 ⋉
-       fun cc : ℂI comparison unit => 1 ⊕
-         match val cc with
-         | Eq => pot ce (tt ⋊ tt)
-         | Lt => pot cl (tt ⋊ tt)
-         | Gt => pot cg (tt ⋊ tt)
+  Lemma Z_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@Z_case E A)
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 ⋉
+       fun cn : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 ⋉
+       fun cx : ℂI (E -> Z) (ℂI E CE -> ℂO unit) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cx ce) ⊕
+         match val cx (val ce) with
+         | Z0 => pot cz ce
+         | Zpos p => pot cp (ECons (val ce) p ⋊ (pot ce, tt))
+         | Zneg p => pot cn (ECons (val ce) p ⋊ (pot ce, tt))
          end).
   Proof.
-    intros A CA RA. apply has_complexity_bound. exists (case3_r (hU 4) (hU 3) (hU 2)). Lcase3_start.
-    destruct a2; cbn in Ha2; subst s2; cbn [cost res pot val] in *.
-    - Lcall Ha (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j2 - 1) tt) (j2 - 1). Lstep. Lend R.
-    - Lcall Ha0 (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j2 - 1) tt) (j2 - 1). Lstep. Lend R.
-    - Lcall Ha1 (ground_rl (fun _ => unit_enc) (fun _ => unit_enc_proc) (j2 - 1) tt) (j2 - 1). Lstep. Lend R.
+    intros E CE A CA RE RA. apply has_complexity_bound. exists (caseE3 (hE0 4) (hE1 3) (hE1 2)).
+    LcaseE3_start. Lcall Ha2 Ha3 (j3 - 1). cbn in R. subst v. unfold Z_case.
+    set (b := j3 - 1 - cost (c2 (a3 ⋊ c3))).
+    destruct (a2 a3) as [| q | q]; cbn [cost res pot val] in *; Lscrut s2 s3.
+    - Lcall Ha Ha3 b. Lstep. Lend R.
+    - pose proof (pos_enc_proc q).
+      assert (He : rl (env_repr RE Repr_positive) b (ECons a3 q) (c3, tt)
+                     (lam (app (app (var 0) s3) (pos_enc q)))).
+      { exists s3, (pos_enc q). split; [reflexivity|].
+        split; [exact (rl_down_ b Ha3 ltac:(unfold b; lia)) | exact (ground_rl pos_enc pos_enc_proc b q)]. }
+      Lcall Ha0 He b. Lstep. Lend R.
+    - pose proof (pos_enc_proc q).
+      assert (He : rl (env_repr RE Repr_positive) b (ECons a3 q) (c3, tt)
+                     (lam (app (app (var 0) s3) (pos_enc q)))).
+      { exists s3, (pos_enc q). split; [reflexivity|].
+        split; [exact (rl_down_ b Ha3 ltac:(unfold b; lia)) | exact (ground_rl pos_enc pos_enc_proc b q)]. }
+      Lcall Ha1 He b. Lstep. Lend R.
   Qed.
 
-  Lemma Q_case_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@Q_case A)
-      (fun cf : ℂI (Z -> positive -> A) (ℂI Z unit -> ℂO (ℂI positive unit -> ℂO CA)) => 1 ⋉
-       fun cq : ℂI Q unit => 1 ⊕
-         match val cq with
-         | Qmake n d => pot <$> cf · (n ⋊ tt) · (d ⋊ tt)
+  Lemma comparison_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@comparison_case E A)
+      (fun cq : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun cl : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun cg : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+       fun cc : ℂI (E -> comparison) (ℂI E CE -> ℂO unit) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cc ce) ⊕
+         match val cc (val ce) with
+         | Eq => pot cq ce
+         | Lt => pot cl ce
+         | Gt => pot cg ce
          end).
   Proof.
-    intros A CA RA. apply has_complexity_bound. exists (case1_r (h2 4)). Lcase1_start.
-    destruct a0 as [n d]; cbn [rl Repr_Q ground_repr] in Ha0; unfold Q_enc in Ha0;
-      cbn [Qnum Qden] in Ha0; subst s0;
-      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in *.
-    pose proof (Z_enc_proc n). pose proof (pos_enc_proc d).
-    Lcall Ha (ground_rl Z_enc Z_enc_proc (j0 - 1) n) (j0 - 1).
-    Lcall R (ground_rl pos_enc pos_enc_proc (j0 - 1) d) (j0 - 1 - cost (c (n ⋊ tt))).
-    Lstep. Lend R0.
+    intros E CE A CA RE RA. apply has_complexity_bound. exists (caseE3 (hE0 4) (hE0 3) (hE0 2)).
+    LcaseE3_start. Lcall Ha2 Ha3 (j3 - 1). cbn in R. subst v. unfold comparison_case.
+    set (b := j3 - 1 - cost (c2 (a3 ⋊ c3))).
+    destruct (a2 a3); cbn [cost res pot val] in *; Lscrut s2 s3.
+    - Lcall Ha Ha3 b. Lstep. Lend R.
+    - Lcall Ha0 Ha3 b. Lstep. Lend R.
+    - Lcall Ha1 Ha3 b. Lstep. Lend R.
+  Qed.
+
+  Lemma Q_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@Q_case E A)
+      (fun cf : ℂI (env (env E Z) positive -> A)
+                   (ℂI (env (env E Z) positive) ((CE * unit) * unit) -> ℂO CA) => 1 ⋉
+       fun cq : ℂI (E -> Q) (ℂI E CE -> ℂO unit) => 1 ⋉
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cq ce) ⊕
+         match val cq (val ce) with
+         | Qmake n d => pot cf (ECons (ECons (val ce) n) d ⋊ ((pot ce, tt), tt))
+         end).
+  Proof.
+    intros E CE A CA RE RA. apply has_complexity_bound. exists (caseE1 (hE2 2)).
+    LcaseE1_start. Lcall Ha0 Ha1 (j1 - 1). unfold Q_case.
+    set (b := j1 - 1 - cost (c0 (a1 ⋊ c1))).
+    destruct (a0 a1) as [zn pd]; cbn [rl Repr_Q ground_repr] in R; unfold Q_enc in R;
+      cbn [Qnum Qden] in R; subst v; cbn [cost res pot val] in *.
+    pose proof (Z_enc_proc zn). pose proof (pos_enc_proc pd).
+    assert (He : rl (env_repr (env_repr RE Repr_Z) Repr_positive) b (ECons (ECons a1 zn) pd) ((c1, tt), tt)
+                   (lam (app (app (var 0) (lam (app (app (var 0) s1) (Z_enc zn)))) (pos_enc pd)))).
+    { exists (lam (app (app (var 0) s1) (Z_enc zn))), (pos_enc pd). split; [reflexivity|].
+      split; [| exact (ground_rl pos_enc pos_enc_proc b pd)].
+      exists s1, (Z_enc zn). split; [reflexivity|].
+      split; [exact (rl_down_ b Ha1 ltac:(unfold b; lia)) | exact (ground_rl Z_enc Z_enc_proc b zn)]. }
+    Lcall Ha He b. Lstep. Lend R.
   Qed.
 
 End LZM.

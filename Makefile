@@ -35,5 +35,21 @@ doc: $(GLOBFILES) $(VFILES) $(DOC_ASSETS)
 	cp $(DOC_OUT)/toc.html $(DOC_OUT)/index.html
 	@echo "Documentation: $(DOC_OUT)/index.html"
 
-.PHONY: _ deque doc
+# Complexity bounds (tools/bounds): snapshots in bounds/runs/, their
+# comparison in bounds-comparison.md.
+#   make bounds-snapshot RUN=name [REV=rev] [TITLE=..] [DESCRIPTION=..]
+#   make bounds-minimise [SCREEN=1] [FILES="stdlib/NatComplexity.v ..."]
+#   make bounds-table
+#   make bounds-check [RUN=name]   (fails if a bound got higher)
+BOUNDS := python3 tools/bounds/run.py
+bounds-snapshot:
+	$(BOUNDS) snapshot $(RUN) $(if $(REV),--rev $(REV)) $(if $(TITLE),--title "$(TITLE)") $(if $(DESCRIPTION),--description "$(DESCRIPTION)")
+bounds-minimise:
+	$(BOUNDS) minimise $(if $(SCREEN),--screen) $(FILES)
+bounds-table:
+	$(BOUNDS) table
+bounds-check:
+	$(BOUNDS) check $(RUN)
+
+.PHONY: _ deque doc bounds-snapshot bounds-minimise bounds-table bounds-check
 

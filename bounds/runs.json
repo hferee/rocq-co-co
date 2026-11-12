@@ -1,0 +1,14 @@
+[
+  {"name": "thunks", "title": "Old compilation",
+   "source": "commit 3087c87, constants minimised",
+   "description": "A match is compiled to its case combinator applied to one closure per branch (a thunk for a constant constructor) and to the matched value; the closures are built at each evaluation."},
+  {"name": "env", "parent": "thunks", "title": "Environment combinators",
+   "source": "working tree of 2026-11-12, constants minimised",
+   "description": "The case combinators take the branches and the matched value as code over the environment of the enclosing closure (nat_case z s n e); no closure per evaluation of a match."},
+  {"name": "selfcase", "parent": "env", "title": "Matched variable as environment",
+   "source": "working tree of 2026-11-12, constants minimised (screened)",
+   "description": "A closed function fun x => match x with ... end is the case combinator itself, with x as its environment, read by Ic."},
+  {"name": "argenv", "parent": "selfcase", "title": "Argument as environment",
+   "source": "working tree of 2026-11-12, constants minimised (screened)",
+   "description": "Every closed function that is not an eta-reduction is the code of its body with its argument as the environment: no closure step, and the first argument is read with etl alone."}
+]

@@ -1,0 +1,38 @@
+[
+ [
+  "(db <{ λ a, a + 7 }>) _ s0_complexity",
+  "(db <{ λ a, a + «s0» }>) _ s0_complexity"
+ ],
+ [
+  "(db <{ λ a, a + 7 }>) _ s1_complexity",
+  "(db <{ λ a, a + «s1» }>) _ s1_complexity"
+ ],
+ [
+  "(db <{ λ a, a + 3 }>) _ tr_complexity",
+  "(db <{ λ a, a + «tr» }>) _ tr_complexity"
+ ],
+ [
+  "(db <{ λ a, a + 3 }>) _ par_complexity",
+  "(db <{ λ a, a + «par» }>) _ par_complexity"
+ ],
+ [
+  "(db <{ λ a b, a + 43 * b + 13 }>) _ pad_complexity",
+  "(db <{ λ a b, a + «pada» * b + «padb» }>) _ pad_complexity"
+ ],
+ [
+  "(db <{ λ a b, a + 39 * b + 13 }>) _ chop_complexity",
+  "(db <{ λ a b, a + «chopa» * b + «chopb» }>) _ chop_complexity"
+ ],
+ [
+  "(db <{ λ a b, b * (44 * a + 62) + 14 }>) _ smash_complexity",
+  "(db <{ λ a b, b * («sma» * a + «smb») + «smc» }>) _ smash_complexity"
+ ],
+ [
+  "(db <{ λ a b c, b + c + 21 }>) _ cond_complexity",
+  "(db <{ λ a b c, b + c + «cond» }>) _ cond_complexity"
+ ],
+ [
+  "wm * (mF wm 0 + mF wm (am + mh wm) + mh wm + 53 * mh wm + 195) + 31 + (am + mh wm) }>)",
+  "wm * (mF wm 0 + mF wm (am + mh wm) + mh wm + rec_len * mh wm + rec_step) + «R31» + (am + mh wm) }>)"
+ ]
+]

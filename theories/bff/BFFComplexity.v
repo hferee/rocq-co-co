@@ -15,6 +15,15 @@
 From Complexity Require Export TimeCostModel BFF.
 From Stdlib Require Import NArith.
 
+(** The constants of the cost of [rec_pos] ([rec_cost], [step_bound]):
+    [rec_len] per bit of the comparison of the lengths ([bnd]), [rec_last]
+    for the last bit of [q], [rec_step] for each other bit. They are
+    abbreviations, so that the costs are numbers, and the proofs see them as
+    numbers. *)
+Abbreviation rec_len := 26 (only parsing).
+Abbreviation rec_last := 55 (only parsing).
+Abbreviation rec_step := 105 (only parsing).
+
 (** The cost of `rec_pos a F h q`, from the potentials `pF` and `ph` of `F`
     and `h`: at each bit of [q], from the last one, the applications of `F`
     and `h`, and the comparison of the lengths of their values ([bnd]). *)
@@ -23,8 +32,8 @@ Fixpoint rec_cost (a : N) (F : N -> N -> N) (h : N -> N)
   (q : positive) : nat :=
   let r := match q with xH => a | xO q' | xI q' => rec_pos a F h q' end in
   cost (pF (Npos q ⋊ tt)) + cost (res (pF (Npos q ⋊ tt)) (r ⋊ tt)) + cost (ph (Npos q ⋊ tt))
-  + 53 * Nat.min (N.size_nat (F (Npos q) r)) (N.size_nat (h (Npos q)))
-  + match q with xH => 133 | xO q' | xI q' => 195 + rec_cost a F h pF ph q' end.
+  + rec_len * Nat.min (N.size_nat (F (Npos q) r)) (N.size_nat (h (Npos q)))
+  + match q with xH => rec_last | xO q' | xI q' => rec_step + rec_cost a F h pF ph q' end.
 
 (** The cost of `R a F h w`. *)
 Definition R_cost (a : N) (F : N -> N -> N) (h : N -> N)
@@ -55,7 +64,7 @@ Section Feasibility.
 
   (** The cost of a step of the recursion on numbers of length [n]. *)
   Definition step_bound (n : nat) : nat :=
-    bF n (Nat.max (N.size_nat a) (lh n)) + bh n + 53 * lh n + 195.
+    bF n (Nat.max (N.size_nat a) (lh n)) + bh n + rec_len * lh n + rec_step.
 
   Lemma step_bound_mono n n' : n <= n' -> step_bound n <= step_bound n'.
   Proof.
@@ -69,7 +78,7 @@ Section Feasibility.
   Lemma step_le w r n :
     N.size_nat w = n -> N.size_nat r <= Nat.max (N.size_nat a) (lh n) ->
     cost (pF (w ⋊ tt)) + cost (res (pF (w ⋊ tt)) (r ⋊ tt)) + cost (ph (w ⋊ tt))
-    + 53 * Nat.min (N.size_nat (F w r)) (N.size_nat (h w)) + 195 <= step_bound n.
+    + rec_len * Nat.min (N.size_nat (F w r)) (N.size_nat (h w)) + rec_step <= step_bound n.
   Proof.
     intros Hw Hr. unfold step_bound. pose proof (HF w r). pose proof (Hh w). pose proof (Hl w).
     assert (bF (N.size_nat w) (N.size_nat r) <= bF n (Nat.max (N.size_nat a) (lh n)))
@@ -116,64 +125,64 @@ Module BFFComplexity (Import Time : TimeCostModel).
 
   Global Instance s1_complexity : Time.ComplexityBound s1 (fun cx => 7 ⋉ tt) := _.
 
-  Global Instance tr_complexity : Time.ComplexityBound tr (fun cx => 3 ⋉ tt) := _.
+  Global Instance tr_complexity : Time.ComplexityBound tr (fun cx => 7 ⋉ tt) := _.
 
-  Global Instance par_complexity : Time.ComplexityBound par (fun cx => 3 ⋉ tt) := _.
+  Global Instance par_complexity : Time.ComplexityBound par (fun cx => 5 ⋉ tt) := _.
 
   Global Instance cond_complexity : Time.ComplexityBound cond
-    (fun cx => 2 ⋉ fun cy => 2 ⋉ fun cz => 21 ⋉ tt) := _.
+    (fun cx => 1 ⋉ fun cy => 2 ⋉ fun cz => 8 ⋉ tt) := _.
 
   Global Instance pad_pos_complexity : Time.ComplexityBound pad_pos
-    (fun cx => 5 ⋉ fun cq => (43 * Pos.size_nat (val cq)) ⋉ tt) := _.
+    (fun cx => 4 ⋉ fun cq => (28 * Pos.size_nat (val cq)) ⋉ tt) := _.
 
   Global Instance pad_complexity : Time.ComplexityBound pad
-    (fun cx => 9 ⋉ fun cy => (43 * N.size_nat (val cy) + 13) ⋉ tt) := _.
+    (fun cx => 1 ⋉ fun cy => (28 * N.size_nat (val cy) + 13) ⋉ tt) := _.
 
   Global Instance chop_pos_complexity : Time.ComplexityBound chop_pos
-    (fun cx => 5 ⋉ fun cq => (39 * Pos.size_nat (val cq)) ⋉ tt) := _.
+    (fun cx => 4 ⋉ fun cq => (28 * Pos.size_nat (val cq)) ⋉ tt) := _.
 
   Global Instance chop_complexity : Time.ComplexityBound chop
-    (fun cx => 9 ⋉ fun cy => (39 * N.size_nat (val cy) + 13) ⋉ tt) := _.
+    (fun cx => 1 ⋉ fun cy => (28 * N.size_nat (val cy) + 13) ⋉ tt) := _.
 
   Global Instance smash_pos_complexity : Time.ComplexityBound smash_pos
-    (fun cx => 5 ⋉ fun cq =>
-       (Pos.size_nat (val cq) * (43 * N.size_nat (val cx) + 62)) ⋉ tt) := _.
+    (fun cx => 4 ⋉ fun cq =>
+       (Pos.size_nat (val cq) * (28 * N.size_nat (val cx) + 41)) ⋉ tt) := _.
 
   Global Instance smash_complexity : Time.ComplexityBound smash
-    (fun cx => 4 ⋉ fun cy =>
-       (N.size_nat (val cy) * (43 * N.size_nat (val cx) + 62) + 13) ⋉ tt) := _.
+    (fun cx => 1 ⋉ fun cy =>
+       (N.size_nat (val cy) * (28 * N.size_nat (val cx) + 41) + 13) ⋉ tt) := _.
 
   Global Instance pos_len_le_complexity : Time.ComplexityBound pos_len_le
-    (fun cp => 5 ⋉ fun cq =>
-       (53 * Nat.min (Pos.size_nat (val cp)) (Pos.size_nat (val cq)) + 17) ⋉ tt) := _.
+    (fun cp => 4 ⋉ fun cq =>
+       (26 * Nat.min (Pos.size_nat (val cp)) (Pos.size_nat (val cq)) + 6) ⋉ tt) := _.
 
   Global Instance len_le_complexity : Time.ComplexityBound len_le
-    (fun ct => 2 ⋉ fun cu =>
-       (53 * Nat.min (N.size_nat (val ct)) (N.size_nat (val cu)) + 47) ⋉ tt) := _.
+    (fun ct => 1 ⋉ fun cu =>
+       (26 * Nat.min (N.size_nat (val ct)) (N.size_nat (val cu)) + 23) ⋉ tt) := _.
 
   Global Instance bnd_complexity : Time.ComplexityBound bnd
-    (fun ct => 2 ⋉ fun cb =>
-       (53 * Nat.min (N.size_nat (val ct)) (N.size_nat (val cb)) + 71) ⋉ tt) := _.
+    (fun ct => 1 ⋉ fun cb =>
+       (26 * Nat.min (N.size_nat (val ct)) (N.size_nat (val cb)) + 31) ⋉ tt) := _.
 
   (** ** Bounded recursion on notation *)
 
   Global Instance rec_pos_complexity : Time.ComplexityBound rec_pos
-    (fun ca => 5 ⋉
+    (fun ca => 4 ⋉
      fun cF => 2 ⋉
      fun ch => 2 ⋉
      fun cq =>
        rec_cost (val ca) (val cF) (val ch) (pot cF) (pot ch) (val cq) ⋉ tt) := _.
 
   Global Instance R_complexity : Time.ComplexityBound R
-    (fun ca => 2 ⋉
+    (fun ca => 1 ⋉
      fun cF => 2 ⋉
-     fun ch => 13 ⋉
+     fun ch => 2 ⋉
      fun cw =>
-       (R_cost (val ca) (val cF) (val ch) (pot cF) (pot ch) (val cw) + 31) ⋉ tt) := _.
+       (R_cost (val ca) (val cF) (val ch) (pot cF) (pot ch) (val cw) + 35) ⋉ tt) := _.
 
   Lemma twice_complexity : Time.ComplexityBound twice
-    (fun cf => 2 ⋉ fun cx =>
-       (cost (pot cf (val cx ⋊ tt)) + cost (pot cf (val cf (val cx) ⋊ tt)) + 10) ⋉ tt).
+    (fun cf => 1 ⋉ fun cx =>
+       (cost (pot cf (val cx ⋊ tt)) + cost (pot cf (val cf (val cx) ⋊ tt)) + 6) ⋉ tt).
   Proof. cbound. Qed.
 
   (** ** Bounds in the size of the arguments *)

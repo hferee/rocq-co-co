@@ -19,6 +19,7 @@
     are shared by all the analyses over a cost model. *)
 
 From Complexity Require Import CostModelCore Poly.
+From Complexity Require Export Advice.
 From Stdlib Require Import List.
 Import ListNotations.
 From Ltac2 Require Import Ltac2.
@@ -156,6 +157,45 @@ Ltac2 constant_constants () :=
     let k := nat_constr k in
     constr:(pconst $k)).
 
+(** The same as [linear_constants] and [constant_constants], but the
+    polynomial is instantiated whatever the degree of the costs: the
+    inequalities that cannot hold are left, and explained
+    ([degree_advice]). For the tactics used by hand; the hints, which try
+    bounds that may not hold, use the failing versions. *)
+Ltac2 linear_constants_any () :=
+  instantiate_poly (fun k _ n =>
+    let k := nat_constr k in
+    let s := psum 0 n in
+    constr:(padd (pconst $k) (pmul (pconst $k) $s))).
+
+Ltac2 constant_constants_any () :=
+  instantiate_poly (fun k _ _ => let k := nat_constr k in constr:(pconst $k)).
+
+(** For each goal [cost <= bound] whose cost has a degree larger than
+    [deg], the degree of the bound: the inequality cannot hold for large
+    values of the arguments, whatever the constants. *)
+Ltac2 degree_advice (deg : int) (kind : string) : unit :=
+  Control.enter (fun () =>
+    match! goal with
+    | [ |- ?l <= _ ] =>
+        match Control.case (fun () => poly_of l) with
+        | Val ((_, d), _) =>
+            if Int.lt deg d then
+              let g := Control.goal () in
+              Message.print (Advice.cat
+                [Message.of_string "The inequality "; Message.of_constr g;
+                 Message.of_string " cannot hold:";
+                 Advice.nl (); Message.of_string "its left side, the cost found, has degree "; Message.of_int d;
+                 Message.of_string " in the arguments, and its right side, a "; Message.of_string kind;
+                 Message.of_string " bound, has degree "; Message.of_int deg; Message.of_string ".";
+                 Advice.nl (); Message.of_string "For large arguments the left side is the larger, whatever the constants: the function has no ";
+                 Message.of_string kind; Message.of_string " bound. Try a bound of a higher degree (PolynomialBound)."])
+            else ()
+        | Err _ => ()
+        end
+    | [ |- _ ] => ()
+    end).
+
 Ltac2 polynomial_constants () :=
   instantiate_poly (fun k d n =>
     let k := nat_constr k in
@@ -257,6 +297,16 @@ Module Bounds (Import CM : CostModelCore).
     cbv beta iota zeta delta [cost res val pot]; autounfold with costs;
     cbn -[Nat.mul size]; add_size_facts.
   Ltac cost_split := cost_split_by ltac:(typeclasses eauto).
+
+  (** The bound of [f] found by typeclass search, or a message. *)
+  Ltac cinstance :=
+    first [typeclasses eauto
+          | lazymatch goal with
+            | |- ComplexityBound ?f _ =>
+                fail 1 "no ComplexityBound instance is known for" f
+                       ": prove one first (Global Instance ..., or Existing Instance after a Lemma),"
+                       "or prove this bound with cbound, which analyses" f "itself"
+            end].
   Ltac cost_bound := cost_split; try solve [lia | nia].
 
   Ltac clinear_by tac :=
@@ -264,7 +314,17 @@ Module Bounds (Import CM : CostModelCore).
     [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; linear_constants ()) in
       split tac; cbn [peval nth]; try solve [lia | nia]
     | cbn; lia ].
-  Ltac clinear := clinear_by ltac:(typeclasses eauto).
+  Ltac clinear_core := clinear_by ltac:(typeclasses eauto).
+
+  (** [clinear], [cconstant]: the same, but the polynomial is chosen
+      whatever the costs, so that the inequalities that cannot hold are
+      shown, and explained ([degree_advice]). *)
+  Ltac clinear :=
+    unfold LinearBound; eexists; split; cycle 1;
+    [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; linear_constants_any ()) in
+      split ltac:(cinstance); cbn [peval nth]; try solve [lia | nia];
+      ltac2:(degree_advice 1 "linear"); cadvice
+    | cbn; lia ].
   Ltac clinear_using H := clinear_by ltac:(exact H).
 
   Ltac cconstant_by tac :=
@@ -272,7 +332,13 @@ Module Bounds (Import CM : CostModelCore).
     [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; constant_constants ()) in
       split tac; cbn [peval nth]; try solve [lia | nia]
     | reflexivity ].
-  Ltac cconstant := cconstant_by ltac:(typeclasses eauto).
+  Ltac cconstant_core := cconstant_by ltac:(typeclasses eauto).
+  Ltac cconstant :=
+    unfold ConstantBound; eexists; split; cycle 1;
+    [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; constant_constants_any ()) in
+      split ltac:(cinstance); cbn [peval nth]; try solve [lia | nia];
+      ltac2:(degree_advice 0 "constant"); cadvice
+    | reflexivity ].
   Ltac cconstant_using H := cconstant_by ltac:(exact H).
 
   Ltac cpolynomial_by tac :=
@@ -280,13 +346,14 @@ Module Bounds (Import CM : CostModelCore).
     let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; polynomial_constants ()) in
     split tac;
     cbn [peval nth Nat.pow]; try solve [lia | nia].
-  Ltac cpolynomial := cpolynomial_by ltac:(typeclasses eauto).
+  Ltac cpolynomial_core := cpolynomial_by ltac:(typeclasses eauto).
+  Ltac cpolynomial := cpolynomial_by ltac:(cinstance); cadvice.
   Ltac cpolynomial_using H := cpolynomial_by ltac:(exact H).
 
   (** Bounds without an instance are derived from the bounds of
       [ComplexityBound] found by typeclass search, when [cconstant],
       [clinear] or [cpolynomial] proves them. *)
-  Global Hint Extern 10 (ConstantBound _) => solve [cconstant] : typeclass_instances.
-  Global Hint Extern 10 (LinearBound _) => solve [clinear] : typeclass_instances.
-  Global Hint Extern 10 (PolynomialBound _) => solve [cpolynomial] : typeclass_instances.
+  Global Hint Extern 10 (ConstantBound _) => solve [cconstant_core] : typeclass_instances.
+  Global Hint Extern 10 (LinearBound _) => solve [clinear_core] : typeclass_instances.
+  Global Hint Extern 10 (PolynomialBound _) => solve [cpolynomial_core] : typeclass_instances.
 End Bounds.

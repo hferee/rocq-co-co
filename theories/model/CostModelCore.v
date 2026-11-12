@@ -85,6 +85,9 @@ Ltac destr_inputs :=
     For now, this is only relevant for ground types ; but we will later 
     define and used second or higher-order sizes. *)
 Class Size (A : Type) := size : A -> nat.
+(** [#|x|]: the size of [x]. (The bar of [|x|] would also open a term:
+    [#|] is a distinct token, as in mathcomp.) *)
+Notation "#| x |" := (size x) (at level 0, x at level 99, format "#| x |").
 
 (** * Complexity types
 

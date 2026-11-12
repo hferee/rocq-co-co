@@ -214,10 +214,27 @@ Qed.
 
 (** ** Complexity *)
 
+(** The constants of the costs below, abbreviations, so that the costs
+    are numbers: [C_pot] ([C_a], [C_b], [C_c]) and its majorants [C_maj] and
+    [C_poly]; [V_cost] ([V_a], [V_b]) and [V_maj], [V_poly]; [W_cost]
+    ([W_a], [W_b], [W_c]) and [W_maj], [W_poly], [W_cost_sized],
+    [W_cost_paid]; [V_clo] and [W_clo], the costs of the applications of
+    `V` and [W] to `F`. *)
+Abbreviation C_a := 12 (only parsing).
+Abbreviation C_b := 37 (only parsing).
+Abbreviation C_c := 15 (only parsing).
+Abbreviation V_a := 26 (only parsing).
+Abbreviation V_b := 30 (only parsing).
+Abbreviation W_a := 64 (only parsing).
+Abbreviation W_b := 4 (only parsing).
+Abbreviation W_c := 0 (only parsing).
+Abbreviation V_clo := 1 (only parsing).
+Abbreviation W_clo := 1 (only parsing).
+
 (** The potentials of `C x` and [zero], given to `F` by `V` and [W]: the
     costs of their applications. *)
 Definition C_pot (x : N) (cy : ℂI N unit) : ℂO unit :=
-  (N.size_nat (val cy) * (16 * N.size_nat x + 52) + 16) ⋉ tt.
+  (N.size_nat (val cy) * (C_a * N.size_nat x + C_b) + C_c) ⋉ tt.
 Definition zero_pot (cy : ℂI N unit) : ℂO unit := 1 ⋉ tt.
 
 (** The costs of `V F x` and `W F x`, from the potential `pF` of `F`: `F`
@@ -225,13 +242,13 @@ Definition zero_pot (cy : ℂI N unit) : ℂO unit := 1 ⋉ tt.
     then writes [2^x] when they differ, in time linear in [x]. *)
 Definition V_cost (F : (N -> N) -> N) (pF : ℂI (N -> N) (ℂI N unit -> ℂO unit) -> ℂO unit)
   (x : N) : nat :=
-  cost (pF (C x ⋊ C_pot x)) + cost (pF (zero ⋊ zero_pot)) + 50 * N.size_nat (F (C x)) + 55.
+  cost (pF (C x ⋊ C_pot x)) + cost (pF (zero ⋊ zero_pot)) + V_a * N.size_nat (F (C x)) + V_b.
 Arguments V_cost F pF x /.
 
 (* A running-time bound for W. Note that it is intentional : it depends on the values of F, not simply on its output size. *)
 Definition W_cost (F : (N -> N) -> N) (pF : ℂI (N -> N) (ℂI N unit -> ℂO unit) -> ℂO unit)
   (x : N) : nat :=
-  V_cost F pF x + if (F (C x) =? F zero)%N then 3 else 96 * N.to_nat x + 9.
+  V_cost F pF x + if (F (C x) =? F zero)%N then W_c else W_a * N.to_nat x + W_b.
 Arguments W_cost F pF x /.
 
 (** ** Feasibility of W.
@@ -239,7 +256,7 @@ Arguments W_cost F pF x /.
 
 
     [W_complexity] below gives the cost of [W]: [W_cost] is [V_cost] plus,
-    when `F` distinguishes `C x` from [zero], [96 x + 9] for writing
+    when `F` distinguishes `C x` from [zero], [W_a x + W_b] for writing
     [2^x], which is exponential in the length of [x]
     ([x >= 2^(|x| - 1)], [pow_size_nat_le]). It is a constant for each `F`
     (only finitely many [x] are such that `F` queries [2^x] on [zero]),
@@ -257,7 +274,7 @@ Arguments W_cost F pF x /.
     basic feasible. *)
 Lemma W_cost_paid F pF x :
   ((F (C x) =? F zero)%N = false -> N.to_nat x <= cost (pF (C x ⋊ C_pot x))) ->
-  W_cost F pF x <= 97 * V_cost F pF x.
+  W_cost F pF x <= (W_a + 1) * V_cost F pF x.
 Proof.
   intro Hq. cbn [W_cost V_cost].
   destruct (F (C x) =? F zero)%N; [lia | specialize (Hq eq_refl); lia].
@@ -313,12 +330,12 @@ Module Type3Complexity (Import Time : TimePos).
       intros y Hy. symmetry. apply C_zero. intros ->. exact (Hout Hy).
   Qed.
 
-  (** If `F` has a size bound [sF], [W] costs at most `V` plus [96] times
+  (** If `F` has a size bound [sF], [W] costs at most `V` plus [W_a] times
       the size of `F` on `C x` ([sized_query]), and its value is not
       longer than this size. *)
   Lemma W_cost_sized F cF sF x :
     CSized (bits ((tN ⇒ tN) ⇒ tN)) F sF ->
-    W_cost F cF x <= V_cost F cF x + 96 * cost (sF (C x ⋊ C_pot x)) + 9.
+    W_cost F cF x <= V_cost F cF x + W_a * cost (sF (C x ⋊ C_pot x)) + W_b.
   Proof.
     intros HF. cbn [W_cost]. destruct (F (C x) =? F zero)%N eqn:E; [lia|].
     pose proof (sized_query F sF x HF (proj1 (N.eqb_neq _ _) E)). lia.
@@ -347,23 +364,23 @@ Module Type3Complexity (Import Time : TimePos).
 
   (** [zeros p q] makes [2 p - 1] calls. *)
   Global Instance zeros_complexity : Time.ComplexityBound zeros
-    (fun cp => 5 ⋉ fun cq => (48 * (2 * Pos.to_nat (val cp) - 1)) ⋉ tt).
+    (fun cp => 4 ⋉ fun cq => (32 * (2 * Pos.to_nat (val cp) - 1)) ⋉ tt).
   Proof. cbound. all: pose proof (Pos2Nat.is_pos cp); lia. Qed.
 
   Global Instance pow2_complexity : Time.ComplexityBound pow2
-    (fun cx => (96 * N.to_nat (val cx) + 2) ⋉ tt) := _.
+    (fun cx => (64 * N.to_nat (val cx) + 3) ⋉ tt) := _.
 
   Global Instance pred_N_complexity : Time.ComplexityBound Pos.pred_N
-    (fun cp => (16 * Pos.size_nat (val cp)) ⋉ tt) := _.
+    (fun cp => (12 * Pos.size_nat (val cp)) ⋉ tt) := _.
 
   Global Instance N_pred_complexity : Time.ComplexityBound N.pred
-    (fun cx => (16 * N.size_nat (val cx) + 2) ⋉ tt) := _.
+    (fun cx => (12 * N.size_nat (val cx) + 4) ⋉ tt) := _.
 
   Global Instance N_eqb_complexity : Time.ComplexityBound N.eqb
-    (fun cx => 2 ⋉ fun cy => (50 * N.size_nat (val cx) + 33) ⋉ tt) := _.
+    (fun cx => 1 ⋉ fun cy => (26 * N.size_nat (val cx) + 17) ⋉ tt) := _.
 
   Global Instance pow2_eq_pos_complexity : Time.ComplexityBound pow2_eq_pos
-    (fun cx => 5 ⋉ fun cp => (Pos.size_nat (val cp) * (16 * N.size_nat (val cx) + 52)) ⋉ tt).
+    (fun cx => 4 ⋉ fun cp => (Pos.size_nat (val cp) * (12 * N.size_nat (val cx) + 37)) ⋉ tt).
   Proof.
     cbound.
     all: match goal with |- context [Pos.pred_N ?p] => pose proof (size_nat_pred (Npos p)) as H end;
@@ -371,15 +388,15 @@ Module Type3Complexity (Import Time : TimePos).
   Qed.
 
   Global Instance C_complexity : Time.ComplexityBound C
-    (fun cx => 4 ⋉ C_pot (val cx)) := _.
+    (fun cx => 1 ⋉ C_pot (val cx)) := _.
 
   Global Instance zero_complexity : Time.ComplexityBound zero zero_pot := _.
 
   Global Instance V_complexity : Time.ComplexityBound V
-    (fun cF => 2 ⋉ fun cx => V_cost (val cF) (pot cF) (val cx) ⋉ tt) := _.
+    (fun cF => V_clo ⋉ fun cx => V_cost (val cF) (pot cF) (val cx) ⋉ tt) := _.
 
   Global Instance W_complexity : Time.ComplexityBound W
-    (fun cF => 2 ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt).
+    (fun cF => W_clo ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt).
   Proof. cbound. all: rewrite E; lia. Qed.
 
   (** ** Bounds in the size of the arguments ([Bounds])
@@ -411,10 +428,10 @@ Module Type3Complexity (Import Time : TimePos).
     pose proof (Nat.pow_le_mono_r 2 _ _ ltac:(lia) (Nat.lt_le_incl _ _ H0)). cbn [N.to_nat]. lia.
   Qed.
 
-  Lemma zeros_size_bound : Time.FirstOrderBound zeros (fun ss => 96 * 2 ^ List.nth 0 ss 0 + 5).
+  Lemma zeros_size_bound : Time.FirstOrderBound zeros (fun ss => 64 * 2 ^ List.nth 0 ss 0).
   Proof. cost_split. all: pose proof (pos_to_nat_le_pow_size ca); lia. Qed.
 
-  Lemma pow2_size_bound : Time.FirstOrderBound pow2 (fun ss => 96 * 2 ^ List.nth 0 ss 0 + 2).
+  Lemma pow2_size_bound : Time.FirstOrderBound pow2 (fun ss => 64 * 2 ^ List.nth 0 ss 0 + 3).
   Proof. cost_split. pose proof (N_to_nat_le_pow_size ca). lia. Qed.
 
   (** ** Higher-order polynomial bounds ([BFFFeasibility]) *)
@@ -433,24 +450,24 @@ Module Type3Complexity (Import Time : TimePos).
       ([smaj]): in the majorants [mF] of the complexity of `F` and [nF] of
       its size, and the bounds [a] and [b] of [|x|]. They are the higher-order polynomials
       written with [db] below, named so that [lia] sees them as atoms. *)
-  Definition C_maj (a : nat) : M (tN ⇒ tN) := fun b => b * (16 * a + 52) + 16.
+  Definition C_maj (a : nat) : M (tN ⇒ tN) := fun b => b * (C_a * a + C_b) + C_c.
   Definition V_maj (mF : M ((tN ⇒ tN) ⇒ tN)) (a : nat) : nat :=
-    51 * mF (C_maj a) + mF (fun _ => 1) + 55.
+    (V_a + 1) * mF (C_maj a) + mF (fun _ => 1) + V_b.
   Definition W_maj (mF nF : M ((tN ⇒ tN) ⇒ tN)) (a b : nat) : nat :=
-    V_maj mF a + 96 * nF (C_maj a) + 9.
+    V_maj mF a + W_a * nF (C_maj a) + W_b.
 
   (** The same majorants as higher-order polynomials: [C_poly a] is the
       majorant of the potential [C_pot x] for [|x| <= a], and [V_poly],
       [W_poly] are written with it. They evaluate to [C_maj], [V_maj] and
       [W_maj]. *)
-  Definition C_poly : hpoly (tN ⇒ tN ⇒ tN) := db <{ λ a b, b * (16 * a + 52) + 16 }>.
+  Definition C_poly : hpoly (tN ⇒ tN ⇒ tN) := db <{ λ a b, b * (C_a * a + C_b) + C_c }>.
 
   Definition V_poly : hpoly (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) :=
-    tapp (db <{ λ c mF a, 51 * mF (c a) + mF (λ _, 1) + 55 }>
+    tapp (db <{ λ c mF a, (V_a + 1) * mF (c a) + mF (λ _, 1) + V_b }>
           : hpoly ((tN ⇒ tN ⇒ tN) ⇒ ((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) C_poly.
 
   Definition W_poly : hpoly (dbl (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) :=
-    tapp (tapp (db <{ λ v c mF nF a b, v mF a + 96 * nF (c a) + 9 }>
+    tapp (tapp (db <{ λ v c mF nF a b, v mF a + W_a * nF (c a) + W_b }>
           : hpoly ((((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) ⇒ (tN ⇒ tN ⇒ tN) ⇒
                    ((tN ⇒ tN) ⇒ tN) ⇒ ((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN ⇒ tN)) V_poly) C_poly.
 
@@ -524,10 +541,10 @@ Module Type3Complexity (Import Time : TimePos).
 
   (** On an argument `F` of complexity [cF] majorized by [mF], with a size
       bound [sF] majorized by [nF], [W] costs at most `V` ([V_cost_bound]
-      in [mF]) plus [96] times the size of `F` on `C x` ([W_cost_sized],
+      in [mF]) plus [W_a] times the size of `F` on `C x` ([W_cost_sized],
       in [nF]); its value is not longer than this size ([W_size_sized]). *)
   Lemma W_smaj : smaj (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W
-    (fun cF => 2 ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt) W_maj.
+    (fun cF => W_clo ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt) W_maj.
   Proof.
     intros F cF mF sF nF HmF HnF HF HFs HFn. split; [cbn; unfold W_maj, V_maj; lia|].
     intros x cx a sx b _ _ Hx _ _.
@@ -556,7 +573,7 @@ Module Type3Complexity (Import Time : TimePos).
   Qed.
 
   Lemma V_complexity_sized : CSized (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) V
-    (fun cF => 2 ⋉ fun cx => V_cost (val cF) (pot cF) (val cx) ⋉ tt).
+    (fun cF => V_clo ⋉ fun cx => V_cost (val cF) (pot cF) (val cx) ⋉ tt).
   Proof.
     intros [[F cF] [[x []] []]] _. exists ([(C x ⋊ C_pot x, tt); (zero ⋊ zero_pot, tt)], ([tt], tt)).
     split.
@@ -570,7 +587,7 @@ Module Type3Complexity (Import Time : TimePos).
   Qed.
 
   Lemma W_complexity_sized : CSized (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W
-    (fun cF => 2 ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt).
+    (fun cF => W_clo ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt).
   Proof.
     intros [[F cF] [[x []] []]] _. exists ([(C x ⋊ C_pot x, tt); (zero ⋊ zero_pot, tt)], ([tt], tt)).
     split.

@@ -1,0 +1,42 @@
+[
+ [
+  "Abbreviation C_a := 0 (only parsing).",
+  "Abbreviation C_a := «Ca» (only parsing)."
+ ],
+ [
+  "Abbreviation C_b := 0 (only parsing).",
+  "Abbreviation C_b := «Cb» (only parsing)."
+ ],
+ [
+  "Abbreviation C_c := 0 (only parsing).",
+  "Abbreviation C_c := «Cc» (only parsing)."
+ ],
+ [
+  "Abbreviation V_a := 0 (only parsing).",
+  "Abbreviation V_a := «Va» (only parsing)."
+ ],
+ [
+  "Abbreviation V_b := 0 (only parsing).",
+  "Abbreviation V_b := «Vb» (only parsing)."
+ ],
+ [
+  "Abbreviation W_a := 0 (only parsing).",
+  "Abbreviation W_a := «Wa» (only parsing)."
+ ],
+ [
+  "Abbreviation W_b := 0 (only parsing).",
+  "Abbreviation W_b := «Wb» (only parsing)."
+ ],
+ [
+  "Abbreviation W_c := 0 (only parsing).",
+  "Abbreviation W_c := «Wc» (only parsing)."
+ ],
+ [
+  "Abbreviation V_clo := 0 (only parsing).",
+  "Abbreviation V_clo := «Vclo» (only parsing)."
+ ],
+ [
+  "Abbreviation W_clo := 0 (only parsing).",
+  "Abbreviation W_clo := «Wclo» (only parsing)."
+ ]
+]

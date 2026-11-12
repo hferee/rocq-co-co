@@ -57,18 +57,18 @@ Module ZComplexity (Import Time : TimePos).
 
   (** ** Constant-time functions *)
 
-  Global Instance Z_opp_complexity : Time.ComplexityBound Z.opp (fun cz => 2 ⋉ tt) := _.
+  Global Instance Z_opp_complexity : Time.ComplexityBound Z.opp (fun cz => 5 ⋉ tt) := _.
 
-  Global Instance Z_abs_complexity : Time.ComplexityBound Z.abs (fun cz => 2 ⋉ tt) := _.
+  Global Instance Z_abs_complexity : Time.ComplexityBound Z.abs (fun cz => 5 ⋉ tt) := _.
 
   Global Instance Z_double_complexity : Time.ComplexityBound Z.double (fun cz => 7 ⋉ tt) := _.
 
   Global Instance Z_succ_double_complexity : Time.ComplexityBound Z.succ_double
-    (fun cz => (16 * zsize (val cz) + 6) ⋉ tt).
+    (fun cz => (12 * zsize (val cz) + 6) ⋉ tt).
   Proof. cbound. all: zfacts; lia. Qed.
 
   Global Instance Z_pred_double_complexity : Time.ComplexityBound Z.pred_double
-    (fun cz => (16 * zsize (val cz) + 6) ⋉ tt).
+    (fun cz => (12 * zsize (val cz) + 6) ⋉ tt).
   Proof. cbound. all: zfacts; lia. Qed.
 
   (** ** Subtraction of positive numbers
@@ -77,58 +77,58 @@ Module ZComplexity (Import Time : TimePos).
       [Z.pred_double] or [Z.succ_double] to the result of the recursive call,
       at a cost linear in its size: the bound is quadratic. *)
   Global Instance Z_pos_sub_complexity : Time.ComplexityBound Z.pos_sub
-    (fun cx => 5 ⋉ fun cy =>
+    (fun cx => 4 ⋉ fun cy =>
        (Pos.size_nat (val cy) *
-          (16 * (Pos.size_nat (val cx) + Pos.size_nat (val cy))) + 7) ⋉ tt).
+          (12 * (Pos.size_nat (val cx) + Pos.size_nat (val cy)))) ⋉ tt).
   Proof. cbound. all: try pose proof (zsize_pos_sub cx cy); size_facts; nia. Qed.
 
   (** ** Arithmetic *)
 
   (** Additions of numbers of different signs use [Z.pos_sub]. *)
   Global Instance Z_add_complexity : Time.ComplexityBound Z.add
-    (fun cx => 2 ⋉ fun cy =>
-       (16 * (zsize (val cx) + zsize (val cy)) * (zsize (val cx) + zsize (val cy)) + 53) ⋉ tt).
+    (fun cx => 1 ⋉ fun cy =>
+       (14 * (zsize (val cx) + zsize (val cy)) * (zsize (val cx) + zsize (val cy))) ⋉ tt).
   Proof. cbound. all: zfacts; nia. Qed.
 
   Global Instance Z_sub_complexity : Time.ComplexityBound Z.sub
-    (fun cx => 2 ⋉ fun cy =>
-       (16 * (zsize (val cx) + zsize (val cy)) * (zsize (val cx) + zsize (val cy)) + 65) ⋉ tt).
+    (fun cx => 1 ⋉ fun cy =>
+       (14 * (zsize (val cx) + zsize (val cy)) * (zsize (val cx) + zsize (val cy)) + 12) ⋉ tt).
   Proof. cbound. all: zfacts; nia. Qed.
 
   Global Instance Z_mul_complexity : Time.ComplexityBound Z.mul
-    (fun cx => 2 ⋉ fun cy =>
-       (zsize (val cx) * (68 * (zsize (val cx) + zsize (val cy))) + 38) ⋉ tt).
+    (fun cx => 1 ⋉ fun cy =>
+       (zsize (val cx) * (36 * (zsize (val cx) + zsize (val cy))) + 19) ⋉ tt).
   Proof. cbound. all: zfacts; nia. Qed.
 
   (** ** Comparisons *)
 
   Global Instance CompOpp_complexity : Time.ComplexityBound CompOpp
-    (fun cc => 2 ⋉ tt) := _.
+    (fun cc => 3 ⋉ tt) := _.
 
   Global Instance Z_compare_complexity : Time.ComplexityBound Z.compare
-    (fun cx => 2 ⋉ fun cy => (86 * zsize (val cy) + 36) ⋉ tt).
+    (fun cx => 1 ⋉ fun cy => (40 * zsize (val cy) + 19) ⋉ tt).
   Proof. cbound. all: zfacts; lia. Qed.
 
   Global Instance Z_eqb_complexity : Time.ComplexityBound Z.eqb
-    (fun cx => 2 ⋉ fun cy => (50 * zsize (val cx) + 38) ⋉ tt).
+    (fun cx => 1 ⋉ fun cy => (26 * zsize (val cx) + 17) ⋉ tt).
   Proof. cbound. all: zfacts; lia. Qed.
 
   (** The cost of the case analysis of the result of the comparison depends
       on its value. *)
   Global Instance Z_ltb_complexity : Time.ComplexityBound Z.ltb
-    (fun cx => 2 ⋉ fun cy => (86 * zsize (val cy) + 48) ⋉ tt) := _.
+    (fun cx => 1 ⋉ fun cy => (40 * zsize (val cy) + 27) ⋉ tt) := _.
 
   Global Instance Z_leb_complexity : Time.ComplexityBound Z.leb
-    (fun cx => 2 ⋉ fun cy => (86 * zsize (val cy) + 48) ⋉ tt) := _.
+    (fun cx => 1 ⋉ fun cy => (40 * zsize (val cy) + 27) ⋉ tt) := _.
 
   (** ** Conversions *)
 
   Global Instance Z_of_nat_complexity : Time.ComplexityBound Z.of_nat
-    (fun cn => (val cn * (31 * zsize (Z.of_nat (val cn))) + 2) ⋉ tt).
+    (fun cn => (val cn * (23 * zsize (Z.of_nat (val cn))) + 3) ⋉ tt).
   Proof. cbound. all: zfacts; nia. Qed.
 
   Global Instance Z_to_nat_complexity : Time.ComplexityBound Z.to_nat
-    (fun cz => (36 * Z.to_nat (val cz) + 83 * zsize (val cz) + 1) ⋉ tt).
+    (fun cz => (22 * Z.to_nat (val cz) + 53 * zsize (val cz) + 1) ⋉ tt).
   Proof. cbound. all: zfacts; lia. Qed.
 
   (** ** Linear bounds for addition and subtraction (amortised)
@@ -140,22 +140,22 @@ Module ZComplexity (Import Time : TimePos).
       walks over the trailing zeros of the result, and each of these zeros
       was produced by an earlier step ([Z.double]) and is consumed once.
       The bound of [Z.pos_sub] below is the classical potential argument:
-      its cost plus [16] times the number of trailing zeros of its result is
+      its cost plus [15] times the number of trailing zeros of its result is
       linear. These bounds are preferred by typeclass search (priority 0). *)
 
   Global Instance Pos_pred_double_tz_complexity : Time.ComplexityBound Pos.pred_double
-    (fun cp => (16 * ptz (val cp) + 14) ⋉ tt) | 0 := _.
+    (fun cp => (12 * ptz (val cp) + 10) ⋉ tt) | 0 := _.
 
   Global Instance Z_succ_double_tz_complexity : Time.ComplexityBound Z.succ_double
-    (fun cz => (16 * ztz (val cz) + 20) ⋉ tt) | 0 := _.
+    (fun cz => (12 * ztz (val cz) + 16) ⋉ tt) | 0 := _.
 
   Global Instance Z_pred_double_tz_complexity : Time.ComplexityBound Z.pred_double
-    (fun cz => (16 * ztz (val cz) + 20) ⋉ tt) | 0 := _.
+    (fun cz => (12 * ztz (val cz) + 16) ⋉ tt) | 0 := _.
 
   Global Instance Z_pos_sub_linear_complexity : Time.ComplexityBound Z.pos_sub
-    (fun cx => 5 ⋉ fun cy =>
-       (39 * (Pos.size_nat (val cx) + Pos.size_nat (val cy))
-          - 16 * ztz (Z.pos_sub (val cx) (val cy))) ⋉ tt) | 0.
+    (fun cx => 4 ⋉ fun cy =>
+       (25 * (Pos.size_nat (val cx) + Pos.size_nat (val cy))
+          - 15 * ztz (Z.pos_sub (val cx) (val cy))) ⋉ tt) | 0.
   Proof.
     cbound. all: try pose proof (zsize_pos_sub cx cy);
       try pose proof (ztz_le_zsize (Z.pos_sub cx cy));
@@ -165,13 +165,13 @@ Module ZComplexity (Import Time : TimePos).
   Qed.
 
   Global Instance Z_add_linear_complexity : Time.ComplexityBound Z.add
-    (fun cx => 2 ⋉ fun cy =>
-       (39 * (zsize (val cx) + zsize (val cy)) + 50) ⋉ tt) | 0.
+    (fun cx => 1 ⋉ fun cy =>
+       (25 * (zsize (val cx) + zsize (val cy)) + 17) ⋉ tt) | 0.
   Proof. cbound. all: zfacts; lia. Qed.
 
   Global Instance Z_sub_linear_complexity : Time.ComplexityBound Z.sub
-    (fun cx => 2 ⋉ fun cy =>
-       (39 * (zsize (val cx) + zsize (val cy)) + 62) ⋉ tt) | 0.
+    (fun cx => 1 ⋉ fun cy =>
+       (25 * (zsize (val cx) + zsize (val cy)) + 29) ⋉ tt) | 0.
   Proof. cbound. all: zfacts; lia. Qed.
 
   (** ** Bounds in the size of the arguments
@@ -203,4 +203,70 @@ Module ZComplexity (Import Time : TimePos).
     all: match goal with |- context [Z.of_nat ?n] => pose proof (zsize_of_nat n) end.
     all: nia.
   Qed.
+  (** ** Bounds in the sizes of the arguments, with their constants
+
+      The bounds above are in the values and lengths of the arguments;
+      each of these is at most the size ([#|x|], [SizeFact]), so that
+      they give bounds in the sizes ([csize]). *)
+
+  Lemma Z_succ_double_size_complexity :
+    Time.ComplexityBound Z.succ_double
+      (fun (cz : ℂI Z _) => (12 * #|val cz| + 6) ⋉ tt).
+  Proof. csize_using Z_succ_double_complexity. Qed.
+
+  Lemma Z_pred_double_size_complexity :
+    Time.ComplexityBound Z.pred_double
+      (fun (cz : ℂI Z _) => (12 * #|val cz| + 6) ⋉ tt).
+  Proof. csize_using Z_pred_double_complexity. Qed.
+
+  Lemma Z_pos_sub_size_complexity :
+    Time.ComplexityBound Z.pos_sub
+      (fun (cx : ℂI positive _) => 4 ⋉ fun (cy : ℂI positive _) => (#|val cy| * (12 * (#|val cx| + #|val cy|))) ⋉ tt).
+  Proof. csize_using Z_pos_sub_complexity. Qed.
+
+  Lemma Z_add_size_complexity :
+    Time.ComplexityBound Z.add
+      (fun (cx : ℂI Z _) => 1 ⋉ fun (cy : ℂI Z _) => (14 * (#|val cx| + #|val cy|) * (#|val cx| + #|val cy|)) ⋉ tt).
+  Proof. csize_using Z_add_complexity. Qed.
+
+  Lemma Z_sub_size_complexity :
+    Time.ComplexityBound Z.sub
+      (fun (cx : ℂI Z _) => 1 ⋉ fun (cy : ℂI Z _) => (14 * (#|val cx| + #|val cy|) * (#|val cx| + #|val cy|) + 12) ⋉ tt).
+  Proof. csize_using Z_sub_complexity. Qed.
+
+  Lemma Z_mul_size_complexity :
+    Time.ComplexityBound Z.mul
+      (fun (cx : ℂI Z _) => 1 ⋉ fun (cy : ℂI Z _) => (#|val cx| * (36 * (#|val cx| + #|val cy|)) + 19) ⋉ tt).
+  Proof. csize_using Z_mul_complexity. Qed.
+
+  Lemma Z_compare_size_complexity :
+    Time.ComplexityBound Z.compare
+      (fun cx => 1 ⋉ fun (cy : ℂI Z _) => (40 * #|val cy| + 19) ⋉ tt).
+  Proof. csize_using Z_compare_complexity. Qed.
+
+  Lemma Z_eqb_size_complexity :
+    Time.ComplexityBound Z.eqb
+      (fun (cx : ℂI Z _) => 1 ⋉ fun cy => (26 * #|val cx| + 17) ⋉ tt).
+  Proof. csize_using Z_eqb_complexity. Qed.
+
+  Lemma Z_ltb_size_complexity :
+    Time.ComplexityBound Z.ltb
+      (fun cx => 1 ⋉ fun (cy : ℂI Z _) => (40 * #|val cy| + 27) ⋉ tt).
+  Proof. csize_using Z_ltb_complexity. Qed.
+
+  Lemma Z_leb_size_complexity :
+    Time.ComplexityBound Z.leb
+      (fun cx => 1 ⋉ fun (cy : ℂI Z _) => (40 * #|val cy| + 27) ⋉ tt).
+  Proof. csize_using Z_leb_complexity. Qed.
+
+  Lemma Z_add_linear_size_complexity :
+    Time.ComplexityBound Z.add
+      (fun (cx : ℂI Z _) => 1 ⋉ fun (cy : ℂI Z _) => (25 * (#|val cx| + #|val cy|) + 17) ⋉ tt).
+  Proof. csize_using Z_add_linear_complexity. Qed.
+
+  Lemma Z_sub_linear_size_complexity :
+    Time.ComplexityBound Z.sub
+      (fun (cx : ℂI Z _) => 1 ⋉ fun (cy : ℂI Z _) => (25 * (#|val cx| + #|val cy|) + 29) ⋉ tt).
+  Proof. csize_using Z_sub_linear_complexity. Qed.
+
 End ZComplexity.

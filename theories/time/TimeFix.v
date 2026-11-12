@@ -79,12 +79,19 @@ Module FixTactics
       recurrence of [fix_complexity] is reduced to inequalities between
       costs; otherwise, the previous [cbound_start] applies. The extension
       holds in every model with fixpoints, and so in the hint of
-      [TimeCombinators] for bounds without instance. [cbound_mutual] does
-      the same for mutually recursive functions (see [crec_mutual]). *)
+      [TimeCombinators] for bounds without instance. Mutually recursive
+      functions [f1] and [f2] are analysed together, as the function
+      [fun b => if b then f1 else f2] ([crec_mutual]); [cproject] then gives
+      the bound of each one. [cbound_mutual] is the same, for mutually
+      recursive functions only. *)
   Ltac2 Set cbound_start as previous := fun () =>
     match Control.case (fun () => ltac1:(crec)) with
     | Val _ => Control.dispatch [(fun () => ltac1:(cbc_found)); (fun () => ())]
-    | Err _ => previous ()
+    | Err _ =>
+        match Control.case (fun () => ltac1:(crec_mutual)) with
+        | Val _ => Control.dispatch [(fun () => ltac1:(cbc_found)); (fun () => ())]
+        | Err _ => previous ()
+        end
     end.
   Ltac cbound_mutual := crec_mutual; [cbc_found | cfinish].
 End FixTactics.

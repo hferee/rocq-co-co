@@ -2,18 +2,22 @@
 
     The same functions compiled by bracket abstraction ([BracketCompile],
     the former compiler), with the smallest constants. Their bounds with
-    closure conversion ([Compile]) are in [stdlib]: closures make
-    partial applications and functions of several arguments cheaper, and
-    the recursion of one-argument functions dearer (the function is found
-    deeper in the environment of its recursive call).
+    closure conversion ([Compile]) are in [stdlib]. Both compilers use the
+    case combinators, which take their branches and their matched value as
+    functions of an environment. Closure conversion passes the environment
+    of the closure; bracket abstraction passes the matched variable, or
+    [tt], and reads the arguments of the constructors in it: these reads
+    are the overhead of bracket abstraction on the recursion of [length]
+    and [Pos.succ]. Closures make functions of several arguments cheaper,
+    and partial applications slightly dearer.
 
-    | function    | bracket abstraction | closure conversion  |
-    | [Nat.add]   | [35 ⋉ 55 n + 7]     | [5 ⋉ 36 n + 14]     |
-    | [Nat.mul]   | [9 ⋉ n (55 m + 67) + 13] | [5 ⋉ n (36 m + 52) + 10] |
-    | [andb]      | [1 ⋉ 8]             | [2 ⋉ 14]            |
-    | [orb]       | [1 ⋉ 6]             | [2 ⋉ 12]            |
-    | [length]    | [10 len + 8]        | [17 len + 9]        |
-    | [Pos.succ]  | [11 size]           | [18 size]           | *)
+    | function    | bracket abstraction      | closure conversion       |
+    | [Nat.add]   | [17 ⋉ 35 n + 14]         | [5 ⋉ 25 n + 6]           |
+    | [Nat.mul]   | [17 ⋉ n (35 m + 69) + 16] | [5 ⋉ n (25 m + 39) + 6] |
+    | [andb]      | [1 ⋉ 11]                 | [2 ⋉ 6]                  |
+    | [orb]       | [1 ⋉ 9]                  | [2 ⋉ 6]                  |
+    | [length]    | [16 len + 13]            | [17 len + 7]             |
+    | [Pos.succ]  | [20 size]                | [15 size]                | *)
 
 From Complexity Require Import TimeCostModel BracketCompile.
 From Stdlib Require Import PArith.
@@ -29,28 +33,28 @@ Module BracketComparison (Import Time : TimeCostModel).
     cfinish.
 
   Lemma add_complexity : Time.ComplexityBound Nat.add
-    (fun cn => 35 ⋉ fun cm => (55 * val cn + 7) ⋉ tt).
+    (fun cn => 17 ⋉ fun cm => (35 * val cn + 14) ⋉ tt).
   Proof. bcbound. Qed.
   Existing Instance add_complexity.
 
   Lemma mul_complexity : Time.ComplexityBound Nat.mul
-    (fun cn => 9 ⋉ fun cm =>
-       (val cn * (55 * val cm + 67) + 13) ⋉ tt).
+    (fun cn => 17 ⋉ fun cm =>
+       (val cn * (35 * val cm + 69) + 16) ⋉ tt).
   Proof. bcbound. Qed.
 
   Lemma andb_complexity : Time.ComplexityBound andb
-    (fun ca => 1 ⋉ fun cb => 8 ⋉ tt).
+    (fun ca => 1 ⋉ fun cb => 11 ⋉ tt).
   Proof. bcbound. Qed.
 
   Lemma orb_complexity : Time.ComplexityBound orb
-    (fun ca => 1 ⋉ fun cb => 6 ⋉ tt).
+    (fun ca => 1 ⋉ fun cb => 9 ⋉ tt).
   Proof. bcbound. Qed.
 
   Lemma length_complexity {A} `{Ground A} : Time.ComplexityBound (@length A)
-    (fun cl => (10 * length (val cl) + 8) ⋉ tt).
+    (fun cl => (16 * length (val cl) + 13) ⋉ tt).
   Proof. bcbound. Qed.
 
   Lemma succ_complexity : Time.ComplexityBound Pos.succ
-    (fun cp => (11 * Pos.size_nat (val cp)) ⋉ tt).
+    (fun cp => (20 * Pos.size_nat (val cp)) ⋉ tt).
   Proof. bcbound. Qed.
 End BracketComparison.

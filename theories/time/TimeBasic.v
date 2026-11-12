@@ -56,9 +56,8 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     ComplexityBound (b : B) (cb : CB) ->
     ComplexityBound (fun (_ : A) => b) (fun _ => c_step ⋉ cb).
 
-  (** [tt]: the argument of the thunks for the branches of constant
-      constructors in case analyses, and the empty environment of closures
-      (see [Combinators]). *)
+  (** [tt]: the empty environment of closures, to which closed code is
+      applied (see [Combinators]). *)
   #[global] Declare Instance tt_complexity : ComplexityBound tt tt.
 
   (* Simple tactic that will be used to prove ComplexityBound goals.
