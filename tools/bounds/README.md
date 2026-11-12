@@ -37,6 +37,7 @@ From the root of the repository, with the library built:
 | `make bounds-snapshot RUN=name [REV=rev] [TITLE=..] [DESCRIPTION=..]` | snapshot of the working tree, or of a git revision |
 | `make bounds-minimise [SCREEN=1] [FILES="stdlib/NatComplexity.v ..."]` | minimise the constants, in dependency order (slow) |
 | `make bounds-table` | regenerate `bounds-comparison.md` from the runs of `config.json` |
+| `make show-bounds-table [RUNS="name ..."]` | the same table as an HTML page, `bounds-comparison.html` (not versioned), opened in the browser |
 | `make bounds-check [RUN=name]` | fail if a bound of the working tree is higher than in the run, or has another shape |
 
 `tools/bounds/compare.py` gives other views, from any list of runs:

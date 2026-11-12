@@ -3,6 +3,7 @@
 usage: run.py snapshot NAME [--rev REV | --root DIR] [--title T] [--description D]
        run.py minimise [--screen] [FILE...]
        run.py table [RUN...]
+       run.py show [RUN...]
        run.py check [RUN]
 
 snapshot  extract the bounds (of the working tree, of a git revision, or of
@@ -13,6 +14,9 @@ minimise  minimise the constants of the files of config.json ("order", or
           bounds minimised (minimise.py), the constants copied in several
           places minimised together (groups.py), and the file built
 table     the comparison of config.json ("table"), or of RUN...
+show      the same comparison as an HTML page (with a filter and sticky
+          columns), written to bounds-comparison.html and opened in the
+          browser
 check     compare the working tree with the run RUN (default: the last of
           the manifest): fail if a bound has a higher constant or another
           shape
@@ -71,6 +75,16 @@ def table(args):
     compare.main(runs + ['--header', os.path.join(REPO, t['header']), '-o', os.path.join(REPO, t['output'])])
     print('table ->', t['output'])
 
+def show(args):
+    import webbrowser
+    t = CONFIG['table']
+    runs = args or t['runs']
+    out = os.path.join(REPO, t.get('html', 'bounds-comparison.html'))
+    compare.main(runs + ['--format', 'html', '--header', os.path.join(REPO, t['header']), '-o', out])
+    print('table ->', os.path.relpath(out, REPO))
+    if not webbrowser.open('file://' + out):
+        print('open it in a browser: file://' + out)
+
 def check(args):
     man = json.load(open(MANIFEST))
     base = args[0] if args else man[-1]['name']
@@ -91,6 +105,6 @@ def check(args):
     sys.exit(1 if bad else 0)
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2 or sys.argv[1] not in ('snapshot', 'minimise', 'table', 'check'):
+    if len(sys.argv) < 2 or sys.argv[1] not in ('snapshot', 'minimise', 'table', 'show', 'check'):
         raise SystemExit(__doc__)
-    {'snapshot': snapshot, 'minimise': minimise, 'table': table, 'check': check}[sys.argv[1]](sys.argv[2:])
+    {'snapshot': snapshot, 'minimise': minimise, 'table': table, 'show': show, 'check': check}[sys.argv[1]](sys.argv[2:])

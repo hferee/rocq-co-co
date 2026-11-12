@@ -57,5 +57,6 @@ examples/deque/_deps
 # documentation (make doc)
 html/
 
-# Python bytecode (tools/bounds)
+# Python bytecode, and the HTML table of make show-bounds-table (tools/bounds)
 __pycache__/
+bounds-comparison.html

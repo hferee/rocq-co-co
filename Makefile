@@ -40,6 +40,7 @@ doc: $(GLOBFILES) $(VFILES) $(DOC_ASSETS)
 #   make bounds-snapshot RUN=name [REV=rev] [TITLE=..] [DESCRIPTION=..]
 #   make bounds-minimise [SCREEN=1] [FILES="stdlib/NatComplexity.v ..."]
 #   make bounds-table
+#   make show-bounds-table [RUNS="run1 run2 ..."]   (HTML, in the browser)
 #   make bounds-check [RUN=name]   (fails if a bound got higher)
 BOUNDS := python3 tools/bounds/run.py
 bounds-snapshot:
@@ -48,8 +49,10 @@ bounds-minimise:
 	$(BOUNDS) minimise $(if $(SCREEN),--screen) $(FILES)
 bounds-table:
 	$(BOUNDS) table
+show-bounds-table:
+	$(BOUNDS) show $(RUNS)
 bounds-check:
 	$(BOUNDS) check $(RUN)
 
-.PHONY: _ deque doc bounds-snapshot bounds-minimise bounds-table bounds-check
+.PHONY: _ deque doc bounds-snapshot bounds-minimise bounds-table show-bounds-table bounds-check
 

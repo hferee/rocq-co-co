@@ -84,6 +84,7 @@
       "argenv"
     ],
     "header": "bounds/header.md",
-    "output": "bounds-comparison.md"
+    "output": "bounds-comparison.md",
+    "html": "bounds-comparison.html"
   }
 }

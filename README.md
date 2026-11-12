@@ -46,8 +46,9 @@ Build with `make` (Rocq 9.2, rocq-stdlib, coq-library-undecidability).
 The complexity bounds of the repository are recorded in snapshots
 (`bounds/runs/`, one per version of the compiler or of the cost model) and
 compared in `bounds-comparison.md`; `make bounds-snapshot`,
-`make bounds-minimise`, `make bounds-table` and `make bounds-check` manage
-them (`tools/bounds/README.md`).
+`make bounds-minimise`, `make bounds-table`, `make show-bounds-table` (the
+table in the browser) and `make bounds-check` manage them
+(`tools/bounds/README.md`).
 
 The top-level directory `examples/deque` holds an optional example, outside
 the main build: Kaplan and Tarjan's real-time deques, from the Rocq sources
