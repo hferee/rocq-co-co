@@ -10,6 +10,9 @@ From Complexity Require Export NatComplexity.
 From Stdlib Require Import List.
 Import ListNotations.
 
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
+
 Module ListComplexity (Import Time : TimeNat).
 
 
@@ -31,26 +34,26 @@ Module ListComplexity (Import Time : TimeNat).
 
   (** ** List tail *)
   Instance complexity_tl {A} `{Ground A} :
-    Time.ComplexityBound (@tl A) (fun lc => 3 ⋉ tt) := _.
+    Time.ComplexityBound (@tl A) (fun lc => 3 >|) := _.
 
   Global Instance length_complexity {A} `{Ground A} : Time.ComplexityBound (@length A)
-    (fun cl => (14 * length (val cl) + 6) ⋉ tt) := _.
+    (fun cl => (14 * length (val cl) + 6) >|) := _.
 
   Global Instance app_complexity {A} `{Ground A} : Time.ComplexityBound (@app A)
-    (fun cl => 4 ⋉ fun cm =>
-       (31 * length (val cl) + 6) ⋉ tt) := _.
+    (fun cl => 4 +> fun cm =>
+       (31 * length (val cl) + 6) >|) := _.
 
   (** [seq] is recursive on its second argument; the first one changes. *)
   Global Instance seq_complexity : Time.ComplexityBound seq
-    (fun cs => 4 ⋉ fun cn => (31 * val cn + 4) ⋉ tt) := _.
+    (fun cs => 4 +> fun cn => (31 * val cn + 4) >|) := _.
 
   (** [fold_left] with a function whose partial and full applications cost at
       most [c1] and [c2] (on ground data): a higher-order bound. *)
   Lemma fold_left_complexity {A B} `{Ground A} `{Ground B} (f : A -> B -> A) (c1 c2 : nat) :
-    Time.ComplexityBound f (fun _ => c1 ⋉ fun _ => c2 ⋉ tt) ->
+    Time.ComplexityBound f (fun _ => c1 +> fun _ => c2 >|) ->
     Time.ComplexityBound (fold_left f)
-      (fun cl => 4 ⋉ fun cx =>
-         ((c1 + c2 + 29) * length (val cl) + 6) ⋉ tt).
+      (fun cl => 4 +> fun cx =>
+         ((c1 + c2 + 29) * length (val cl) + 6) >|).
   Proof. intro Hf. cbound. Qed.
 
   (** ** Bounds in the size of the arguments
@@ -69,7 +72,7 @@ Module ListComplexity (Import Time : TimeNat).
 
   Lemma seq_size_complexity :
     Time.ComplexityBound seq
-      (fun cs => 4 ⋉ fun (cn : ℂI nat _) => (31 * #|val cn| + 4) ⋉ tt).
+      (fun cs => 4 +> fun (cn : ℂI nat _) => (31 * #|val cn| + 4) >|).
   Proof. csize_using seq_complexity. Qed.
 
 End ListComplexity.

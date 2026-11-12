@@ -46,6 +46,9 @@ From Stdlib Require Import PArith NArith NArithRing.
 From Stdlib Require List.
 Import List.ListNotations.
 
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
+
 (** ** Definitions *)
 
 (** [zeros p q]: [q] followed by [p] zeros, that is [q 2^p], in time linear
@@ -234,8 +237,8 @@ Abbreviation W_clo := 1 (only parsing).
 (** The potentials of `C x` and [zero], given to `F` by `V` and [W]: the
     costs of their applications. *)
 Definition C_pot (x : N) (cy : ℂI N unit) : ℂO unit :=
-  (N.size_nat (val cy) * (C_a * N.size_nat x + C_b) + C_c) ⋉ tt.
-Definition zero_pot (cy : ℂI N unit) : ℂO unit := 1 ⋉ tt.
+  (N.size_nat (val cy) * (C_a * N.size_nat x + C_b) + C_c) >|.
+Definition zero_pot (cy : ℂI N unit) : ℂO unit := 1 >|.
 
 (** The costs of `V F x` and `W F x`, from the potential `pF` of `F`: `F`
     is applied to `C x` and to [zero], and its values are compared. [W]
@@ -352,7 +355,7 @@ Module Type3Complexity (Import Time : TimePos).
       not sized by its potential. *)
   Lemma free_query_unsized x :
     ~ CSized (bits ((tN ⇒ tN) ⇒ tN)) (fun f => if (f (2 ^ x) =? 0)%N then 0%N else 1%N)
-        (fun _ => N.size_nat x ⋉ tt).
+        (fun _ => N.size_nat x >|).
   Proof.
     intros H.
     assert (Hq : N.to_nat x < N.size_nat x).
@@ -364,23 +367,23 @@ Module Type3Complexity (Import Time : TimePos).
 
   (** [zeros p q] makes [2 p - 1] calls. *)
   Global Instance zeros_complexity : Time.ComplexityBound zeros
-    (fun cp => 4 ⋉ fun cq => (32 * (2 * Pos.to_nat (val cp) - 1)) ⋉ tt).
+    (fun cp => 4 +> fun cq => (32 * (2 * Pos.to_nat (val cp) - 1)) >|).
   Proof. cbound. all: pose proof (Pos2Nat.is_pos cp); lia. Qed.
 
   Global Instance pow2_complexity : Time.ComplexityBound pow2
-    (fun cx => (64 * N.to_nat (val cx) + 3) ⋉ tt) := _.
+    (fun cx => (64 * N.to_nat (val cx) + 3) >|) := _.
 
   Global Instance pred_N_complexity : Time.ComplexityBound Pos.pred_N
-    (fun cp => (12 * Pos.size_nat (val cp)) ⋉ tt) := _.
+    (fun cp => (12 * Pos.size_nat (val cp)) >|) := _.
 
   Global Instance N_pred_complexity : Time.ComplexityBound N.pred
-    (fun cx => (12 * N.size_nat (val cx) + 4) ⋉ tt) := _.
+    (fun cx => (12 * N.size_nat (val cx) + 4) >|) := _.
 
   Global Instance N_eqb_complexity : Time.ComplexityBound N.eqb
-    (fun cx => 1 ⋉ fun cy => (26 * N.size_nat (val cx) + 17) ⋉ tt) := _.
+    (fun cx => 1 +> fun cy => (26 * N.size_nat (val cx) + 17) >|) := _.
 
   Global Instance pow2_eq_pos_complexity : Time.ComplexityBound pow2_eq_pos
-    (fun cx => 4 ⋉ fun cp => (Pos.size_nat (val cp) * (12 * N.size_nat (val cx) + 37)) ⋉ tt).
+    (fun cx => 4 +> fun cp => (Pos.size_nat (val cp) * (12 * N.size_nat (val cx) + 37)) >|).
   Proof.
     cbound.
     all: match goal with |- context [Pos.pred_N ?p] => pose proof (size_nat_pred (Npos p)) as H end;
@@ -388,15 +391,15 @@ Module Type3Complexity (Import Time : TimePos).
   Qed.
 
   Global Instance C_complexity : Time.ComplexityBound C
-    (fun cx => 1 ⋉ C_pot (val cx)) := _.
+    (fun cx => 1 +> C_pot (val cx)) := _.
 
   Global Instance zero_complexity : Time.ComplexityBound zero zero_pot := _.
 
   Global Instance V_complexity : Time.ComplexityBound V
-    (fun cF => V_clo ⋉ fun cx => V_cost (val cF) (pot cF) (val cx) ⋉ tt) := _.
+    (fun cF => V_clo +> fun cx => V_cost (val cF) (pot cF) (val cx) >|) := _.
 
   Global Instance W_complexity : Time.ComplexityBound W
-    (fun cF => W_clo ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt).
+    (fun cF => W_clo +> fun cx => W_cost (val cF) (pot cF) (val cx) >|).
   Proof. cbound. all: rewrite E; lia. Qed.
 
   (** ** Bounds in the size of the arguments ([Bounds])
@@ -520,7 +523,7 @@ Module Type3Complexity (Import Time : TimePos).
     change (2 ^ n <= ⟦m⟧ (fun _ => 1) (n + 1)). rewrite Nat.add_1_r.
     set (x0 := pow2 (N.of_nat n)).
     set (F := fun f : N -> N => if (f (pow2 x0) =? 0)%N then 0%N else 1%N).
-    assert (HF : maj (bits ((tN ⇒ tN) ⇒ tN)) F (fun _ => 0 ⋉ tt) (fun _ => 1)).
+    assert (HF : maj (bits ((tN ⇒ tN) ⇒ tN)) F (fun _ => 0 >|) (fun _ => 1)).
     { intros g cg mg _ _. cbn. split; [lia|]. unfold F. destruct (_ =? 0)%N; cbn; lia. }
     assert (Hv : N.to_nat x0 = 2 ^ n).
     { unfold x0. rewrite pow2_spec, N2Nat.inj_pow, Nat2N.id. reflexivity. }
@@ -544,7 +547,7 @@ Module Type3Complexity (Import Time : TimePos).
       in [mF]) plus [W_a] times the size of `F` on `C x` ([W_cost_sized],
       in [nF]); its value is not longer than this size ([W_size_sized]). *)
   Lemma W_smaj : smaj (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W
-    (fun cF => W_clo ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt) W_maj.
+    (fun cF => W_clo +> fun cx => W_cost (val cF) (pot cF) (val cx) >|) W_maj.
   Proof.
     intros F cF mF sF nF HmF HnF HF HFs HFn. split; [cbn; unfold W_maj, V_maj; lia|].
     intros x cx a sx b _ _ Hx _ _.
@@ -563,7 +566,7 @@ Module Type3Complexity (Import Time : TimePos).
       ([SizedComplexities] with [k = 0]). `V` and [W] ask `F` about `C x`
       and [zero], and read [x]. [W] creates its value [2^x], of length
       [x + 1], and pays for it in [W_cost]. *)
-  Lemma C_complexity_sized : CSized (bits (tN ⇒ tN ⇒ tN)) C (fun cx => 4 ⋉ C_pot (val cx)).
+  Lemma C_complexity_sized : CSized (bits (tN ⇒ tN ⇒ tN)) C (fun cx => 4 +> C_pot (val cx)).
   Proof.
     intros [[x []] [[y []] []]] _. exists ([tt], ([tt], tt)).
     split; [split; [repeat constructor | split; [repeat constructor | exact I]]|]. split.
@@ -573,7 +576,7 @@ Module Type3Complexity (Import Time : TimePos).
   Qed.
 
   Lemma V_complexity_sized : CSized (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) V
-    (fun cF => V_clo ⋉ fun cx => V_cost (val cF) (pot cF) (val cx) ⋉ tt).
+    (fun cF => V_clo +> fun cx => V_cost (val cF) (pot cF) (val cx) >|).
   Proof.
     intros [[F cF] [[x []] []]] _. exists ([(C x ⋊ C_pot x, tt); (zero ⋊ zero_pot, tt)], ([tt], tt)).
     split.
@@ -587,7 +590,7 @@ Module Type3Complexity (Import Time : TimePos).
   Qed.
 
   Lemma W_complexity_sized : CSized (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W
-    (fun cF => W_clo ⋉ fun cx => W_cost (val cF) (pot cF) (val cx) ⋉ tt).
+    (fun cF => W_clo +> fun cx => W_cost (val cF) (pot cF) (val cx) >|).
   Proof.
     intros [[F cF] [[x []] []]] _. exists ([(C x ⋊ C_pot x, tt); (zero ⋊ zero_pot, tt)], ([tt], tt)).
     split.

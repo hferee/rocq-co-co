@@ -220,4 +220,40 @@ Ltac2 cexplain_goal () : unit :=
     end).
 
 Ltac cadvice := ltac2:(cadvice_goal ()).
+
+(** ** Timeout
+
+    The tactics used by hand ([cbound], [clinear], [csize], ...) stop after
+    [ctimeout] seconds (2 by default; [0] for no timeout), with a message
+    that suggests a larger timeout. Change it with
+<<
+      Ltac2 Set ctimeout := 10.
+>>
+    ([#[local] Ltac2 Set] for one file). The library turns it off in its
+    files: their proofs are not interactive. *)
+Ltac2 mutable ctimeout : int := 2.
+
+Ltac2 is_timeout (e : exn) : bool :=
+  let s := Message.to_string (Message.of_exn e) in
+  let n := String.length s in
+  let rec find i :=
+    if Int.lt n (Int.add i 6) then false
+    else if String.equal (String.sub s i 6) "imeout" then true else find (Int.add i 1) in
+  find 0.
+
+(** [ctimed name t]: the Ltac1 tactic [t] within [ctimeout] seconds. *)
+Ltac2 ctimed (name : string) (t : Ltac1.t) : unit :=
+  if Int.le ctimeout 0 then ltac1:(t |- t) t else
+  match Control.case (fun () => ltac1:(n t |- timeout n t) (Ltac1.of_int ctimeout) t) with
+  | Val _ => ()
+  | Err e =>
+      if is_timeout e then
+        Control.zero (Tactic_failure (Some (cat
+          [of_string name; of_string ": no result within "; of_int ctimeout;
+           of_string " s (the timeout).";
+           nl (); of_string "The analysis may need more time, or lia and nia may be searching in vain on an inequality.";
+           nl (); of_string "Increase the timeout, for example to 10 seconds (0 for none):";
+           nl (); of_string "  Ltac2 Set ctimeout := 10."])))
+      else Control.zero e
+  end.
 Ltac cexplain := ltac2:(cexplain_goal ()).

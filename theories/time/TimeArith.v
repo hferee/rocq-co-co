@@ -40,10 +40,10 @@ Module Type NatArithTimeCostModel (Import CM : CostModel) (Import ND : NatData C
   #[global] Hint Unfold c_add_clo c_add_n c_add c_mul_clo c_mul_nm c_mul_n c_mul : costs.
 
   #[global] Declare Instance add_complexity : ComplexityBound Nat.add
-    (fun cn => c_add_clo ⋉ fun cm => (c_add_n * val cn + c_add) ⋉ tt).
+    (fun cn => c_add_clo +> fun cm => (c_add_n * val cn + c_add) >|).
 
   #[global] Declare Instance mul_complexity : ComplexityBound Nat.mul
-    (fun cn => c_mul_clo ⋉ fun cm => (val cn * (c_mul_nm * val cm + c_mul_n) + c_mul) ⋉ tt).
+    (fun cn => c_mul_clo +> fun cm => (val cn * (c_mul_nm * val cm + c_mul_n) + c_mul) >|).
 End NatArithTimeCostModel.
 
 Module Type ParamArithTimeCostModel := CostModel.CostModel <+ BasicTimeCostModel

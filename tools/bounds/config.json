@@ -48,7 +48,7 @@
     "complexity_ext": "for f pointwise equal to g, from the bound cg of g",
     "horner_complexity": "when 1 <= c_fix, in the counting model of the file",
     "map_space": "when f allocates at most c",
-    "fold_left_complexity": "when f costs at most c1 ⋉ c2"
+    "fold_left_complexity": "when f costs at most c1 +> c2"
   },
   "names": {
     "Pos_add_mutual_complexity": "fun b => if b then Pos.add else Pos.add_carry",

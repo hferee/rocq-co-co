@@ -25,22 +25,22 @@ Set Default Proof Mode "Classic".
     expressions under the binders of the complexity, so that they can be
     left to [cconst]. *)
     (* TODO: can we generalise this to an arbitrary arity? *)
-Definition cst1 {A CA} (k1 : nat) : ℂI A CA -> ℂO unit := fun _ => k1 ⋉ tt.
+Definition cst1 {A CA} (k1 : nat) : ℂI A CA -> ℂO unit := fun _ => k1 >|.
 Definition cst2 {A CA B CB} (k1 k2 : nat) : ℂI A CA -> ℂO (ℂI B CB -> ℂO unit) :=
-  fun _ => k1 ⋉ fun _ => k2 ⋉ tt.
+  fun _ => k1 +> fun _ => k2 >|.
 Definition cst3 {A CA B CB C CC} (k1 k2 k3 : nat)
   : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO unit)) :=
-  fun _ => k1 ⋉ fun _ => k2 ⋉ fun _ => k3 ⋉ tt.
+  fun _ => k1 +> fun _ => k2 +> fun _ => k3 >|.
 Definition cst4 {A CA B CB C CC D CD} (k1 k2 k3 k4 : nat)
   : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO (ℂI D CD -> ℂO unit))) :=
-  fun _ => k1 ⋉ fun _ => k2 ⋉ fun _ => k3 ⋉ fun _ => k4 ⋉ tt.
+  fun _ => k1 +> fun _ => k2 +> fun _ => k3 +> fun _ => k4 >|.
 Definition cst5 {A CA B CB C CC D CD E CE} (k1 k2 k3 k4 k5 : nat)
   : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO (ℂI D CD -> ℂO (ℂI E CE -> ℂO unit)))) :=
-  fun _ => k1 ⋉ fun _ => k2 ⋉ fun _ => k3 ⋉ fun _ => k4 ⋉ fun _ => k5 ⋉ tt.
+  fun _ => k1 +> fun _ => k2 +> fun _ => k3 +> fun _ => k4 +> fun _ => k5 >|.
 Definition cst6 {A CA B CB C CC D CD E CE F CF} (k1 k2 k3 k4 k5 k6 : nat)
   : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO (ℂI D CD -> ℂO (ℂI E CE -> ℂO
     (ℂI F CF -> ℂO unit))))) :=
-  fun _ => k1 ⋉ fun _ => k2 ⋉ fun _ => k3 ⋉ fun _ => k4 ⋉ fun _ => k5 ⋉ fun _ => k6 ⋉ tt.
+  fun _ => k1 +> fun _ => k2 +> fun _ => k3 +> fun _ => k4 +> fun _ => k5 +> fun _ => k6 >|.
 #[global] Hint Unfold cst1 cst2 cst3 cst4 cst5 cst6 : costs.
 
 Ltac2 rec cst_update (r : constr) (k : int) (l : (constr * int) list) : (constr * int) list :=
@@ -149,10 +149,10 @@ Module Type CombinatorTimeCostAxioms
     forall {E CE A CA}, Repr E CE -> Repr A CA -> Repr (env E A) (CE * CA).
 
   #[global] Declare Instance ehd_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
-    ComplexityBound (@ehd E A) (fun ce => c_step ⋉ snd (pot ce)).
+    ComplexityBound (@ehd E A) (fun ce => c_step +> snd (pot ce)).
 
   #[global] Declare Instance etl_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
-    ComplexityBound (@etl E A) (fun ce => c_step ⋉ fst (pot ce)).
+    ComplexityBound (@etl E A) (fun ce => c_step +> fst (pot ce)).
 
   (** ** Closures *)
 
@@ -161,42 +161,42 @@ Module Type CombinatorTimeCostAxioms
   #[global] Declare Instance Lam_complexity :
     forall {E CE A CA B CB} `{Repr E CE} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Lam E A B)
-      (fun cc : ℂI (env E A -> B) (ℂI (env E A) (CE * CA) -> ℂO CB) => c_clo ⋉
-       fun ce : ℂI E CE => c_clo ⋉
+      (fun cc : ℂI (env E A -> B) (ℂI (env E A) (CE * CA) -> ℂO CB) => c_clo +>
+       fun ce : ℂI E CE => c_clo +>
        fun ca : ℂI A CA => c_step ⊕ pot <$> cc · (ECons (val ce) (val ca) ⋊ (pot ce, pot ca))).
 
   (** ** Applications and constants *)
 
   #[global] Declare Instance Kc_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB},
-    ComplexityBound (@Kc A B) (fun ca => c_clo ⋉ (fun _ => c_step ⋉ pot ca)).
+    ComplexityBound (@Kc A B) (fun ca => c_clo +> (fun _ => c_step +> pot ca)).
 
   (** Only used by bracket abstraction. *)
   #[global] Declare Instance Ic_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@Ic A) (fun ca => c_step ⋉ pot ca).
+    ComplexityBound (@Ic A) (fun ca => c_step +> pot ca).
 
   (** [compose] (B) as a constant, whereas [compose_complexity] requires fixed
       arguments. *)
   #[global] Declare Instance compose_hcomplexity :
     forall {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC},
     ComplexityBound (@compose A B C)
-      (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => c_clo ⋉
-       fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => c_clo ⋉
+      (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => c_clo +>
+       fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => c_clo +>
        fun ca : ℂI A CA => c_step ⊕ pot <$> cf · (cg · ca)).
 
   (** `Cc f a x = f x a`. *)
   #[global] Declare Instance Cc_complexity :
     forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Cc X A B)
-      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo ⋉
-       fun ca : ℂI A CA => c_clo ⋉
+      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo +>
+       fun ca : ℂI A CA => c_clo +>
        fun cx : ℂI X CX => c_step ⊕ pot <$> cf · cx · ca).
 
   (** [Sc f g x = f x (g x)]: the bound variable is used twice. *)
   #[global] Declare Instance Sc_complexity :
     forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Sc X A B)
-      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo ⋉
-       fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => c_clo ⋉
+      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo +>
+       fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => c_clo +>
        fun cx : ℂI X CX => c_step ⊕ pot <$> cf · cx · (cg · cx)).
 End CombinatorTimeCostAxioms.
 
@@ -313,7 +313,7 @@ Module CombinatorTactics
                     Advice.cat (List.map (fun c => Advice.cat [Message.of_string " "; Message.of_constr c]) ms);
                     Message.of_string ".";
                     Advice.nl (); Message.of_string "The function analysed uses it: prove a bound for it first, and declare it as an instance, e.g.";
-                    Advice.nl (); Message.of_string "  Global Instance g_complexity : Time.ComplexityBound g (fun cx => ... ⋉ tt).";
+                    Advice.nl (); Message.of_string "  Global Instance g_complexity : Time.ComplexityBound g (fun cx => ... >|).";
                     Advice.nl (); Message.of_string "  Proof. cbound. Qed.";
                     Advice.nl (); Message.of_string "(or Existing Instance after a Lemma)."]
     end.
@@ -425,13 +425,13 @@ Module CombinatorTactics
   Ltac cbound_constant :=
     unfold ConstantBound; eexists; split; cycle 1;
     [ cbound_split; ltac2:(constant_constants_any ()); cbn [Poly.peval List.nth];
-      try solve [lia | nia]; ltac2:(degree_advice 0 "constant")
+      ltac2:(csolve_degree 0 "constant")
     | reflexivity ].
 
   Ltac cbound_linear :=
     unfold LinearBound; eexists; split; cycle 1;
     [ cbound_split; ltac2:(linear_constants_any ()); cbn [Poly.peval List.nth];
-      try solve [lia | nia]; ltac2:(degree_advice 1 "linear")
+      ltac2:(csolve_degree 1 "linear")
     | cbn; lia ].
 
   Ltac cbound_polynomial :=
@@ -495,13 +495,14 @@ Module CombinatorTactics
                                    | None => ()
                                    end) in
           cbound_core; cadvice; note f).
-  Ltac cbound :=
+  Ltac cbound_untimed :=
     lazymatch goal with
     | |- ConstantBound ?f => cbound_sizes f 0
     | |- LinearBound ?f => cbound_sizes f 1
     | |- PolynomialBound ?f => cbound_sizes f 2
     | |- _ => cbound_core; cadvice
     end.
+  Ltac cbound := let f := ltac2:(t |- ctimed "cbound" t) in f ltac:(cbound_untimed).
 
   (** [csize] proves a bound in the sizes of the arguments ([#|x|], [Size])
       from the bound of the function found by typeclass search, which is in
@@ -511,19 +512,20 @@ Module CombinatorTactics
     eapply ComplexityBound_mono; [idtac | tac];
     csimpl; bo_split; destr_inputs; ccases; cunit; add_size_facts;
     try solve [lia | nia]; cadvice.
-  Ltac csize := csize_by ltac:(typeclasses eauto).
+  Ltac csize := let f := ltac2:(t |- ctimed "csize" t) in f ltac:(csize_by ltac:(typeclasses eauto)).
 
   (** [csize_using H]: the same, from the bound [H]. *)
-  Ltac csize_using H := csize_by ltac:(exact H).
+  Ltac csize_using H := let f := ltac2:(t |- ctimed "csize" t) in f ltac:(csize_by ltac:(exact H)).
 
   (** [cproject H v] proves [ComplexityBound f c] from the bound [H] of a
       function [g] such that [g v] is [f], for example the bound of
       [fun b => if b then f1 else f2] for mutually recursive functions [f1]
       and [f2] ([cbound], [TimeFix]): [cproject H true] proves the bounds of
       [f1], [cproject H false] those of [f2]. *)
-  Ltac cproject H v :=
+  Ltac cproject_untimed H v :=
     eapply ComplexityBound_mono; [idtac | exact (apply_complexity (v := v) _ _ H)];
     cfinish; cadvice.
+  Ltac cproject H v := let f := ltac2:(t |- ctimed "cproject" t) in f ltac:(cproject_untimed H v).
 
   (** [cweaken] proves [ComplexityBound f c] from the bound of [f] found by
       typeclass search (an instance), when [c] is larger. *)

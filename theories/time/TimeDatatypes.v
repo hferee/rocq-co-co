@@ -59,9 +59,9 @@ Module Type BoolCaseTimeCostModel
       evaluated. [if] and every match on a boolean are compiled to it. *)
   #[global] Declare Instance bool_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@bool_case E A)
-      (fun ct : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
-       fun cf : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
-       fun cb : ℂI (E -> bool) (ℂI E CE -> ℂO unit) => c_clo ⋉
+      (fun ct : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun cf : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun cb : ℂI (E -> bool) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_bool ⊕ cost (pot cb ce) ⊕
          if val cb (val ce) then pot ct ce else pot cf ce).
 End BoolCaseTimeCostModel.
@@ -103,7 +103,7 @@ Module Type NatCtorTimeCostModel
   Parameter c_S : nat.
   #[global] Hint Unfold c_S : costs.
 
-  Parameter S_complexity : ComplexityBound S (fun x => c_S ⋉ tt).
+  Parameter S_complexity : ComplexityBound S (fun x => c_S >|).
   Existing Instance S_complexity.
 End NatCtorTimeCostModel.
 
@@ -119,9 +119,9 @@ Module Type NatCaseTimeCostModel
       Recursion is covered by the generic fixpoint axiom of [TimeFix]. *)
   #[global] Declare Instance nat_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@nat_case E A)
-      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
-       fun cs : ℂI (env E nat -> A) (ℂI (env E nat) (CE * unit) -> ℂO CA) => c_clo ⋉
-       fun cn : ℂI (E -> nat) (ℂI E CE -> ℂO unit) => c_clo ⋉
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun cs : ℂI (env E nat -> A) (ℂI (env E nat) (CE * unit) -> ℂO CA) => c_clo +>
+       fun cn : ℂI (E -> nat) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_nat ⊕ cost (pot cn ce) ⊕
          match val cn (val ce) with
          | O => pot cz ce
@@ -177,8 +177,8 @@ Module Type ListCtorTimeCostModel
 
   #[global] Declare Instance cons_complexity: forall {A : Type} `{Ground A},
     ComplexityBound (@cons A)
-                    (fun h => c_clo ⋉ (
-                     fun t => c_cons ⋉ tt)).
+                    (fun h => c_clo +> (
+                     fun t => c_cons >|)).
 End ListCtorTimeCostModel.
 
 Module Type ListCaseTimeCostModel
@@ -193,10 +193,10 @@ Module Type ListCaseTimeCostModel
   #[global] Declare Instance list_case_complexity :
     forall {X E CE A CA} `{Ground X} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@list_case X E A)
-      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cc : ℂI (env (env E X) (list X) -> A)
-                   (ℂI (env (env E X) (list X)) ((CE * unit) * unit) -> ℂO CA) => c_clo ⋉
-       fun cl : ℂI (E -> list X) (ℂI E CE -> ℂO unit) => c_clo ⋉
+                   (ℂI (env (env E X) (list X)) ((CE * unit) * unit) -> ℂO CA) => c_clo +>
+       fun cl : ℂI (E -> list X) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_list ⊕ cost (pot cl ce) ⊕
          match val cl (val ce) with
          | nil => pot cz ce
@@ -237,7 +237,7 @@ Module Type OptionCtorTimeCostModel
   #[global] Hint Unfold c_Some : costs.
 
   #[global] Declare Instance Some_complexity : forall {A} `{Ground A},
-    ComplexityBound (@Some A) (fun _ => c_Some ⋉ tt).
+    ComplexityBound (@Some A) (fun _ => c_Some >|).
 End OptionCtorTimeCostModel.
 
 Module Type OptionCaseTimeCostModel
@@ -250,9 +250,9 @@ Module Type OptionCaseTimeCostModel
   #[global] Declare Instance option_case_complexity :
     forall {X E CE A CA} `{Ground X} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@option_case X E A)
-      (fun cs : ℂI (env E X -> A) (ℂI (env E X) (CE * unit) -> ℂO CA) => c_clo ⋉
-       fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
-       fun co : ℂI (E -> option X) (ℂI E CE -> ℂO unit) => c_clo ⋉
+      (fun cs : ℂI (env E X -> A) (ℂI (env E X) (CE * unit) -> ℂO CA) => c_clo +>
+       fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun co : ℂI (E -> option X) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_option ⊕ cost (pot co ce) ⊕
          match val co (val ce) with
          | Some x => pot cs (ECons (val ce) x ⋊ (pot ce, tt))
@@ -293,7 +293,7 @@ Module Type ProdCtorTimeCostModel
   #[global] Hint Unfold c_pair : costs.
 
   #[global] Declare Instance pair_complexity : forall {A B} `{Ground A} `{Ground B},
-    ComplexityBound (@pair A B) (fun _ => c_clo ⋉ fun _ => c_pair ⋉ tt).
+    ComplexityBound (@pair A B) (fun _ => c_clo +> fun _ => c_pair >|).
 End ProdCtorTimeCostModel.
 
 Module Type ProdCaseTimeCostModel
@@ -307,8 +307,8 @@ Module Type ProdCaseTimeCostModel
     forall {X Y E CE A CA} `{Ground X} `{Ground Y} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@prod_case X Y E A)
       (fun cf : ℂI (env (env E X) Y -> A) (ℂI (env (env E X) Y) ((CE * unit) * unit) -> ℂO CA) =>
-         c_clo ⋉
-       fun cp : ℂI (E -> X * Y) (ℂI E CE -> ℂO unit) => c_clo ⋉
+         c_clo +>
+       fun cp : ℂI (E -> X * Y) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_prod ⊕ cost (pot cp ce) ⊕
          let (x, y) := val cp (val ce) in
          pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, tt), tt))).
@@ -377,13 +377,13 @@ Module Type ZCtorTimeCostModel
   Parameter c_ctor_Z : nat.
   #[global] Hint Unfold c_ctor_Z : costs.
 
-  #[global] Declare Instance xI_complexity : ComplexityBound xI (fun _ => c_ctor_Z ⋉ tt).
-  #[global] Declare Instance xO_complexity : ComplexityBound xO (fun _ => c_ctor_Z ⋉ tt).
-  #[global] Declare Instance Npos_complexity : ComplexityBound Npos (fun _ => c_ctor_Z ⋉ tt).
-  #[global] Declare Instance Zpos_complexity : ComplexityBound Zpos (fun _ => c_ctor_Z ⋉ tt).
-  #[global] Declare Instance Zneg_complexity : ComplexityBound Zneg (fun _ => c_ctor_Z ⋉ tt).
+  #[global] Declare Instance xI_complexity : ComplexityBound xI (fun _ => c_ctor_Z >|).
+  #[global] Declare Instance xO_complexity : ComplexityBound xO (fun _ => c_ctor_Z >|).
+  #[global] Declare Instance Npos_complexity : ComplexityBound Npos (fun _ => c_ctor_Z >|).
+  #[global] Declare Instance Zpos_complexity : ComplexityBound Zpos (fun _ => c_ctor_Z >|).
+  #[global] Declare Instance Zneg_complexity : ComplexityBound Zneg (fun _ => c_ctor_Z >|).
   #[global] Declare Instance Qmake_complexity :
-    ComplexityBound Qmake (fun _ => c_clo ⋉ fun _ => c_ctor_Z ⋉ tt).
+    ComplexityBound Qmake (fun _ => c_clo +> fun _ => c_ctor_Z >|).
 End ZCtorTimeCostModel.
 
 Module Type ZCaseTimeCostModel
@@ -395,10 +395,10 @@ Module Type ZCaseTimeCostModel
 
   #[global] Declare Instance positive_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@positive_case E A)
-      (fun cI : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo ⋉
-       fun cO : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo ⋉
-       fun cH : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
-       fun cp : ℂI (E -> positive) (ℂI E CE -> ℂO unit) => c_clo ⋉
+      (fun cI : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
+       fun cO : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
+       fun cH : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun cp : ℂI (E -> positive) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_Z ⊕ cost (pot cp ce) ⊕
          match val cp (val ce) with
          | xI q => pot cI (ECons (val ce) q ⋊ (pot ce, tt))
@@ -408,9 +408,9 @@ Module Type ZCaseTimeCostModel
 
   #[global] Declare Instance N_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@N_case E A)
-      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
-       fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo ⋉
-       fun cn : ℂI (E -> N) (ℂI E CE -> ℂO unit) => c_clo ⋉
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
+       fun cn : ℂI (E -> N) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_Z ⊕ cost (pot cn ce) ⊕
          match val cn (val ce) with
          | N0 => pot cz ce
@@ -419,10 +419,10 @@ Module Type ZCaseTimeCostModel
 
   #[global] Declare Instance Z_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@Z_case E A)
-      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
-       fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo ⋉
-       fun cn : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo ⋉
-       fun cx : ℂI (E -> Z) (ℂI E CE -> ℂO unit) => c_clo ⋉
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
+       fun cn : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
+       fun cx : ℂI (E -> Z) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_Z ⊕ cost (pot cx ce) ⊕
          match val cx (val ce) with
          | Z0 => pot cz ce
@@ -432,10 +432,10 @@ Module Type ZCaseTimeCostModel
 
   #[global] Declare Instance comparison_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@comparison_case E A)
-      (fun cq : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
-       fun cl : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
-       fun cg : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo ⋉
-       fun cc : ℂI (E -> comparison) (ℂI E CE -> ℂO unit) => c_clo ⋉
+      (fun cq : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun cl : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun cg : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun cc : ℂI (E -> comparison) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_Z ⊕ cost (pot cc ce) ⊕
          match val cc (val ce) with
          | Eq => pot cq ce
@@ -446,8 +446,8 @@ Module Type ZCaseTimeCostModel
   #[global] Declare Instance Q_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@Q_case E A)
       (fun cf : ℂI (env (env E Z) positive -> A)
-                   (ℂI (env (env E Z) positive) ((CE * unit) * unit) -> ℂO CA) => c_clo ⋉
-       fun cq : ℂI (E -> Q) (ℂI E CE -> ℂO unit) => c_clo ⋉
+                   (ℂI (env (env E Z) positive) ((CE * unit) * unit) -> ℂO CA) => c_clo +>
+       fun cq : ℂI (E -> Q) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_Z ⊕ cost (pot cq ce) ⊕
          match val cq (val ce) with
          | Qmake n d => pot cf (ECons (ECons (val ce) n) d ⋊ ((pot ce, tt), tt))

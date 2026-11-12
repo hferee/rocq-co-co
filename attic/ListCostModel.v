@@ -31,8 +31,8 @@ Module Type ListTimeCostModel
 
   Parameter cons_complexity: forall {A CA : Type},
     ComplexityBound (@cons A)
-                    (fun (h : ℂI A CA) => 1 ⋉ (
-                     fun (t : ℂI (list A) (list CA)) => 1 ⋉ (icomp h :: icomp t))).
+                    (fun (h : ℂI A CA) => 1 +> (
+                     fun (t : ℂI (list A) (list CA)) => 1 +> (icomp h :: icomp t))).
   Global Existing Instance cons_complexity.
 
   Parameter list_match_complexity:
@@ -70,7 +70,7 @@ Module Type ListTimeExamples
 
   (** ** List tail *)
   Instance complexity_tl {A CA} :
-    ComplexityBound (@tl A) (fun (lc : ℂI (list A) (list CA)) => 3 ⋉ (tl (icomp lc))).
+    ComplexityBound (@tl A) (fun (lc : ℂI (list A) (list CA)) => 3 +> (tl (icomp lc))).
   Proof.
     unfold tl.
     capply.

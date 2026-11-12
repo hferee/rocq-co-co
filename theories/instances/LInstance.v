@@ -35,6 +35,9 @@ From Stdlib Require Import List ZArith QArith FunctionalExtensionality.
 From Complexity Require Export TimeCostModel.
 From Undecidability.L Require Import Util.L_facts.
 Import HOAS_Notations.
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
+
 Local Open Scope nat_scope.
 Unset Implicit Arguments.
 
@@ -541,7 +544,7 @@ Module LBT <: BasicTimeCostModel LCM.
   Definition c_step := 1.
 
   Lemma id_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (fun (x : A) => x) (fun ca => (1 ⋉ pot ca) : ℂO CA).
+      ComplexityBound (fun (x : A) => x) (fun ca => (1 +> pot ca) : ℂO CA).
   Proof.
     intros A CA R. apply has_complexity_bound. exists Ic_r. intro k. Lfun. Lstep. Lend Ha.
   Qed.
@@ -582,7 +585,7 @@ Module LBT <: BasicTimeCostModel LCM.
 
   Lemma constant_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB} b {cb},
       ComplexityBound (b : B) (cb : CB) ->
-      ComplexityBound (fun (_ : A) => b) (fun _ => 1 ⋉ cb).
+      ComplexityBound (fun (_ : A) => b) (fun _ => 1 +> cb).
   Proof.
     intros A B CA CB RA RB b cb [sb Hb]%complexity_bound_has. apply has_complexity_bound.
     exists (lam sb). intro k. pose proof (rl_proc (Hb 0)).
@@ -604,7 +607,7 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
     env_repr RE RA.
 
   Lemma ehd_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
-    ComplexityBound (@ehd E A) (fun ce => 1 ⋉ snd (pot ce)).
+    ComplexityBound (@ehd E A) (fun ce => 1 +> snd (pot ce)).
   Proof.
     intros. apply has_complexity_bound. exists ehd_r. intro k. Lfun.
     destruct Ha as (r1 & r2 & -> & Hr1 & Hr2). pose proof (rl_proc Hr1). pose proof (rl_proc Hr2).
@@ -612,7 +615,7 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
   Qed.
 
   Lemma etl_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
-    ComplexityBound (@etl E A) (fun ce => 1 ⋉ fst (pot ce)).
+    ComplexityBound (@etl E A) (fun ce => 1 +> fst (pot ce)).
   Proof.
     intros. apply has_complexity_bound. exists etl_r. intro k. Lfun.
     destruct Ha as (r1 & r2 & -> & Hr1 & Hr2). pose proof (rl_proc Hr1). pose proof (rl_proc Hr2).
@@ -621,8 +624,8 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
 
   Lemma Lam_complexity : forall {E CE A CA B CB} `{Repr E CE} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Lam E A B)
-      (fun cc : ℂI (env E A -> B) (ℂI (env E A) (CE * CA) -> ℂO CB) => 1 ⋉
-       fun ce : ℂI E CE => 1 ⋉
+      (fun cc : ℂI (env E A -> B) (ℂI (env E A) (CE * CA) -> ℂO CB) => 1 +>
+       fun ce : ℂI E CE => 1 +>
        fun ca : ℂI A CA => 1 ⊕ pot <$> cc · (ECons (val ce) (val ca) ⋊ (pot ce, pot ca))).
   Proof.
     intros. apply has_complexity_bound. exists Lam_r. intro k. Lfun. Lstep. Lfun. Lstep. Lfun.
@@ -633,21 +636,21 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
   Qed.
 
   Lemma Kc_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB},
-      ComplexityBound (@Kc A B) (fun ca => 1 ⋉ (fun _ => 1 ⋉ pot ca)).
+      ComplexityBound (@Kc A B) (fun ca => 1 +> (fun _ => 1 +> pot ca)).
   Proof.
     intros. apply has_complexity_bound. exists Kc_r. intro k. Lfun. Lstep. Lfun. Lstep. Lend Ha.
   Qed.
 
   Lemma Ic_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@Ic A) (fun ca => 1 ⋉ pot ca).
+      ComplexityBound (@Ic A) (fun ca => 1 +> pot ca).
   Proof.
     intros. apply has_complexity_bound. exists Ic_r. intro k. Lfun. Lstep. Lend Ha.
   Qed.
 
   Lemma compose_hcomplexity : forall {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC},
     ComplexityBound (@compose A B C)
-      (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 1 ⋉
-       fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => 1 ⋉
+      (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 1 +>
+       fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => 1 +>
        fun ca : ℂI A CA => 1 ⊕ pot <$> cf · (cg · ca)).
   Proof.
     intros. apply has_complexity_bound. exists compose_r. intro k. Lfun. Lstep. Lfun. Lstep. Lfun.
@@ -657,8 +660,8 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
 
   Lemma Cc_complexity : forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Cc X A B)
-      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
-       fun ca : ℂI A CA => 1 ⋉
+      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 +>
+       fun ca : ℂI A CA => 1 +>
        fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · ca).
   Proof.
     intros. apply has_complexity_bound. exists Cc_r. intro k. Lfun. Lstep. Lfun. Lstep. Lfun.
@@ -668,8 +671,8 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
 
   Lemma Sc_complexity : forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Sc X A B)
-      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 ⋉
-       fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => 1 ⋉
+      (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 +>
+       fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => 1 +>
        fun cx : ℂI X CX => 1 ⊕ pot <$> cf · cx · (cg · cx)).
   Proof.
     intros. apply has_complexity_bound. exists Sc_r. intro k. Lfun. Lstep. Lfun. Lstep. Lfun.
@@ -700,16 +703,16 @@ Module LNT <: NatTimeCostModel LCM LBT LCB.
     intro n. apply has_complexity_bound. exists (nat_enc' n). intro k. reflexivity.
   Qed.
 
-  Lemma S_complexity : ComplexityBound S (fun x => 1 ⋉ tt).
+  Lemma S_complexity : ComplexityBound S (fun x => 1 >|).
   Proof.
     apply has_complexity_bound. exists (lam (lam (lam (app (var 0) (var 2))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
   Lemma nat_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@nat_case E A)
-      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
-       fun cs : ℂI (env E nat -> A) (ℂI (env E nat) (CE * unit) -> ℂO CA) => 1 ⋉
-       fun cn : ℂI (E -> nat) (ℂI E CE -> ℂO unit) => 1 ⋉
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun cs : ℂI (env E nat -> A) (ℂI (env E nat) (CE * unit) -> ℂO CA) => 1 +>
+       fun cn : ℂI (E -> nat) (ℂI E CE -> ℂO unit) => 1 +>
        fun ce : ℂI E CE => 1 ⊕ cost (pot cn ce) ⊕
          match val cn (val ce) with
          | O => pot cz ce
@@ -748,9 +751,9 @@ Module LBO <: BoolTimeCostModel LCM LBT LCB.
 
   Lemma bool_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@bool_case E A)
-      (fun ct : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
-       fun cf : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
-       fun cb : ℂI (E -> bool) (ℂI E CE -> ℂO unit) => 1 ⋉
+      (fun ct : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun cf : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun cb : ℂI (E -> bool) (ℂI E CE -> ℂO unit) => 1 +>
        fun ce : ℂI E CE => 1 ⊕ cost (pot cb ce) ⊕
          if val cb (val ce) then pot ct ce else pot cf ce).
   Proof.
@@ -786,8 +789,8 @@ Module LLM <: ListTimeCostModel LCM LBT LCB.
 
   Lemma cons_complexity : forall {A : Type} `{Ground A},
       ComplexityBound (@cons A)
-                      (fun h => 1 ⋉ ( 
-                       fun t => 1 ⋉ tt)).
+                      (fun h => 1 +> ( 
+                       fun t => 1 >|)).
   Proof.
     intros A RA. apply has_complexity_bound.
     exists (lam (lam (lam (lam (app (app (var 0) (var 3)) (var 2)))))). intro k.
@@ -799,10 +802,10 @@ Module LLM <: ListTimeCostModel LCM LBT LCB.
 
   Lemma list_case_complexity : forall {X E CE A CA} `{Ground X} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@list_case X E A)
-      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
        fun cc : ℂI (env (env E X) (list X) -> A)
-                   (ℂI (env (env E X) (list X)) ((CE * unit) * unit) -> ℂO CA) => 1 ⋉
-       fun cl : ℂI (E -> list X) (ℂI E CE -> ℂO unit) => 1 ⋉
+                   (ℂI (env (env E X) (list X)) ((CE * unit) * unit) -> ℂO CA) => 1 +>
+       fun cl : ℂI (E -> list X) (ℂI E CE -> ℂO unit) => 1 +>
        fun ce : ℂI E CE => 1 ⊕ cost (pot cl ce) ⊕
          match val cl (val ce) with
          | nil => pot cz ce
@@ -846,7 +849,7 @@ Module LOM <: OptionTimeCostModel LCM LBT LCB.
   Qed.
 
   Lemma Some_complexity : forall {A} `{Ground A},
-      ComplexityBound (@Some A) (fun _ => 1 ⋉ tt).
+      ComplexityBound (@Some A) (fun _ => 1 >|).
   Proof.
     intros A RA. apply has_complexity_bound. exists (lam (lam (lam (app (var 1) (var 2))))). intro k.
     Lfun. destruct c. Lstep. cbn [rl Repr_option option_repr option_rl].
@@ -855,9 +858,9 @@ Module LOM <: OptionTimeCostModel LCM LBT LCB.
 
   Lemma option_case_complexity : forall {X E CE A CA} `{Ground X} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@option_case X E A)
-      (fun cs : ℂI (env E X -> A) (ℂI (env E X) (CE * unit) -> ℂO CA) => 1 ⋉
-       fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
-       fun co : ℂI (E -> option X) (ℂI E CE -> ℂO unit) => 1 ⋉
+      (fun cs : ℂI (env E X -> A) (ℂI (env E X) (CE * unit) -> ℂO CA) => 1 +>
+       fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun co : ℂI (E -> option X) (ℂI E CE -> ℂO unit) => 1 +>
        fun ce : ℂI E CE => 1 ⊕ cost (pot co ce) ⊕
          match val co (val ce) with
          | Some x => pot cs (ECons (val ce) x ⋊ (pot ce, tt))
@@ -893,7 +896,7 @@ Module LPM <: ProdTimeCostModel LCM LBT LCB.
   Proof. intros. cbv. lia. Qed.
 
   Lemma pair_complexity : forall {A B} `{Ground A} `{Ground B},
-      ComplexityBound (@pair A B) (fun _ => 1 ⋉ fun _ => 1 ⋉ tt).
+      ComplexityBound (@pair A B) (fun _ => 1 +> fun _ => 1 >|).
   Proof.
     intros A B RA RB. apply has_complexity_bound.
     exists (lam (lam (lam (app (app (var 0) (var 2)) (var 1))))). intro k.
@@ -907,8 +910,8 @@ Module LPM <: ProdTimeCostModel LCM LBT LCB.
     forall {X Y E CE A CA} `{Ground X} `{Ground Y} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@prod_case X Y E A)
       (fun cf : ℂI (env (env E X) Y -> A) (ℂI (env (env E X) Y) ((CE * unit) * unit) -> ℂO CA) =>
-         1 ⋉
-       fun cp : ℂI (E -> X * Y) (ℂI E CE -> ℂO unit) => 1 ⋉
+         1 +>
+       fun cp : ℂI (E -> X * Y) (ℂI E CE -> ℂO unit) => 1 +>
        fun ce : ℂI E CE => 1 ⊕ cost (pot cp ce) ⊕
          let (x, y) := val cp (val ce) in
          pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, tt), tt))).
@@ -998,42 +1001,42 @@ Module LZM <: ZTimeCostModel LCM LBT LCB.
     intro x. apply has_complexity_bound. exists (comp_enc x). intro k. reflexivity.
   Qed.
 
-  Lemma xI_complexity : ComplexityBound xI (fun _ => 1 ⋉ tt).
+  Lemma xI_complexity : ComplexityBound xI (fun _ => 1 >|).
   Proof.
     apply has_complexity_bound. exists (lam (lam (lam (lam (app (var 2) (var 3)))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma xO_complexity : ComplexityBound xO (fun _ => 1 ⋉ tt).
+  Lemma xO_complexity : ComplexityBound xO (fun _ => 1 >|).
   Proof.
     apply has_complexity_bound. exists (lam (lam (lam (lam (app (var 1) (var 3)))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma Npos_complexity : ComplexityBound Npos (fun _ => 1 ⋉ tt).
+  Lemma Npos_complexity : ComplexityBound Npos (fun _ => 1 >|).
   Proof.
     apply has_complexity_bound. exists (lam (lam (lam (app (var 0) (var 2))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma Zpos_complexity : ComplexityBound Zpos (fun _ => 1 ⋉ tt).
+  Lemma Zpos_complexity : ComplexityBound Zpos (fun _ => 1 >|).
   Proof.
     apply has_complexity_bound. exists (lam (lam (lam (lam (app (var 1) (var 3)))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma Zneg_complexity : ComplexityBound Zneg (fun _ => 1 ⋉ tt).
+  Lemma Zneg_complexity : ComplexityBound Zneg (fun _ => 1 >|).
   Proof.
     apply has_complexity_bound. exists (lam (lam (lam (lam (app (var 0) (var 3)))))). intro k. Lfun. Lstep. Lground.
   Qed.
 
-  Lemma Qmake_complexity : ComplexityBound Qmake (fun _ => 1 ⋉ fun _ => 1 ⋉ tt).
+  Lemma Qmake_complexity : ComplexityBound Qmake (fun _ => 1 +> fun _ => 1 >|).
   Proof.
     apply has_complexity_bound. exists (lam (lam (lam (app (app (var 0) (var 2)) (var 1))))). intro k. Lfun. Lstep. Lfun. Lstep. Lground.
   Qed.
 
   Lemma positive_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@positive_case E A)
-      (fun cI : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 ⋉
-       fun cO : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 ⋉
-       fun cH : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
-       fun cp : ℂI (E -> positive) (ℂI E CE -> ℂO unit) => 1 ⋉
+      (fun cI : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 +>
+       fun cO : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 +>
+       fun cH : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun cp : ℂI (E -> positive) (ℂI E CE -> ℂO unit) => 1 +>
        fun ce : ℂI E CE => 1 ⊕ cost (pot cp ce) ⊕
          match val cp (val ce) with
          | xI q => pot cI (ECons (val ce) q ⋊ (pot ce, tt))
@@ -1062,9 +1065,9 @@ Module LZM <: ZTimeCostModel LCM LBT LCB.
 
   Lemma N_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@N_case E A)
-      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
-       fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 ⋉
-       fun cn : ℂI (E -> N) (ℂI E CE -> ℂO unit) => 1 ⋉
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 +>
+       fun cn : ℂI (E -> N) (ℂI E CE -> ℂO unit) => 1 +>
        fun ce : ℂI E CE => 1 ⊕ cost (pot cn ce) ⊕
          match val cn (val ce) with
          | N0 => pot cz ce
@@ -1086,10 +1089,10 @@ Module LZM <: ZTimeCostModel LCM LBT LCB.
 
   Lemma Z_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@Z_case E A)
-      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
-       fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 ⋉
-       fun cn : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 ⋉
-       fun cx : ℂI (E -> Z) (ℂI E CE -> ℂO unit) => 1 ⋉
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 +>
+       fun cn : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => 1 +>
+       fun cx : ℂI (E -> Z) (ℂI E CE -> ℂO unit) => 1 +>
        fun ce : ℂI E CE => 1 ⊕ cost (pot cx ce) ⊕
          match val cx (val ce) with
          | Z0 => pot cz ce
@@ -1118,10 +1121,10 @@ Module LZM <: ZTimeCostModel LCM LBT LCB.
 
   Lemma comparison_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@comparison_case E A)
-      (fun cq : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
-       fun cl : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
-       fun cg : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 ⋉
-       fun cc : ℂI (E -> comparison) (ℂI E CE -> ℂO unit) => 1 ⋉
+      (fun cq : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun cl : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun cg : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun cc : ℂI (E -> comparison) (ℂI E CE -> ℂO unit) => 1 +>
        fun ce : ℂI E CE => 1 ⊕ cost (pot cc ce) ⊕
          match val cc (val ce) with
          | Eq => pot cq ce
@@ -1141,8 +1144,8 @@ Module LZM <: ZTimeCostModel LCM LBT LCB.
   Lemma Q_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@Q_case E A)
       (fun cf : ℂI (env (env E Z) positive -> A)
-                   (ℂI (env (env E Z) positive) ((CE * unit) * unit) -> ℂO CA) => 1 ⋉
-       fun cq : ℂI (E -> Q) (ℂI E CE -> ℂO unit) => 1 ⋉
+                   (ℂI (env (env E Z) positive) ((CE * unit) * unit) -> ℂO CA) => 1 +>
+       fun cq : ℂI (E -> Q) (ℂI E CE -> ℂO unit) => 1 +>
        fun ce : ℂI E CE => 1 ⊕ cost (pot cq ce) ⊕
          match val cq (val ce) with
          | Qmake n d => pot cf (ECons (ECons (val ce) n) d ⋊ ((pot ce, tt), tt))

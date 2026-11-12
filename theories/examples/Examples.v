@@ -17,6 +17,9 @@
 
 From Complexity Require Import TimeCostModel.
 
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
+
 Definition slow_id (n : nat) : nat := Nat.iter (2 ^ n) (fun x => x) n.
 
 Lemma slow_id_id n : slow_id n = n.
@@ -35,7 +38,7 @@ Module Examples (Import Time : TimeCostModel).
       convertible terms. A thousand iterations of the identity cost as much
       as the identity. *)
   Example iter_conv : Time.ComplexityBound (fun n : nat => Nat.iter 1000 (fun x => x) n)
-    (fun cn => 1 ⋉ pot cn).
+    (fun cn => 1 +> pot cn).
   Proof. exact (@id_complexity nat unit _). Qed.
 
   (** ** Extensionality
@@ -48,13 +51,13 @@ Module Examples (Import Time : TimeCostModel).
     Time.ComplexityBound f (fun ca => 2 ⊕ cg ca).
   Proof.
     intros Hfg Hg.
-    eapply (fix_complexity ar f (fun _ => g) (fun _ => 1 ⋉ cg));
+    eapply (fix_complexity ar f (fun _ => g) (fun _ => 1 +> cg));
       [cfix_pos | exact Hfg | apply constant_complexity, Hg |].
     apply bound_order_arr. intro ca. cbn. split; [autounfold with costs; lia | reflexivity].
   Qed.
 
   (** [slow_id n] takes [2 ^ n] steps, but it is the identity. *)
-  Lemma slow_id_complexity : Time.ComplexityBound slow_id (fun _ => 3 ⋉ tt).
+  Lemma slow_id_complexity : Time.ComplexityBound slow_id (fun _ => 3 >|).
   Proof.
     capply. apply (complexity_ext (ar_val nat) slow_id (fun n => n)).
     - exact slow_id_id.
@@ -67,11 +70,11 @@ Module Examples (Import Time : TimeCostModel).
       [tower n x] performs [2 ^ n] compositions. Building [tower n] costs a
       linear number of steps, but applying it costs [3 * 2 ^ n - 1]. *)
   Global Instance tower_complexity : Time.ComplexityBound tower
-    (fun cn => (17 * val cn + 6) ⋉
-     fun cx => (2 * 2 ^ val cn - 1) ⋉ tt).
+    (fun cn => (17 * val cn + 6) +>
+     fun cx => (2 * 2 ^ val cn - 1) >|).
   Proof. cbound. all: assert (2 ^ cn <> 0) by (apply Nat.pow_nonzero; lia); lia. Qed.
 
   Lemma tower_eval_complexity : Time.ComplexityBound tower_eval
-    (fun cn => (17 * val cn + 2 * 2 ^ val cn + 8) ⋉ tt).
+    (fun cn => (17 * val cn + 2 * 2 ^ val cn + 8) >|).
   Proof. cbound. all: assert (2 ^ cn <> 0) by (apply Nat.pow_nonzero; lia); lia. Qed.
 End Examples.

@@ -56,3 +56,6 @@ examples/deque/_deps
 
 # documentation (make doc)
 html/
+
+# Python bytecode (tools/bounds)
+__pycache__/

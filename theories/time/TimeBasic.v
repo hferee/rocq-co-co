@@ -30,7 +30,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     A priori, this is not the case for coq-library-complexity. *)
   (* Note that the complexity of the identity is roughly the identity *)
   #[global] Declare Instance id_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (fun (x : A) => x) (fun ca => (c_step ⋉ pot ca) : ℂO CA).
+    ComplexityBound (fun (x : A) => x) (fun ca => (c_step +> pot ca) : ℂO CA).
 
   (* Note : we are using the unfolding of [@id A] here so that typeclass
     resolution works *)
@@ -54,7 +54,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   #[global] Declare Instance constant_complexity :
     forall {A B CA CB} `{Repr A CA} `{Repr B CB} b {cb},
     ComplexityBound (b : B) (cb : CB) ->
-    ComplexityBound (fun (_ : A) => b) (fun _ => c_step ⋉ cb).
+    ComplexityBound (fun (_ : A) => b) (fun _ => c_step +> cb).
 
   (** [tt]: the empty environment of closures, to which closed code is
       applied (see [Combinators]). *)

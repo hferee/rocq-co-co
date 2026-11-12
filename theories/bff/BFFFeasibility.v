@@ -28,6 +28,9 @@ From Complexity Require Export BFFComplexity SOPoly.
 From Stdlib Require Import NArith.
 From Stdlib Require List.
 Import List.ListNotations.
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
+
 Open Scope list_scope.
 
 (** ** Complexities *)
@@ -238,7 +241,7 @@ Module BFFFeasibility (Import Time : TimeCostModel).
       rewrite baseM_plus_t. split; [lia | apply maj_plus; assumption].
     - (* constant *)
       destruct (pv_hpoly σ c) as (cc & p & C & J).
-      exists (fun _ => 1 ⋉ cc), (tapp (tapp (plus_t σ) (tcst (hnum 1))) (wk p)). split.
+      exists (fun _ => 1 +> cc), (tapp (tapp (plus_t σ) (tcst (hnum 1))) (wk p)). split.
       + exact (@apply_complexity _ _ _ _ (repr σ) (Repr_arr (renv Γ) (repr σ)) (cinterp σ c) Kc cc _
                  C (@Kc_complexity _ _ _ _ (repr σ) (renv Γ))).
       + intros e ce me He.

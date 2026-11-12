@@ -20,18 +20,21 @@
     ** Reading a bound
 
     [Time.ComplexityBound f c] says that [c] bounds the cost of [f]. For a
-    function of one argument, [c] is a function [fun cn => k ⋉ r]: applying
+    function of one argument, [c] is a function [fun cn => k +> r]: applying
     [f] to the argument [n] costs at most [k] steps, and [r] bounds the
     result. In [k], [val cn] is the value of the argument [n]. A result that
-    is a number (or a boolean, a list, ...) has nothing more to bound: [r]
-    is [tt]. For example,
+    is a number (or a boolean, a list, ...) has nothing more to bound: the
+    bound is then [fun cn => k >|], and [k >|] reads: the cost [k], and
+    nothing after it. For example,
 <<
-      Time.ComplexityBound Nat.add (fun cn => 4 ⋉ fun cm => (22 * val cn + 6) ⋉ tt)
+      Time.ComplexityBound Nat.add (fun cn => 4 +> fun cm => 22 * val cn + 6 >|)
 >>
     says that applying [Nat.add] to [n] costs 4 steps (it builds the closure
     [Nat.add n]), and that applying [Nat.add n] to [m] costs at most
     [22 n + 6] steps. A function of two arguments has a bound of the form
-    [fun cn => k1 ⋉ fun cm => k2 ⋉ tt].
+    [fun cn => k1 +> fun cm => k2 >|]. [k +> r] reads: the cost [k],
+    then the costs of [r], when the result is used. [+>] and [>|] bind less
+    tightly than [+] and [*], so [22 * val cn + 6 >|] needs no parentheses.
 
     ** The method
 
@@ -59,6 +62,14 @@
     In a recursive case, the variables are those of the case: in the case
     [S n'] of an argument [n], the inequality is written with [n'].
 
+    The tactics stop after 2 seconds, with a message, if they have not
+    finished: [lia] and [nia] may search in vain on an inequality that does
+    not hold. For a larger function, increase the timeout (in seconds; [0]
+    for none):
+<<
+      Ltac2 Set ctimeout := 10.
+>>
+
     The tactics:
     - [cbound]: steps 2 and 3, for [ComplexityBound], [LinearBound],
       [PolynomialBound] and [ConstantBound];
@@ -80,7 +91,7 @@ Module Tutorial (Import Time : TimeStdlib).
 
   (** A case analysis on [n], and a constant in each branch. *)
   (* Replace 0 with the right bound *)
-  Lemma is_zero_complexity : Time.ComplexityBound is_zero (fun cn => 0 ⋉ tt).
+  Lemma is_zero_complexity : Time.ComplexityBound is_zero (fun cn => 0 >|).
   (* cbound will show what inequalities should be satisfied *)
   Abort.
 
@@ -92,7 +103,7 @@ Module Tutorial (Import Time : TimeStdlib).
   Definition pred2 (n : nat) : nat := match n with S (S k) => k | _ => 0 end.
 
   (** Two nested case analyses. Find the right constant *)
-  Lemma pred2_complexity : Time.ComplexityBound pred2 (fun cn => 0 ⋉ tt).
+  Lemma pred2_complexity : Time.ComplexityBound pred2 (fun cn => 0 >|).
   Abort.
 
   Definition choose (b : bool) (n m : nat) : nat := if b then n else m.
@@ -100,7 +111,7 @@ Module Tutorial (Import Time : TimeStdlib).
   (** Three arguments: one cost for each application. The first two only
       build closures. *)
   Lemma choose_complexity : Time.ComplexityBound choose
-    (fun cb => 0 ⋉ fun cn => 0 ⋉ fun cm => 0 ⋉ tt).
+    (fun cb => 0 +> fun cn => 0 +> fun cm => 0 >|).
   Abort.
 
   (** A function that calls a function of the library: [cbound] uses the
@@ -109,7 +120,7 @@ Module Tutorial (Import Time : TimeStdlib).
   Definition twice (n : nat) : nat := n + n.
 
   Lemma twice_complexity : Time.ComplexityBound twice
-    (fun cn => (0 * val cn + 0) ⋉ tt).
+    (fun cn => (0 * val cn + 0) >|).
   Abort.
 
   (** ** 2. Recursive functions
@@ -125,7 +136,7 @@ Module Tutorial (Import Time : TimeStdlib).
       constants for which [cbound] succeeds: with constants that are too
       small, [cbound] prints the case that fails, with the cost found. *)
   Lemma double_complexity : Time.ComplexityBound double
-    (fun cn => (0 * val cn + 0) ⋉ tt).
+    (fun cn => (0 * val cn + 0) >|).
   Abort.
 
   (** [quad] calls [double]. As long as [double_complexity] is not proved
@@ -140,7 +151,7 @@ Module Tutorial (Import Time : TimeStdlib).
   Definition quad (n : nat) : nat := double (double n).
 
   Lemma quad_complexity : Time.ComplexityBound quad
-    (fun cn => (0 * val cn + 0) ⋉ tt).
+    (fun cn => (0 * val cn + 0) >|).
   Abort.
 
   (** A function of the library that nobody has studied: [TimeStdlib]
@@ -152,7 +163,7 @@ Module Tutorial (Import Time : TimeStdlib).
       bound in [n] alone is enough:
 <<
       Global Instance Nat_max_complexity : Time.ComplexityBound Nat.max
-        (fun cn => 0 ⋉ fun cm => (0 * val cn + 0) ⋉ tt).
+        (fun cn => 0 +> fun cm => (0 * val cn + 0) >|).
 >>
       Then [cbound] proves the bound of [max3]: the cost of the outer call
       only depends on [a], its first argument, and the cost of the inner one
@@ -160,7 +171,7 @@ Module Tutorial (Import Time : TimeStdlib).
   Definition max3 (a b c : nat) : nat := Nat.max a (Nat.max b c).
 
   Lemma max3_complexity : Time.ComplexityBound max3
-    (fun ca => 0 ⋉ fun cb => 0 ⋉ fun cc => (0 * val ca + 0 * val cb + 0) ⋉ tt).
+    (fun ca => 0 +> fun cb => 0 +> fun cc => (0 * val ca + 0 * val cb + 0) >|).
   Abort.
 
   (** A recursion on a list. The cost of a step depends on the head of the
@@ -172,7 +183,7 @@ Module Tutorial (Import Time : TimeStdlib).
   Fixpoint sum (l : list nat) : nat := match l with [] => 0 | x :: t => x + sum t end.
 
   Lemma sum_complexity : Time.ComplexityBound sum
-    (fun cl => (0 * list_sum (val cl) + 0 * length (val cl) + 0) ⋉ tt).
+    (fun cl => (0 * list_sum (val cl) + 0 * length (val cl) + 0) >|).
   Abort.
 
   (** A recursion with an accumulator: the second argument changes at each
@@ -181,7 +192,7 @@ Module Tutorial (Import Time : TimeStdlib).
     match l with [] => acc | x :: t => rev_acc t (x :: acc) end.
 
   Lemma rev_acc_complexity : Time.ComplexityBound rev_acc
-    (fun cl => 0 ⋉ fun cacc => (0 * length (val cl) + 0) ⋉ tt).
+    (fun cl => 0 +> fun cacc => (0 * length (val cl) + 0) >|).
   Abort.
 
   (** ** 3. Mutually recursive functions
@@ -197,14 +208,14 @@ Module Tutorial (Import Time : TimeStdlib).
 
   Lemma even_odd_complexity :
     Time.ComplexityBound (fun b : bool => if b then even else odd)
-      (fun cb => 0 ⋉ fun cn => (0 * val cn + 0) ⋉ tt).
+      (fun cb => 0 +> fun cn => (0 * val cn + 0) >|).
   Abort.
 
   (** These need [even_odd_complexity], proved with [Qed]. *)
-  Lemma even_complexity : Time.ComplexityBound even (fun cn => (0 * val cn + 0) ⋉ tt).
+  Lemma even_complexity : Time.ComplexityBound even (fun cn => (0 * val cn + 0) >|).
   Abort.
 
-  Lemma odd_complexity : Time.ComplexityBound odd (fun cn => (0 * val cn + 0) ⋉ tt).
+  Lemma odd_complexity : Time.ComplexityBound odd (fun cn => (0 * val cn + 0) >|).
   Abort.
 
   (** ** 4. Bounds in the sizes of the arguments
@@ -222,8 +233,10 @@ Module Tutorial (Import Time : TimeStdlib).
   Abort.
 
   (** [mul2] adds [m] to itself [n] times: its cost is about [n * m], which
-      is not linear. Try [LinearBound mul2] to see [cbound] fail, then
-      prove the polynomial bound. *)
+      is not linear, so [mul2_linear] cannot be proved. [cbound] shows the
+      inequality that cannot hold, and says why: the cost found has degree
+      2 in the arguments, a linear bound degree 1. Then prove the polynomial
+      bound. *)
   Fixpoint mul2 (n m : nat) : nat := match n with O => O | S k => m + mul2 k m end.
 
   Lemma mul2_linear : Time.LinearBound mul2.
@@ -247,6 +260,6 @@ Module Tutorial (Import Time : TimeStdlib).
       instance, [csize] proves it. It takes that bound, [a * n + b], and
       checks that [a * n + b <= 20 * #|n| + 10] with [n < #|n|]. *)
   Lemma double_size : Time.ComplexityBound double
-    (fun (cn : ℂI nat _) => (20 * #|val cn| + 10) ⋉ tt).
+    (fun (cn : ℂI nat _) => (20 * #|val cn| + 10) >|).
   Abort.
 End Tutorial.

@@ -160,7 +160,7 @@ Ltac2 constant_constants () :=
 (** The same as [linear_constants] and [constant_constants], but the
     polynomial is instantiated whatever the degree of the costs: the
     inequalities that cannot hold are left, and explained
-    ([degree_advice]). For the tactics used by hand; the hints, which try
+    ([csolve_degree]). For the tactics used by hand; the hints, which try
     bounds that may not hold, use the failing versions. *)
 Ltac2 linear_constants_any () :=
   instantiate_poly (fun k _ n =>
@@ -171,29 +171,34 @@ Ltac2 linear_constants_any () :=
 Ltac2 constant_constants_any () :=
   instantiate_poly (fun k _ _ => let k := nat_constr k in constr:(pconst $k)).
 
-(** For each goal [cost <= bound] whose cost has a degree larger than
-    [deg], the degree of the bound: the inequality cannot hold for large
-    values of the arguments, whatever the constants. *)
-Ltac2 degree_advice (deg : int) (kind : string) : unit :=
+(** For each goal [cost <= bound]: if the degree of its cost is larger
+    than [deg], the degree of the bound, it cannot hold for large values of
+    the arguments, whatever the constants: it is left, and explained (and
+    not given to [nia], which would search for a proof forever); otherwise
+    [lia] or [nia] try to prove it. *)
+Ltac2 degree_message (g : constr) (d : int) (deg : int) (kind : string) : unit :=
+  Message.print (Advice.cat
+    [Message.of_string "The inequality "; Message.of_constr g; Message.of_string " cannot hold:";
+     Advice.nl (); Message.of_string "its left side, the cost found, has degree "; Message.of_int d;
+     Message.of_string " in the arguments, and its right side, a "; Message.of_string kind;
+     Message.of_string " bound, has degree "; Message.of_int deg; Message.of_string ".";
+     Advice.nl (); Message.of_string "For large arguments the left side is the larger, whatever the constants: the function has no ";
+     Message.of_string kind; Message.of_string " bound. Try a bound of a higher degree (PolynomialBound)."]).
+
+Ltac2 csolve_degree (deg : int) (kind : string) : unit :=
   Control.enter (fun () =>
-    match! goal with
-    | [ |- ?l <= _ ] =>
-        match Control.case (fun () => poly_of l) with
-        | Val ((_, d), _) =>
-            if Int.lt deg d then
-              let g := Control.goal () in
-              Message.print (Advice.cat
-                [Message.of_string "The inequality "; Message.of_constr g;
-                 Message.of_string " cannot hold:";
-                 Advice.nl (); Message.of_string "its left side, the cost found, has degree "; Message.of_int d;
-                 Message.of_string " in the arguments, and its right side, a "; Message.of_string kind;
-                 Message.of_string " bound, has degree "; Message.of_int deg; Message.of_string ".";
-                 Advice.nl (); Message.of_string "For large arguments the left side is the larger, whatever the constants: the function has no ";
-                 Message.of_string kind; Message.of_string " bound. Try a bound of a higher degree (PolynomialBound)."])
-            else ()
-        | Err _ => ()
-        end
-    | [ |- _ ] => ()
+    let high :=
+      match! goal with
+      | [ |- ?l <= _ ] =>
+          match Control.case (fun () => poly_of l) with
+          | Val ((_, d), _) => if Int.lt deg d then Some d else None
+          | Err _ => None
+          end
+      | [ |- _ ] => None
+      end in
+    match high with
+    | Some d => degree_message (Control.goal ()) d deg kind
+    | None => ltac1:(try solve [lia | nia])
     end).
 
 Ltac2 polynomial_constants () :=
@@ -232,7 +237,7 @@ Module Bounds (Import CM : CostModelCore).
     match fo in FirstOrder A CA return CA with
     | fo_res _ => tt
     | fo_arg _ SA fo => fun ca =>
-        g (ss ++ [size (Size := SA) (val ca)]) ⋉
+        g (ss ++ [size (Size := SA) (val ca)]) +>
         size_bound fo g (ss ++ [size (Size := SA) (val ca)])
     end.
 
@@ -318,12 +323,11 @@ Module Bounds (Import CM : CostModelCore).
 
   (** [clinear], [cconstant]: the same, but the polynomial is chosen
       whatever the costs, so that the inequalities that cannot hold are
-      shown, and explained ([degree_advice]). *)
-  Ltac clinear :=
+      shown, and explained ([csolve_degree]). *)
+  Ltac clinear_untimed :=
     unfold LinearBound; eexists; split; cycle 1;
     [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; linear_constants_any ()) in
-      split ltac:(cinstance); cbn [peval nth]; try solve [lia | nia];
-      ltac2:(degree_advice 1 "linear"); cadvice
+      split ltac:(cinstance); cbn [peval nth]; ltac2:(csolve_degree 1 "linear"); cadvice
     | cbn; lia ].
   Ltac clinear_using H := clinear_by ltac:(exact H).
 
@@ -333,11 +337,10 @@ Module Bounds (Import CM : CostModelCore).
       split tac; cbn [peval nth]; try solve [lia | nia]
     | reflexivity ].
   Ltac cconstant_core := cconstant_by ltac:(typeclasses eauto).
-  Ltac cconstant :=
+  Ltac cconstant_untimed :=
     unfold ConstantBound; eexists; split; cycle 1;
     [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; constant_constants_any ()) in
-      split ltac:(cinstance); cbn [peval nth]; try solve [lia | nia];
-      ltac2:(degree_advice 0 "constant"); cadvice
+      split ltac:(cinstance); cbn [peval nth]; ltac2:(csolve_degree 0 "constant"); cadvice
     | reflexivity ].
   Ltac cconstant_using H := cconstant_by ltac:(exact H).
 
@@ -347,12 +350,17 @@ Module Bounds (Import CM : CostModelCore).
     split tac;
     cbn [peval nth Nat.pow]; try solve [lia | nia].
   Ltac cpolynomial_core := cpolynomial_by ltac:(typeclasses eauto).
-  Ltac cpolynomial := cpolynomial_by ltac:(cinstance); cadvice.
+  Ltac cpolynomial_untimed := cpolynomial_by ltac:(cinstance); cadvice.
   Ltac cpolynomial_using H := cpolynomial_by ltac:(exact H).
 
   (** Bounds without an instance are derived from the bounds of
       [ComplexityBound] found by typeclass search, when [cconstant],
       [clinear] or [cpolynomial] proves them. *)
+  (** The same within the timeout ([ctimeout], [Advice]). *)
+  Ltac clinear := let f := ltac2:(t |- ctimed "clinear" t) in f ltac:(clinear_untimed).
+  Ltac cconstant := let f := ltac2:(t |- ctimed "cconstant" t) in f ltac:(cconstant_untimed).
+  Ltac cpolynomial := let f := ltac2:(t |- ctimed "cpolynomial" t) in f ltac:(cpolynomial_untimed).
+
   Global Hint Extern 10 (ConstantBound _) => solve [cconstant_core] : typeclass_instances.
   Global Hint Extern 10 (LinearBound _) => solve [clinear_core] : typeclass_instances.
   Global Hint Extern 10 (PolynomialBound _) => solve [cpolynomial_core] : typeclass_instances.

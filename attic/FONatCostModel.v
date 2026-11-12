@@ -81,7 +81,7 @@ Module Type NatTimeCostModel
   *)
   (* ComplexityBound (fix f n => | O => v | S p => g p (f p) ... ) cf
   
-    whenever bound_order (1 ⋉ v) (cf 0)
+    whenever bound_order (1 +> v) (cf 0)
     and      forall p, bound_order "eval g p (cf p)" (cf (S p))
    *)
 

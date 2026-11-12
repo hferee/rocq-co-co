@@ -12,15 +12,18 @@
     and partial applications slightly dearer.
 
     | function    | bracket abstraction      | closure conversion       |
-    | [Nat.add]   | [17 ⋉ 35 n + 14]         | [5 ⋉ 25 n + 6]           |
-    | [Nat.mul]   | [17 ⋉ n (35 m + 69) + 16] | [5 ⋉ n (25 m + 39) + 6] |
-    | [andb]      | [1 ⋉ 11]                 | [2 ⋉ 6]                  |
-    | [orb]       | [1 ⋉ 9]                  | [2 ⋉ 6]                  |
+    | [Nat.add]   | [17 +> 35 n + 14]         | [5 +> 25 n + 6]           |
+    | [Nat.mul]   | [17 +> n (35 m + 69) + 16] | [5 +> n (25 m + 39) + 6] |
+    | [andb]      | [1 +> 11]                 | [2 +> 6]                  |
+    | [orb]       | [1 +> 9]                  | [2 +> 6]                  |
     | [length]    | [16 len + 13]            | [17 len + 7]             |
     | [Pos.succ]  | [20 size]                | [15 size]                | *)
 
 From Complexity Require Import TimeCostModel BracketCompile.
 From Stdlib Require Import PArith.
+
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
 
 Module BracketComparison (Import Time : TimeCostModel).
 
@@ -33,28 +36,28 @@ Module BracketComparison (Import Time : TimeCostModel).
     cfinish.
 
   Lemma add_complexity : Time.ComplexityBound Nat.add
-    (fun cn => 17 ⋉ fun cm => (35 * val cn + 14) ⋉ tt).
+    (fun cn => 17 +> fun cm => (35 * val cn + 14) >|).
   Proof. bcbound. Qed.
   Existing Instance add_complexity.
 
   Lemma mul_complexity : Time.ComplexityBound Nat.mul
-    (fun cn => 17 ⋉ fun cm =>
-       (val cn * (35 * val cm + 69) + 16) ⋉ tt).
+    (fun cn => 17 +> fun cm =>
+       (val cn * (35 * val cm + 69) + 16) >|).
   Proof. bcbound. Qed.
 
   Lemma andb_complexity : Time.ComplexityBound andb
-    (fun ca => 1 ⋉ fun cb => 11 ⋉ tt).
+    (fun ca => 1 +> fun cb => 11 >|).
   Proof. bcbound. Qed.
 
   Lemma orb_complexity : Time.ComplexityBound orb
-    (fun ca => 1 ⋉ fun cb => 9 ⋉ tt).
+    (fun ca => 1 +> fun cb => 9 >|).
   Proof. bcbound. Qed.
 
   Lemma length_complexity {A} `{Ground A} : Time.ComplexityBound (@length A)
-    (fun cl => (16 * length (val cl) + 13) ⋉ tt).
+    (fun cl => (16 * length (val cl) + 13) >|).
   Proof. bcbound. Qed.
 
   Lemma succ_complexity : Time.ComplexityBound Pos.succ
-    (fun cp => (20 * Pos.size_nat (val cp)) ⋉ tt).
+    (fun cp => (20 * Pos.size_nat (val cp)) >|).
   Proof. bcbound. Qed.
 End BracketComparison.

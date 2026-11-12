@@ -112,7 +112,9 @@ def expand_abbreviations(files):
 
 def snapshot(root=None, rev=None):
     entries = []
-    for path, s in expand_abbreviations(list(sources(root, rev))):
+    # older trees write [⋉] for [+>] and [c +> tt] for [c >|]
+    files = [(p, coqsrc.normalise(s)) for p, s in sources(root, rev)]
+    for path, s in expand_abbreviations(files):
         if any(path.startswith(x) for x in CONFIG['exclude']): continue
         entries += bounds_of(path, s) + definitions_of(path, s) + majorants_of(path, s)
     return entries

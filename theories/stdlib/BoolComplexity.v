@@ -6,15 +6,18 @@
 
 From Complexity Require Export TimeCostModel.
 
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
+
 Module BoolComplexity (Import Time : TimeCostModel).
 
-  Global Instance negb_complexity : Time.ComplexityBound negb (fun cb => 3 ⋉ tt) := _.
+  Global Instance negb_complexity : Time.ComplexityBound negb (fun cb => 3 >|) := _.
 
   Global Instance andb_complexity : Time.ComplexityBound andb
-    (fun ca => 1 ⋉ fun cb => 4 ⋉ tt) := _.
+    (fun ca => 1 +> fun cb => 4 >|) := _.
 
   Global Instance orb_complexity : Time.ComplexityBound orb
-    (fun ca => 1 ⋉ fun cb => 4 ⋉ tt) := _.
+    (fun ca => 1 +> fun cb => 4 >|) := _.
 
   (** ** Bounds in the size of the arguments: constant *)
   Global Instance negb_constant_bound : Time.ConstantBound negb := _.

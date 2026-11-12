@@ -10,6 +10,9 @@ From Complexity Require Export TimeStdlib ETHAlgorithm.
 From Stdlib Require Import List.
 Import ListNotations.
 
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
+
 Module ETHCost (Import Time : TimeStdlib).
 
 
@@ -17,39 +20,39 @@ Module ETHCost (Import Time : TimeStdlib).
       [Nat.eqb], whose cost is linear in [x] (unary numbers); [orb] evaluates
       both arguments. *)
   Global Instance memN_complexity : Time.ComplexityBound memN
-    (fun cx => 4 ⋉ fun cl =>
-       (length (val cl) * (26 * val cx + 55) + 4) ⋉ tt) := _.
+    (fun cx => 4 +> fun cl =>
+       (length (val cl) * (26 * val cx + 55) + 4) >|) := _.
 
   Global Instance countN_complexity : Time.ComplexityBound countN
-    (fun cx => 4 ⋉ fun cl =>
-       (length (val cl) * (26 * val cx + 84) + 4) ⋉ tt) := _.
+    (fun cx => 4 +> fun cl =>
+       (length (val cl) * (26 * val cx + 84) + 4) >|) := _.
 
   (** `eqbN a b`: recursive on its first argument, matches the second one. *)
   Global Instance eqbN_complexity : Time.ComplexityBound eqbN
-    (fun ca => 4 ⋉ fun cb =>
-       (26 * list_sum (val ca) + 65 * length (val ca) + 8) ⋉ tt).
+    (fun ca => 4 +> fun cb =>
+       (26 * list_sum (val ca) + 65 * length (val ca) + 8) >|).
   Proof. cbound. all: unfold list_sum in *; lia. Qed.
 
   (** [insert_uniq x l]: the recursive call only happens in the last
       branch; its other branches return [l] itself. *)
   Global Instance insert_uniq_complexity : Time.ComplexityBound insert_uniq
-    (fun cx => 4 ⋉ fun cl =>
-       (length (val cl) * (52 * val cx + 113) + 10) ⋉ tt) := _.
+    (fun cx => 4 +> fun cl =>
+       (length (val cl) * (52 * val cx + 113) + 10) >|) := _.
 
   (** [range n = seq 0 n]: not recursive, it follows from [seq]. *)
   Global Instance range_complexity : Time.ComplexityBound range
-    (fun cn => (31 * val cn + 4) ⋉ tt) := _.
+    (fun cn => (31 * val cn + 4) >|) := _.
 
   (** [fold_left Nat.add]: the cost of each addition is linear in the
       accumulator, so the bound depends on the values. *)
   Global Instance fold_left_add_complexity : Time.ComplexityBound (fold_left Nat.add)
-    (fun cl => 4 ⋉ fun ca =>
-       (length (val cl) * (22 * (val ca + list_sum (val cl)) + 39) + 6) ⋉ tt).
+    (fun cl => 4 +> fun ca =>
+       (length (val cl) * (22 * (val ca + list_sum (val cl)) + 39) + 6) >|).
   Proof. cbound. all: unfold list_sum in *; nia. Qed.
 
   Global Instance sumN_complexity : Time.ComplexityBound sumN
     (fun cl =>
-       (length (val cl) * (22 * list_sum (val cl) + 39) + 13) ⋉ tt) := _.
+       (length (val cl) * (22 * list_sum (val cl) + 39) + 13) >|) := _.
   (** ** Bounds in the sizes of the arguments, with their constants
 
       The bounds above are in the values and lengths of the arguments;
@@ -58,37 +61,37 @@ Module ETHCost (Import Time : TimeStdlib).
 
   Lemma memN_size_complexity :
     Time.ComplexityBound memN
-      (fun (cx : ℂI nat _) => 4 ⋉ fun (cl : ℂI (list nat) _) => (#|val cl| * (26 * #|val cx| + 55) + 4) ⋉ tt).
+      (fun (cx : ℂI nat _) => 4 +> fun (cl : ℂI (list nat) _) => (#|val cl| * (26 * #|val cx| + 55) + 4) >|).
   Proof. csize_using memN_complexity. Qed.
 
   Lemma countN_size_complexity :
     Time.ComplexityBound countN
-      (fun (cx : ℂI nat _) => 4 ⋉ fun (cl : ℂI (list nat) _) => (#|val cl| * (26 * #|val cx| + 84) + 4) ⋉ tt).
+      (fun (cx : ℂI nat _) => 4 +> fun (cl : ℂI (list nat) _) => (#|val cl| * (26 * #|val cx| + 84) + 4) >|).
   Proof. csize_using countN_complexity. Qed.
 
   Lemma eqbN_size_complexity :
     Time.ComplexityBound eqbN
-      (fun (ca : ℂI (list nat) _) => 4 ⋉ fun cb => (26 * #|val ca| + 65 * #|val ca| + 8) ⋉ tt).
+      (fun (ca : ℂI (list nat) _) => 4 +> fun cb => (26 * #|val ca| + 65 * #|val ca| + 8) >|).
   Proof. csize_using eqbN_complexity. Qed.
 
   Lemma insert_uniq_size_complexity :
     Time.ComplexityBound insert_uniq
-      (fun (cx : ℂI nat _) => 4 ⋉ fun (cl : ℂI (list nat) _) => (#|val cl| * (52 * #|val cx| + 113) + 10) ⋉ tt).
+      (fun (cx : ℂI nat _) => 4 +> fun (cl : ℂI (list nat) _) => (#|val cl| * (52 * #|val cx| + 113) + 10) >|).
   Proof. csize_using insert_uniq_complexity. Qed.
 
   Lemma range_size_complexity :
     Time.ComplexityBound range
-      (fun (cn : ℂI nat _) => (31 * #|val cn| + 4) ⋉ tt).
+      (fun (cn : ℂI nat _) => (31 * #|val cn| + 4) >|).
   Proof. csize_using range_complexity. Qed.
 
   Lemma fold_left_add_size_complexity :
     Time.ComplexityBound (fold_left Nat.add)
-      (fun (cl : ℂI (list nat) _) => 4 ⋉ fun (ca : ℂI nat _) => (#|val cl| * (22 * (#|val ca| + #|val cl|) + 39) + 6) ⋉ tt).
+      (fun (cl : ℂI (list nat) _) => 4 +> fun (ca : ℂI nat _) => (#|val cl| * (22 * (#|val ca| + #|val cl|) + 39) + 6) >|).
   Proof. csize_using fold_left_add_complexity. Qed.
 
   Lemma sumN_size_complexity :
     Time.ComplexityBound sumN
-      (fun (cl : ℂI (list nat) _) => (#|val cl| * (22 * #|val cl| + 39) + 13) ⋉ tt).
+      (fun (cl : ℂI (list nat) _) => (#|val cl| * (22 * #|val cl| + 39) + 13) >|).
   Proof. csize_using sumN_complexity. Qed.
 
 End ETHCost.

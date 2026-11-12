@@ -8,6 +8,9 @@
 From Complexity Require Import ETHCost.
 From Stdlib Require Import List PArith.
 
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
+
 Module BoundExamples (Import Time : TimeStdlib).
 
   Module EC := ETHCost Time.

@@ -28,21 +28,32 @@ Arguments pot {_ _}.
 (** A cost with a result: the writer monad of costs. *)
 #[projections(primitive)]
 Record ℂO (C : Type) := { cost : nat; res : C }.
-Infix "⋉" := (Build_ℂO _) (at level 40).
+(** [c +> r]: the cost [c], then the result [r], whose costs come after
+    [c] (they are added to it when [r] is used). Below [+] and [*], so that
+    a cost needs no parentheses: [fun cn => 4 +> fun cm => 22 * val cn + 6 >|]. *)
+Notation "c +> r" := (Build_ℂO _ c r) (at level 55, right associativity).
+(** [c >|]: the cost [c], and nothing after it: [Build_ℂO _ c tt], the
+    end of a bound whose result is ground (a number, a boolean, a list,
+    ...). Like [+>], it takes the whole cost on its left:
+    [22 * val cn + 6 >|]. Being declared after [+>], it is the one Rocq
+    prints. It is at level 55, not at the usual level 1 of a postfix
+    notation, so that it takes the whole cost. *)
+#[warnings="-postfix-notation-not-level-1"]
+Notation "c >|" := (Build_ℂO _ c tt) (at level 55, format "c  >|").
 Arguments cost {_}.
 Arguments res {_}.
 
-Definition ret {C} (c : C) : ℂO C := 0 ⋉ c.
+Definition ret {C} (c : C) : ℂO C := 0 +> c.
 
 (** Adds a cost. *)
-Definition cost_add {C} (n : nat) (m : ℂO C) : ℂO C := (n + cost m) ⋉ res m.
+Definition cost_add {C} (n : nat) (m : ℂO C) : ℂO C := (n + cost m) +> res m.
 Infix "⊕" := cost_add (at level 60, right associativity).
 
 Definition bind {C D} (m : ℂO C) (k : C -> ℂO D) : ℂO D := cost m ⊕ k (res m).
 Notation "x <- m ;; k" := (bind m (fun x => k))
   (at level 61, m at next level, right associativity).
 
-Definition fmap {C D} (f : C -> D) (m : ℂO C) : ℂO D := cost m ⋉ f (res m).
+Definition fmap {C D} (f : C -> D) (m : ℂO C) : ℂO D := cost m +> f (res m).
 Infix "<$>" := fmap (at level 55, right associativity).
 
 (** [f · x] applies a function to an argument, both computed and annotated
@@ -56,7 +67,7 @@ Infix "<$>" := fmap (at level 55, right associativity).
 Definition app {A B CA CB} (f : ℂO (ℂI (A -> B) (ℂI A CA -> ℂO CB))) (x : ℂO (ℂI A CA))
   : ℂO (ℂI B CB) :=
   let r := pot (res f) (res x) in
-  cost x ⊕ cost f ⊕ cost r ⋉ (val (res f) (val (res x)) ⋊ res r).
+  cost x ⊕ cost f ⊕ cost r +> (val (res f) (val (res x)) ⋊ res r).
 Infix "·" := app (at level 36, left associativity).
 
 Definition ret_I {A CA} (x : ℂI A CA) : ℂO (ℂI A CA) := ret x.

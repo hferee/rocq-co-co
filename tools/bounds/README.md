@@ -13,7 +13,7 @@ model.
 
   ```json
   {"id": "stdlib/NatComplexity.v#Nat_add_complexity", "kind": "ComplexityBound", "model": "Time",
-   "function": "Nat.add", "template": "(fun cn => {0} ⋉ fun cm => ({1} * val cn + {2}) ⋉ tt)",
+   "function": "Nat.add", "template": "(fun cn => {0} +> fun cm => ({1} * val cn + {2}) >|)",
    "constants": [4, 22, 6], "hyps": "", "proof": "term"}
   ```
 

@@ -24,6 +24,8 @@ spreadsheets.
 """
 import csv, html, io, json, os, re, sys
 
+import coqsrc
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..'))
 CONFIG = json.load(open(os.path.join(HERE, 'config.json')))
@@ -34,7 +36,11 @@ def load_manifest():
 
 def load_run(name):
     with open(os.path.join(RUNS_DIR, 'runs', name + '.jsonl')) as f:
-        return {e['id']: e for e in map(json.loads, f)}
+        run = {e['id']: e for e in map(json.loads, f)}
+    for e in run.values():           # snapshots of older notations
+        for k in ('template', 'hyps'):
+            if e.get(k): e[k] = coqsrc.normalise(e[k])
+    return run
 
 # ---------------------------------------------------------------- display
 
@@ -80,11 +86,11 @@ def simplify(b):
     b = re.sub(r'\bfun c(\w+) =>', r'λ\1.', b)
     b = re.sub(r'\bfun (\w+) =>', r'λ\1.', b)
     b = re.sub(r'λ (\w+(?: \w+)*),', lambda m: 'λ' + m.group(1).replace(' ', ' λ') + '.', b)
+    b = re.sub(r'\s*>\|', '', b)                     # the end of a ground bound
     for _ in range(3):
         b = re.sub(r'\((\w+)\)', r'\1', b)
         b = re.sub(r'\b(?:N|Pos)\.size_nat (\w+)\b', r'|\1|', b)
         b = re.sub(r'\blength (\w+)\b', r'|\1|', b)
-    b = re.sub(r'\s*⋉ tt\b', '', b)
     b = b.replace('List.nth 0 ss 0', 's₀').replace('List.nth 1 ss 0', 's₁')
     b = re.sub(r'(\{\d+\}|\d+) \* ', r'\1·', b)
     b = re.sub(r'(\|\w+\|) \* ', r'\1·', b)

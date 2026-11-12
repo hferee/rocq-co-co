@@ -245,7 +245,7 @@ Module HOBounds (Import CM : CostModelCore).
   Fixpoint cplus {σ A CA} (h : HigherOrder σ A CA) (k : nat) : CA -> CA :=
     match h in HigherOrder σ A CA return CA -> CA with
     | ho_ground _ _ => fun c => c
-    | ho_arr _ h2 => fun c x => (k + cost (c x)) ⋉ cplus h2 k (res (c x))
+    | ho_arr _ h2 => fun c x => (k + cost (c x)) +> cplus h2 k (res (c x))
     end.
 
   Lemma cle_refl {σ A CA} (h : HigherOrder σ A CA) c : cle h c c.
@@ -338,7 +338,7 @@ Module HOBounds (Import CM : CostModelCore).
     Definition eval_at (a0 : A) (f : A -> B) : B := f a0.
 
     Definition eval_at_size (a0 : A) (cf : ℂI (A -> B) (ℂI A unit -> ℂO unit)) : ℂO unit :=
-      (1 + cost (pot cf (a0 ⋊ tt))) ⋉ tt.
+      (1 + cost (pot cf (a0 ⋊ tt))) >|.
 
     Lemma eval_at_sized a0 :
       CSized (ho_arr (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (ho_ground RB sB))

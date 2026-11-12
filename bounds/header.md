@@ -49,7 +49,7 @@ after `env` only lowered constants: `selfcase` lowered 44 bounds, `argenv`
 - Recursive functions are cheaper per step: `Nat.add` 36n → 22n, `Pos.add`
   34 → 18 per bit, `Pos.compare` 86 → 40, `app` 47 → 31 per element,
   `length` 17 → 14.
-- Partial applications cost one step less with `argenv` (`5 ⋉` → `4 ⋉`).
+- Partial applications cost one step less with `argenv` (`5 +>` → `4 +>`).
 - Small non-recursive functions (`negb`, `Z.opp`, `tr`, `par`) are still
   dearer than with the old compilation: the matched value and the arguments
   of the constructors are read from the environment, where the old
@@ -75,8 +75,9 @@ with the environment combinators, and the table keeps the lower slope.
 
 ## Notation
 
-`λn. ① ⋉ λm. ②`: applying the function to `n` costs ①, and gives a closure;
-applying that closure to `m` costs ②. `⋉ tt` is left out for ground results.
+`λn. ① +> λm. ②`: applying the function to `n` costs ①, and gives a closure;
+applying that closure to `m` costs ②. The end of a ground result, `>|` (that is
+`+> tt`), is left out.
 `n` stands for the value of the argument (`val cn`). `|x|` is a length: the
 number of bits of a binary number (`N.size_nat`, `Pos.size_nat`) or the length
 of a list. `#|x|` is the size of `x` in the model (`size`, class `Size`).

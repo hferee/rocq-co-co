@@ -29,6 +29,9 @@ From Complexity Require Import TimeArith.
 From Stdlib Require Import List ZArith.
 Import ListNotations.
 
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
+
 (** ** Matrices as quadtrees *)
 
 Inductive qmat : Type :=
@@ -181,17 +184,17 @@ Module Type QMatTimeCostModel
   Parameter c_qmat c_case_qmat : nat.
   #[global] Hint Unfold c_qmat c_case_qmat : costs.
 
-  #[global] Declare Instance QLeaf_complexity : Time.ComplexityBound QLeaf (fun _ => c_qmat ⋉ tt).
+  #[global] Declare Instance QLeaf_complexity : Time.ComplexityBound QLeaf (fun _ => c_qmat >|).
   #[global] Declare Instance QNode_complexity : Time.ComplexityBound QNode
-    (fun _ => c_clo ⋉ fun _ => c_clo ⋉ fun _ => c_clo ⋉ fun _ => c_qmat ⋉ tt).
+    (fun _ => c_clo +> fun _ => c_clo +> fun _ => c_clo +> fun _ => c_qmat >|).
 
   #[global] Declare Instance qmat_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     Time.ComplexityBound (@qmat_case E A)
-      (fun cl : ℂI (env E Z -> A) (ℂI (env E Z) (CE * unit) -> ℂO CA) => c_clo ⋉
+      (fun cl : ℂI (env E Z -> A) (ℂI (env E Z) (CE * unit) -> ℂO CA) => c_clo +>
        fun cn : ℂI (env (env (env (env E qmat) qmat) qmat) qmat -> A)
                    (ℂI (env (env (env (env E qmat) qmat) qmat) qmat)
-                       ((((CE * unit) * unit) * unit) * unit) -> ℂO CA) => c_clo ⋉
-       fun cq : ℂI (E -> qmat) (ℂI E CE -> ℂO unit) => c_clo ⋉
+                       ((((CE * unit) * unit) * unit) * unit) -> ℂO CA) => c_clo +>
+       fun cq : ℂI (E -> qmat) (ℂI E CE -> ℂO unit) => c_clo +>
        fun ce : ℂI E CE => c_case_qmat ⊕ cost (pot cq ce) ⊕
          match val cq (val ce) with
          | QLeaf z => pot cl (ECons (val ce) z ⋊ (pot ce, tt))
@@ -211,11 +214,11 @@ Module Type ZOpsTimeCostModel
   #[global] Hint Unfold c_sub : costs.
 
   #[global] Declare Instance Zadd_complexity : Time.ComplexityBound Z.add
-    (fun _ => c_clo ⋉ fun _ => c_add ⋉ tt).
+    (fun _ => c_clo +> fun _ => c_add >|).
   #[global] Declare Instance Zsub_complexity : Time.ComplexityBound Z.sub
-    (fun _ => c_clo ⋉ fun _ => c_sub ⋉ tt).
+    (fun _ => c_clo +> fun _ => c_sub >|).
   #[global] Declare Instance Zmul_complexity : Time.ComplexityBound Z.mul
-    (fun _ => c_clo ⋉ fun _ => c_mul ⋉ tt).
+    (fun _ => c_clo +> fun _ => c_mul >|).
 End ZOpsTimeCostModel.
 
 Module Type ParamStrassenTimeCostModel := ArithOpsTimeCostModel <+ ZData <+ ZOpsTimeCostModel
@@ -234,11 +237,11 @@ Module StrassenCount (Import Time : StrassenTimeCostModel).
   Definition qop_cost (c : nat) (a : qmat) : nat := qleaves a * c + 4 * qnodes a * c_fix.
 
   Instance qadd_complexity : Time.ComplexityBound qadd
-    (fun ca => c_fix ⋉ fun cb => qop_cost c_add (val ca) ⋉ tt).
+    (fun ca => c_fix +> fun cb => qop_cost c_add (val ca) >|).
   Proof. unfold qop_cost. cbound. Qed.
 
   Instance qsub_complexity : Time.ComplexityBound qsub
-    (fun ca => c_fix ⋉ fun cb => qop_cost c_sub (val ca) ⋉ tt).
+    (fun ca => c_fix +> fun cb => qop_cost c_sub (val ca) >|).
   Proof. unfold qop_cost. cbound. Qed.
 
   (** The cost of a call to [qadd] or [qsub] whose first argument is `a`. *)
@@ -279,7 +282,7 @@ Module StrassenCount (Import Time : StrassenTimeCostModel).
     end.
 
   Instance strassen_complexity : Time.ComplexityBound strassen
-    (fun cd => c_fix ⋉ fun ca => 0 ⋉ fun cb => strassen_cost (val cd) (val ca) (val cb) ⋉ tt).
+    (fun cd => c_fix +> fun ca => 0 +> fun cb => strassen_cost (val cd) (val ca) (val cb) >|).
   Proof. cbound. all: unfold qcall; lia. Qed.
   End Counts.
 

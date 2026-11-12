@@ -7,6 +7,13 @@ of a bound in two snapshots can be compared position by position.
 """
 import re
 
+def normalise(s):
+    """[s] in the current notations: [⋉] (older trees) is [+>], and the end
+    of a bound [c +> tt] is [c >|]. Applied to the sources before they are
+    read, and to the templates of the snapshots when they are loaded, so
+    that the snapshots of all versions compare."""
+    return re.sub(r'\s*\+>\s*tt\b', ' >|', s.replace('⋉', '+>'))
+
 def mask_comments(s):
     """[s] with its comments replaced by spaces (newlines kept)."""
     out = list(s); i = 0; n = len(s)

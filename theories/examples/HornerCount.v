@@ -11,6 +11,9 @@ From Complexity Require Import TimeArith.
 From Stdlib Require Import List.
 Import ListNotations.
 
+(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+#[local] Ltac2 Set ctimeout := 0.
+
 (** A polynomial, as written and in Horner's form. *)
 Example poly_example (x : nat) : nat := x * x + 3 * x + 1.
 Example poly_example_horner (x : nat) : nat := (x + 3) * x + 1.
@@ -25,18 +28,18 @@ Module HornerCount (Import Time : ArithOpsTimeCostModel).
   (** Two multiplications and two additions as written; Horner's form
       saves a multiplication. *)
   Example poly_example_complexity : Time.ComplexityBound poly_example
-    (fun cx => (2 * c_mul + 2 * c_add) ⋉ tt) := _.
+    (fun cx => (2 * c_mul + 2 * c_add) >|) := _.
 
   Example poly_example_horner_complexity : Time.ComplexityBound poly_example_horner
-    (fun cx => (c_mul + 2 * c_add) ⋉ tt) := _.
+    (fun cx => (c_mul + 2 * c_add) >|) := _.
 
   (** One addition, one multiplication and one unfolding for each
       coefficient, and one more unfolding, charged when [horner] is applied
       to [x]. *)
   Lemma horner_complexity : 1 <= c_fix -> Time.ComplexityBound horner
-    (fun cx => c_fix ⋉ fun cl => (length (val cl) * (c_add + c_mul + c_fix)) ⋉ tt).
+    (fun cx => c_fix +> fun cl => (length (val cl) * (c_add + c_mul + c_fix)) >|).
   Proof. intro. cbound. Qed.
 
   (** Matches on numbers have no known cost. *)
-  Fail Definition pred_complexity : Time.ComplexityBound Nat.pred (fun cn => 0 ⋉ tt) := _.
+  Fail Definition pred_complexity : Time.ComplexityBound Nat.pred (fun cn => 0 >|) := _.
 End HornerCount.

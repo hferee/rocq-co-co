@@ -24,7 +24,7 @@ Module UnguardedFix (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
     ComplexityBound f cf.
   Proof.
     intros Hfix Hc Hs A B CA CB RA RB f cf.
-    apply (Hfix A B CA CB RA RB (ar_val B) f (fun g => g) (fun cg => c_step ⋉ pot cg) cf).
+    apply (Hfix A B CA CB RA RB (ar_val B) f (fun g => g) (fun cg => c_step +> pot cg) cf).
     - intro a. exact eq_refl.
     - exact (@id_complexity (A -> B) _ _).
     - apply bound_order_arr. intro ca. cbn. rewrite Hc, Hs. split; [lia | reflexivity].
