@@ -25,35 +25,35 @@ Module NatComplexity (Import Time : TimeCostModel).
   (** ** Bounds *)
 
   Global Instance Nat_add_complexity : Time.ComplexityBound Nat.add
-    (fun cn => 4 +> fun cm => (22 * val cn + 6) >|) := _.
+    (fun cn => 1 +> fun cm => (14 * val cn + 10) >|) := _.
 
   (** [Nat.sub] is recursive on its first argument and matches on the second
       one. *)
   Global Instance Nat_sub_complexity : Time.ComplexityBound Nat.sub
-    (fun cn => 4 +> fun cm => (26 * val cn + 8) >|) := _.
+    (fun cn => 4 +> fun cm => (28 * val cn + 8) >|) := _.
 
   Global Instance Nat_eqb_complexity : Time.ComplexityBound Nat.eqb
-    (fun cn => 4 +> fun cm => (26 * val cn + 8) >|) := _.
+    (fun cn => 4 +> fun cm => (28 * val cn + 8) >|) := _.
 
   Global Instance Nat_leb_complexity : Time.ComplexityBound Nat.leb
-    (fun cn => 4 +> fun cm => (26 * val cn + 6) >|) := _.
+    (fun cn => 4 +> fun cm => (28 * val cn + 6) >|) := _.
 
   (** [Nat.ltb] is not recursive: its complexity follows from the one of
       [Nat.leb] by compilation alone. *)
   Global Instance Nat_ltb_complexity : Time.ComplexityBound Nat.ltb
-    (fun cn => 1 +> fun cm => (26 * val cn + 43) >|) := _.
+    (fun cn => 1 +> fun cm => (28 * val cn + 45) >|) := _.
 
   (** The recursive branch of [Nat.mul] calls [Nat.add]. *)
   Global Instance Nat_mul_complexity : Time.ComplexityBound Nat.mul
-    (fun cn => 4 +> fun cm =>
-       (val cn * (22 * val cm + 35) + 6) >|) := _.
+    (fun cn => 1 +> fun cm =>
+       (val cn * (14 * val cm + 30) + 8) >|) := _.
 
   (** [Nat.pow] is recursive on its second argument, and the step [m] calls
       [Nat.mul] on [n ^ m]: the sum of the [n ^ i] is bounded by
       [m * n ^ m]. *)
   Global Instance Nat_pow_complexity : Time.ComplexityBound Nat.pow
-    (fun cn => 4 +> fun cm =>
-       (22 * val cm * val cn ^ val cm + val cm * (35 * val cn + 37) + 4) >|).
+    (fun cn => 1 +> fun cm =>
+       (14 * val cm * val cn ^ val cm + val cm * (30 * val cn + 28) + 6) >|).
   Proof. cbound. destruct cn; [destruct cm; cbn; lia | nia]. Qed.
 
   (** ** Bounds in the size of the arguments
@@ -73,32 +73,32 @@ Module NatComplexity (Import Time : TimeCostModel).
 
   Lemma Nat_add_size_complexity :
     Time.ComplexityBound Nat.add
-      (fun (cn : ℂI nat _) => 4 +> fun cm => (22 * #|val cn| + 6) >|).
+      (fun (cn : ℂI nat _) => 1 +> fun cm => (14 * #|val cn| + 0) >|).
   Proof. csize_using Nat_add_complexity. Qed.
 
   Lemma Nat_sub_size_complexity :
     Time.ComplexityBound Nat.sub
-      (fun (cn : ℂI nat _) => 4 +> fun cm => (26 * #|val cn| + 8) >|).
+      (fun (cn : ℂI nat _) => 4 +> fun cm => (28 * #|val cn| + 0) >|).
   Proof. csize_using Nat_sub_complexity. Qed.
 
   Lemma Nat_eqb_size_complexity :
     Time.ComplexityBound Nat.eqb
-      (fun (cn : ℂI nat _) => 4 +> fun cm => (26 * #|val cn| + 8) >|).
+      (fun (cn : ℂI nat _) => 4 +> fun cm => (28 * #|val cn| + 0) >|).
   Proof. csize_using Nat_eqb_complexity. Qed.
 
   Lemma Nat_leb_size_complexity :
     Time.ComplexityBound Nat.leb
-      (fun (cn : ℂI nat _) => 4 +> fun cm => (26 * #|val cn| + 6) >|).
+      (fun (cn : ℂI nat _) => 4 +> fun cm => (28 * #|val cn| + 0) >|).
   Proof. csize_using Nat_leb_complexity. Qed.
 
   Lemma Nat_ltb_size_complexity :
     Time.ComplexityBound Nat.ltb
-      (fun (cn : ℂI nat _) => 1 +> fun cm => (26 * #|val cn| + 43) >|).
+      (fun (cn : ℂI nat _) => 1 +> fun cm => (28 * #|val cn| + 17) >|).
   Proof. csize_using Nat_ltb_complexity. Qed.
 
   Lemma Nat_mul_size_complexity :
     Time.ComplexityBound Nat.mul
-      (fun (cn : ℂI nat _) => 4 +> fun (cm : ℂI nat _) => (#|val cn| * (22 * #|val cm| + 35) + 6) >|).
+      (fun (cn : ℂI nat _) => 1 +> fun (cm : ℂI nat _) => (#|val cn| * (17 * #|val cm| + 13) + 0) >|).
   Proof. csize_using Nat_mul_complexity. Qed.
 
 End NatComplexity.

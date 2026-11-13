@@ -24,6 +24,12 @@ model.
   function or a majorant defined apart, listed in `config.json`) or
   `Majorant` (the higher-order polynomials of `BFFFeasibility`).
 
+A run marked `"reference": true` in the manifest is a measurement, not a
+state of the bounds: the run `asm` (`asm/measure.py`) gives the x86-64
+instructions executed by some functions, extracted to OCaml and compiled
+with `ocamlopt` without optimisation, counted by single-stepping them. The
+tables show it, but the comparison column and `bounds-check` ignore it.
+
 A snapshot is cheap to make: it reads the sources, and doesn't compile them.
 The minimisation that produced the constants is recorded in the run's
 description.
@@ -39,6 +45,7 @@ From the root of the repository, with the library built:
 | `make bounds-table` | regenerate `bounds-comparison.md` from the runs of `config.json` |
 | `make show-bounds-table [RUNS="name ..."]` | the same table as an HTML page, `bounds-comparison.html` (not versioned), opened in the browser |
 | `make bounds-check [RUN=name]` | fail if a bound of the working tree is higher than in the run, or has another shape |
+| `make bounds-asm` | the x86-64 instructions executed by some functions, extracted to OCaml (`asm/`), as the reference run `asm` |
 
 `tools/bounds/compare.py` gives other views, from any list of runs:
 `--format html` (a page with a filter and sticky columns), `--format csv`
@@ -47,11 +54,30 @@ From the root of the repository, with the library built:
 
 ## Minimisation
 
-`minimise.py FILE` lowers, for each bound of the file in order, every
-tunable literal by a parallel binary search, while the proof still checks.
-It keeps the proof script of the file when it works, and otherwise tries
-variants of `cbound`. The result is minimal per constant: no single constant
-can be lowered. This is not a global optimum.
+`minimise.py FILE` finds, for each bound of the file in order, the smallest
+values of its tunable literals, as one does by hand:
+
+1. The literals become variables `κ0`, `κ1`, ..., and the proof is run in
+   export mode (`Ltac2 Set cexport := true`, `TimeCombinators`): instead of
+   calling `lia`, `cbound` prints the inequalities it leaves, with their
+   arithmetic hypotheses, and admits them. One compilation.
+2. `goals.py` solves them. For fixed values of the other atoms (values and
+   lengths of the arguments, costs of functional arguments), each one is
+   linear in the constants; grouped by monomials of the atoms, it gives
+   linear inequalities on the constants, which are lowered one at a time
+   until none can be. A hypothesis `a < x` on an atom `x` (a size) is used
+   by replacing `x` with `a + 1 + s`.
+3. The values are checked with the proof of the file, and each one lowered
+   by one, in one parallel round.
+
+If this does not conclude (a constant inside an atom, such as an argument
+of a cost function, an inequality that is not linear in the constants, or a
+constant that can still be lowered), the minimiser falls back on a parallel
+binary search: the literals are scaled up until the proof goes through,
+then lowered one at a time, while it still checks. It keeps the proof
+script of the file when it works, and otherwise tries variants of `cbound`.
+Either way, the result is minimal per constant: no single constant can be
+lowered. This is not a global optimum.
 
 `--screen` keeps a bound in which no constant can be lowered by one. This is
 fast after a change that only lowers costs.

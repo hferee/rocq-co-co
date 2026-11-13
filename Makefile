@@ -14,10 +14,6 @@ clean::
 	rm makefile.coq makefile.coq.conf
 	rm -f $(BUILD_FILES)
 
-# The deque example, with its dependency (fetched on demand): examples/deque.
-deque:
-	$(MAKE) -C examples/deque
-
 # HTML documentation in html/ (removed by cleanall), styled by doc/: the
 # libraries by directory (index.html), with foldable proofs and an outline,
 # and the index of identifiers (idents.html).
@@ -42,6 +38,7 @@ doc: $(GLOBFILES) $(VFILES) $(DOC_ASSETS)
 #   make bounds-table
 #   make show-bounds-table [RUNS="run1 run2 ..."]   (HTML, in the browser)
 #   make bounds-check [RUN=name]   (fails if a bound got higher)
+#   make bounds-asm   (the x86-64 instruction counts of some functions, as a run)
 BOUNDS := python3 tools/bounds/run.py
 bounds-snapshot:
 	$(BOUNDS) snapshot $(RUN) $(if $(REV),--rev $(REV)) $(if $(TITLE),--title "$(TITLE)") $(if $(DESCRIPTION),--description "$(DESCRIPTION)")
@@ -53,6 +50,8 @@ show-bounds-table:
 	$(BOUNDS) show $(RUNS)
 bounds-check:
 	$(BOUNDS) check $(RUN)
+bounds-asm:
+	python3 tools/bounds/asm/measure.py
 
-.PHONY: _ deque doc bounds-snapshot bounds-minimise bounds-table show-bounds-table bounds-check
+.PHONY: _ doc bounds-snapshot bounds-minimise bounds-table show-bounds-table bounds-check bounds-asm
 

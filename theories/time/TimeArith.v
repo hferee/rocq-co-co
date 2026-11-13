@@ -31,7 +31,7 @@
     ([LArith]), but not of [ArithOpsTimeCostModel]: unary addition takes
     linear time. *)
 
-From Complexity Require Export TimeDatatypes TimeFix.
+From Complexity Require Export TimeDatatypes TimeLists TimeFix.
 
 Module Type NatArithTimeCostModel (Import CM : CostModel) (Import ND : NatData CM).
 
@@ -54,7 +54,7 @@ Module Type ParamArithTimeCostModel := CostModel.CostModel <+ BasicTimeCostModel
 Module Type ArithOpsTimeCostModel := ParamArithTimeCostModel
   with Definition c_add_clo := 0 with Definition c_add_n := 0
   with Definition c_mul_clo := 0 with Definition c_mul_nm := 0 with Definition c_mul_n := 0
-  with Definition c_clo := 0 with Definition c_step := 0
+  with Definition c_clo := 0 with Definition c_step := 0 with Definition c_frame := 0
   with Definition c_case_bool := 0 with Definition c_S := 0
   with Definition c_cons := 0 with Definition c_case_list := 0.
 

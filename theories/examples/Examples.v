@@ -45,13 +45,14 @@ Module Examples (Import Time : TimeCostModel).
 
       [fix_complexity] makes [ComplexityBound] extensional: a function is a
       fixpoint of the functional that ignores its recursive calls and
-      returns any function pointwise equal to it. *)
+      returns any function pointwise equal to it ([fix_closed_complexity],
+      for a closed function). *)
   Lemma complexity_ext {A B CA CB} `{Repr A CA} `{Repr B CB} (ar : Arity B) (f g : A -> B) (cg : ℂI A CA -> ℂO CB) :
     (forall a, pw_eq ar (f a) (g a)) -> Time.ComplexityBound g cg ->
     Time.ComplexityBound f (fun ca => 2 ⊕ cg ca).
   Proof.
     intros Hfg Hg.
-    eapply (fix_complexity ar f (fun _ => g) (fun _ => 1 +> cg));
+    eapply (fix_closed_complexity ar f (fun _ => g) (fun _ => 1 +> cg));
       [cfix_pos | exact Hfg | apply constant_complexity, Hg |].
     apply bound_order_arr. intro ca. cbn. split; [autounfold with costs; lia | reflexivity].
   Qed.
@@ -70,11 +71,11 @@ Module Examples (Import Time : TimeCostModel).
       [tower n x] performs [2 ^ n] compositions. Building [tower n] costs a
       linear number of steps, but applying it costs [3 * 2 ^ n - 1]. *)
   Global Instance tower_complexity : Time.ComplexityBound tower
-    (fun cn => (17 * val cn + 6) +>
+    (fun cn => (19 * val cn + 6) +>
      fun cx => (2 * 2 ^ val cn - 1) >|).
   Proof. cbound. all: assert (2 ^ cn <> 0) by (apply Nat.pow_nonzero; lia); lia. Qed.
 
   Lemma tower_eval_complexity : Time.ComplexityBound tower_eval
-    (fun cn => (17 * val cn + 2 * 2 ^ val cn + 8) >|).
+    (fun cn => (19 * val cn + 2 * 2 ^ val cn + 8) >|).
   Proof. cbound. all: assert (2 ^ cn <> 0) by (apply Nat.pow_nonzero; lia); lia. Qed.
 End Examples.

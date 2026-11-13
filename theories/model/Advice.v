@@ -257,3 +257,59 @@ Ltac2 ctimed (name : string) (t : Ltac1.t) : unit :=
       else Control.zero e
   end.
 Ltac cexplain := ltac2:(cexplain_goal ()).
+
+(** ** Export of the inequalities left ([cexport], [carith] in
+    [TimeCombinators]) *)
+Ltac2 mutable cexport : bool := false.
+
+Ltac2 rec cexport_numeral (t : constr) : int option :=
+  match Constr.Unsafe.kind t with
+  | Constr.Unsafe.Constructor _ _ => if Constr.equal t constr:(O) then Some 0 else None
+  | Constr.Unsafe.App h a =>
+      if Constr.equal h constr:(S) then
+        match cexport_numeral (Array.get a 0) with Some n => Some (Int.add n 1) | None => None end
+      else None
+  | _ => None
+  end.
+
+Ltac2 rec cexport_term (t : constr) : message :=
+  let bin op a b := cat [Message.of_string "("; Message.of_string op; Message.of_string " ";
+                                cexport_term a; Message.of_string " "; cexport_term b;
+                                Message.of_string ")"] in
+  match cexport_numeral t with
+  | Some n => Message.of_int n
+  | None =>
+      lazy_match! t with
+      | Nat.add ?a ?b => bin "+" a b
+      | Nat.mul ?a ?b => bin "*" a b
+      | Nat.sub ?a ?b => bin "-" a b
+      | S ?a => bin "+" a constr:(1)
+      | _ => cat [Message.of_string "{"; Message.of_constr t; Message.of_string "}"]
+      end
+  end.
+
+Ltac2 cexport_prop (p : constr) : message option :=
+  let rel op a b := Some (cat [Message.of_string "("; Message.of_string op;
+                                      Message.of_string " "; cexport_term a; Message.of_string " ";
+                                      cexport_term b; Message.of_string ")"]) in
+  lazy_match! p with
+  | le ?a ?b => rel "<=" a b
+  | lt ?a ?b => rel "<" a b
+  | ge ?a ?b => rel "<=" b a
+  | gt ?a ?b => rel "<" b a
+  | @eq nat ?a ?b => rel "=" a b
+  | _ => None
+  end.
+
+Ltac2 cexport_goal () :=
+  Message.print (Message.of_string "#CGOAL");
+  List.iter (fun (_, _, ty) =>
+               match cexport_prop ty with
+               | Some m => Message.print (cat [Message.of_string "#H "; m])
+               | None => ()
+               end) (Control.hyps ());
+  (match cexport_prop (Control.goal ()) with
+   | Some m => Message.print (cat [Message.of_string "#G "; m])
+   | None => Message.print (cat [Message.of_string "#X "; Message.of_constr (Control.goal ())])
+   end);
+  Message.print (Message.of_string "#END").

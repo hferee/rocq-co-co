@@ -10,24 +10,34 @@ Module UnguardedFix (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
 
   (** The rule of [TimeFix], without its premise. *)
   Definition unguarded_fix : Prop :=
-    forall A B CA CB (RA : Repr A CA) (RB : Repr B CB) (ar : Arity B) (f : A -> B)
-      (F : (A -> B) -> A -> B)
-      (cF : ℂI (A -> B) (ℂI A CA -> ℂO CB) -> ℂO (ℂI A CA -> ℂO CB))
-      (cf : ℂI A CA -> ℂO CB),
-      is_fixpoint ar F f ->
+    forall E CE A B CA CB (RE : Repr E CE) (RA : Repr A CA) (RB : Repr B CB)
+      (ar : Arity B) (f : E -> A -> B)
+      (F : env E (A -> B) -> A -> B)
+      (cF : ℂI (env E (A -> B)) (CE * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
+      (cf : ℂI E CE -> ℂO (ℂI A CA -> ℂO CB)),
+      (forall e, is_fixpoint ar (fun g => F (ECons e g)) (f e)) ->
       ComplexityBound F cF ->
-      bound_order (fun ca : ℂI A CA => c_fix ⊕ pot <$> (F ⋊ cF) · (f ⋊ cf) · ca) cf ->
+      bound_order
+        (fun ce : ℂI E CE => c_clo +> fun ca : ℂI A CA =>
+           c_fix ⊕ pot <$> (F ⋊ cF) · (ECons (val ce) (f (val ce)) ⋊ (pot ce, res (cf ce))) · ca)
+        cf ->
       ComplexityBound f cf.
 
+  (** Any function [f] is a fixpoint of the functional that reads it in its
+      environment ([ehd]): the unfolding only costs this read. *)
   Theorem every_bound : unguarded_fix -> c_fix = 0 -> c_step = 0 ->
     forall {A B CA CB} `{Repr A CA} `{Repr B CB} (f : A -> B) (cf : ℂI A CA -> ℂO CB),
     ComplexityBound f cf.
   Proof.
     intros Hfix Hc Hs A B CA CB RA RB f cf.
-    apply (Hfix A B CA CB RA RB (ar_val B) f (fun g => g) (fun cg => c_step +> pot cg) cf).
-    - intro a. exact eq_refl.
-    - exact (@id_complexity (A -> B) _ _).
-    - apply bound_order_arr. intro ca. cbn. rewrite Hc, Hs. split; [lia | reflexivity].
+    assert (H : ComplexityBound (fun _ : unit => f) (fun _ => c_clo +> cf)).
+    { apply (Hfix unit unit A B CA CB _ RA RB (ar_val B) (fun _ => f) (@ehd unit (A -> B))
+               (fun ce => c_step +> snd (pot ce)) (fun _ => c_clo +> cf)).
+      - intros e a. exact eq_refl.
+      - exact ehd_complexity.
+      - apply bound_order_arr. intro ce. split; [apply Nat.le_refl |].
+        apply bound_order_arr. intro ca. cbn. rewrite Hc, Hs. split; [lia | reflexivity]. }
+    exact (apply_complexity _ tt_complexity H).
   Qed.
 End UnguardedFix.
 

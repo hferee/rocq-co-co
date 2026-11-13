@@ -16,9 +16,11 @@
       application to the realiser of an argument `a` reduces in at most
       `K * cost (cf a)` steps to a realiser of the result.
     - Ground data are realised by Scott encodings. Lists, options and pairs
-      are realised element-wise, so that they are representable whenever
-      their elements are. The environments of closures ([Combinators]) are
-      pairs of realisers of any representations.
+      are realised element-wise (lists and options of any data, in [LH],
+      by the realisers of their elements, with their complexities), so that they
+      are representable whenever their elements are. The environments of
+      closures ([Combinators]) are pairs of realisers of any
+      representations.
     - Only [fix_complexity] uses an axiom: functional extensionality, to
       turn its pointwise unfolding equation into an equality.
 
@@ -335,6 +337,34 @@ Proof.
   - auto.
 Defined.
 
+(** Lists of any data ([HListTimeCostModel]): realised by the realisers of
+    their elements, with their complexities, and of the same length. *)
+Fixpoint hlist_rl {A CA} (P : A -> CA -> term -> Prop) (l : list A) (c : list CA) (s : term) : Prop :=
+  match l, c with
+  | nil, nil => s = lam (lam (var 1))
+  | cons x l, cons cx c => exists r t, s = lam (lam (app (app (var 0) r) t)) /\ P x cx r /\ hlist_rl P l c t
+  | _, _ => False
+  end.
+
+Definition hlist_repr {A CA} (RA : LRepr A CA) : LRepr (list A) (list CA).
+Proof.
+  refine {| rl := fun k l c s => hlist_rl (rl RA k) l c s; bo := Forall2 (bo RA) |}.
+  - intros k l; induction l as [| x l IH]; intros [| cx c] s; cbn; try contradiction.
+    + intros ->. Lproc.
+    + intros (r & t & -> & Hr & Ht). pose proof (rl_proc Hr). pose proof (IH _ _ Ht). Lproc.
+  - intros k k' l c s Hk; revert c s; induction l as [| x l IH]; intros [| cx c] s; cbn;
+      try contradiction; [auto |].
+    intros (r & t & -> & Hr & Ht). exists r, t.
+    split; [reflexivity | split; [exact (rl_down Hk Hr) | apply IH, Ht]].
+  - intros k l c c' s Hb; revert l s; induction Hb as [| cx cx' c c' Hx Hc IH];
+      intros [| x l] s; cbn; try contradiction; [auto |].
+    intros (r & t & -> & Hr & Ht). exists r, t.
+    split; [reflexivity | split; [exact (rl_mono Hx Hr) | apply IH, Ht]].
+  - intros c. induction c; constructor; [apply bo_refl | assumption].
+  - intros c1 c2 c3 H12; revert c3; induction H12 as [| x y l1 l2 Hxy H IH]; intros c3 H23;
+      inversion H23; subst; constructor; [eapply bo_trans; eassumption | apply IH; assumption].
+Defined.
+
 Definition option_rl {A} (P : A -> term -> Prop) (o : option A) (s : term) : Prop :=
   match o with
   | Some x => exists r, s = lam (lam (app (var 1) r)) /\ P x r
@@ -353,6 +383,32 @@ Proof.
   - intros k o c c' s _ H. exact H.
   - auto.
   - auto.
+Defined.
+
+(** Options of any data ([HOptionTimeCostModel]): realised by the realiser
+    of their element, with its complexity. *)
+Definition hoption_rl {A CA} (P : A -> CA -> term -> Prop) (o : option A) (c : option CA)
+  (s : term) : Prop :=
+  match o, c with
+  | Some x, Some cx => exists r, s = lam (lam (app (var 1) r)) /\ P x cx r
+  | None, None => s = lam (lam (var 0))
+  | _, _ => False
+  end.
+
+Definition hoption_repr {A CA} (RA : LRepr A CA) : LRepr (option A) (option CA).
+Proof.
+  refine {| rl := fun k o c s => hoption_rl (rl RA k) o c s; bo := option_le (bo RA) |}.
+  - intros k o c s H; destruct o as [x |], c as [cx |]; cbn in H; try contradiction.
+    + destruct H as (r & -> & Hr). pose proof (rl_proc Hr). Lproc.
+    + subst s. Lproc.
+  - intros k k' o c s Hk H; destruct o as [x |], c as [cx |]; cbn in *; try contradiction; [| exact H].
+    destruct H as (r & -> & Hr). exists r. split; [reflexivity | exact (rl_down Hk Hr)].
+  - intros k o c c' s Hb H; destruct o as [x |], c as [cx |], c' as [cx' |]; cbn in *;
+      try contradiction; [| exact H].
+    destruct H as (r & -> & Hr). exists r. split; [reflexivity | exact (rl_mono Hb Hr)].
+  - intros [cx |]; cbn; [apply bo_refl | trivial].
+  - intros [c1 |] [c2 |] [c3 |] H12 H23; cbn in *; try contradiction;
+      [eapply bo_trans; eassumption | trivial].
 Defined.
 
 Definition prod_rl {A B} (P1 : A -> term -> Prop) (P2 : B -> term -> Prop) (p : A * B)
@@ -542,6 +598,8 @@ Module LBT <: BasicTimeCostModel LCM.
   (** Every application is a beta-step. *)
   Definition c_clo := 1.
   Definition c_step := 1.
+  (** L reduces terms: there is no stack, and no frame to pay. *)
+  Definition c_frame := 0.
 
   Lemma id_complexity : forall {A CA} `{Repr A CA},
       ComplexityBound (fun (x : A) => x) (fun ca => (1 +> pot ca) : ℂO CA).
@@ -829,6 +887,72 @@ Module LLM <: ListTimeCostModel LCM LBT LCB.
 
 End LLM.
 
+(** Lists of any data. *)
+Module LHLM <: HListTimeCostModel LCM LBT LCB.
+  Import LCM LBT LCB.
+  Definition c_cons := 1.
+  Definition c_case_list := 1.
+  Global Instance Repr_list {A CA} (RA : Repr A CA) : Repr (list A) (list CA) := hlist_repr RA.
+
+  Global Instance Size_list {A} (SA : Size A) : Size (list A) :=
+    fix size_list l := match l with nil => 4 | a :: l => 5 + SA a + size_list l end.
+  Lemma size_nil : forall {A} `{Size A}, 0 < CostModelCore.size (@nil A).
+  Proof. intros. cbv. lia. Qed.
+  Lemma size_cons : forall {A} `{Size A} (a : A) l,
+    CostModelCore.size a + CostModelCore.size l < CostModelCore.size (a :: l).
+  Proof. intros. unfold CostModelCore.size at 3. cbn. unfold CostModelCore.size. lia. Qed.
+
+  Lemma bound_order_list : forall {A CA} `{Repr A CA} (c c' : list CA),
+    Forall2 bound_order c c' -> bound_order c c'.
+  Proof. intros A CA RA c c' H. exact H. Qed.
+
+  Lemma nil_complexity : forall {A CA} `{Repr A CA}, ComplexityBound (@nil A) (@nil CA).
+  Proof.
+    intros A CA RA. apply has_complexity_bound. exists (lam (lam (var 1))). intro k. reflexivity.
+  Qed.
+
+  Lemma cons_complexity : forall {A CA} `{Repr A CA},
+    ComplexityBound (@cons A) (fun ch => 1 +> fun ct => 1 +> (pot ch :: pot ct)).
+  Proof.
+    intros A CA RA. apply has_complexity_bound.
+    exists (lam (lam (lam (lam (app (app (var 0) (var 3)) (var 2)))))). intro k.
+    Lfun. Lstep. Lfun. Lstep. cbn [rl Repr_list hlist_repr hlist_rl].
+    exists s, s0. split; [reflexivity | split].
+    - eapply rl_down; [| exact Ha]. lia.
+    - exact (rl_down_ (j0 - 1) Ha0 ltac:(lia)).
+  Qed.
+
+  Lemma list_case_complexity :
+    forall {X CX E CE A CA} `{Repr X CX} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@list_case X E A)
+      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun cc : ℂI (env (env E X) (list X) -> A)
+                   (ℂI (env (env E X) (list X)) ((CE * CX) * list CX) -> ℂO CA) => 1 +>
+       fun cl : ℂI (E -> list X) (ℂI E CE -> ℂO (list CX)) => 1 +>
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cl ce) ⊕
+         match val cl (val ce), res (pot cl ce) with
+         | cons h t, cons ch ct => pot cc (ECons (ECons (val ce) h) t ⋊ ((pot ce, ch), ct))
+         | _, _ => pot cz ce
+         end).
+  Proof.
+    intros X CX E CE A CA RX RE RA. apply has_complexity_bound. exists (caseE2 (hE0 3) (hE2 2)).
+    LcaseE2_start. Lcall Ha1 Ha2 (j2 - 1). unfold list_case.
+    set (b := j2 - 1 - cost (c1 (a2 ⋊ c2))).
+    destruct (a1 a2) as [| x l]; destruct (res (c1 (a2 ⋊ c2))) as [| cx cl];
+      cbn in R; cbn [cost res pot val] in *; try contradiction.
+    - subst v. Lscrut s1 s2. Lcall Ha Ha2 b. Lstep. Lend R.
+    - destruct R as (r & t & -> & Hr & Ht). pose proof (rl_proc Hr).
+      assert (Ht' : rl (Repr_list RX) b l cl t) by exact Ht. pose proof (rl_proc Ht').
+      assert (He : rl (env_repr (env_repr RE RX) (Repr_list RX)) b (ECons (ECons a2 x) l) ((c2, cx), cl)
+                     (lam (app (app (var 0) (lam (app (app (var 0) s2) r))) t))).
+      { exists (lam (app (app (var 0) s2) r)), t. split; [reflexivity|]. split; [| exact Ht'].
+        exists s2, r. split; [reflexivity|].
+        split; [exact (rl_down_ b Ha2 ltac:(unfold b; lia)) | exact Hr]. }
+      Lcall Ha0 He b. Lstep. Lend R.
+  Qed.
+
+End LHLM.
+
 (** Options. *)
 Module LOM <: OptionTimeCostModel LCM LBT LCB.
   Import LCM LBT LCB.
@@ -882,6 +1006,65 @@ Module LOM <: OptionTimeCostModel LCM LBT LCB.
 End LOM.
 
 (** Pairs. *)
+(** Options of any data. *)
+Module LHOM <: HOptionTimeCostModel LCM LBT LCB.
+  Import LCM LBT LCB.
+  Definition c_Some := 1.
+  Definition c_case_option := 1.
+  Global Instance Repr_option {A CA} (RA : Repr A CA) : Repr (option A) (option CA) :=
+    hoption_repr RA.
+
+  Global Instance Size_option {A} (SA : Size A) : Size (option A) :=
+    fun o => match o with None => 3 | Some a => 5 + SA a end.
+  Lemma size_None : forall {A} `{Size A}, 0 < CostModelCore.size (@None A).
+  Proof. intros. cbv. lia. Qed.
+  Lemma size_Some : forall {A} `{Size A} (a : A), CostModelCore.size a < CostModelCore.size (Some a).
+  Proof. intros. cbv. lia. Qed.
+
+  Lemma bound_order_option : forall {A CA} `{Repr A CA} (c c' : option CA),
+    option_le bound_order c c' -> bound_order c c'.
+  Proof. intros A CA RA c c' H. exact H. Qed.
+
+  Lemma None_complexity : forall {A CA} `{Repr A CA}, ComplexityBound (@None A) (@None CA).
+  Proof.
+    intros A CA RA. apply has_complexity_bound. exists (lam (lam (var 0))). intro k. reflexivity.
+  Qed.
+
+  Lemma Some_complexity : forall {A CA} `{Repr A CA},
+    ComplexityBound (@Some A) (fun ca => 1 +> Some (pot ca)).
+  Proof.
+    intros A CA RA. apply has_complexity_bound. exists (lam (lam (lam (app (var 1) (var 2))))). intro k.
+    Lfun. Lstep. cbn [rl Repr_option hoption_repr hoption_rl].
+    exists s. split; [reflexivity | eapply rl_down; [| exact Ha]; lia].
+  Qed.
+
+  Lemma option_case_complexity :
+    forall {X CX E CE A CA} `{Repr X CX} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@option_case X E A)
+      (fun cs : ℂI (env E X -> A) (ℂI (env E X) (CE * CX) -> ℂO CA) => 1 +>
+       fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => 1 +>
+       fun co : ℂI (E -> option X) (ℂI E CE -> ℂO (option CX)) => 1 +>
+       fun ce : ℂI E CE => 1 ⊕ cost (pot co ce) ⊕
+         match val co (val ce), res (pot co ce) with
+         | Some x, Some cx => pot cs (ECons (val ce) x ⋊ (pot ce, cx))
+         | _, _ => pot cz ce
+         end).
+  Proof.
+    intros X CX E CE A CA RX RE RA. apply has_complexity_bound. exists (caseE2 (hE1 3) (hE0 2)).
+    LcaseE2_start. Lcall Ha1 Ha2 (j2 - 1). unfold option_case.
+    set (b := j2 - 1 - cost (c1 (a2 ⋊ c2))).
+    destruct (a1 a2) as [x |]; destruct (res (c1 (a2 ⋊ c2))) as [cx |];
+      cbn in R; cbn [cost res pot val] in *; try contradiction.
+    - destruct R as (r & -> & Hr). pose proof (rl_proc Hr).
+      assert (He : rl (env_repr RE RX) b (ECons a2 x) (c2, cx) (lam (app (app (var 0) s2) r))).
+      { exists s2, r. split; [reflexivity|].
+        split; [exact (rl_down_ b Ha2 ltac:(unfold b; lia)) | exact Hr]. }
+      Lcall Ha He b. Lstep. Lend R.
+    - subst v. Lscrut s1 s2. Lcall Ha0 Ha2 b. Lstep. Lend R.
+  Qed.
+
+End LHOM.
+
 Module LPM <: ProdTimeCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_pair := 1.
@@ -1168,41 +1351,81 @@ Module LZM <: ZTimeCostModel LCM LBT LCB.
 
 End LZM.
 
-(** Fixpoints. The unfolding equation, pointwise, gives `f = F f` with functional extensionality. [f] is realised by L's fixpoint operator [rho] applied to a realiser of `F`, by induction on the budget: one unfolding takes 3 beta-steps and costs at least one, and the recursive calls have a smaller budget. *)
+(** Fixpoints. The unfolding equation, pointwise, gives
+    `f e = F (ECons e (f e))` with functional extensionality. For a
+    realiser `se` of `e`, `f e` is realised by L's fixpoint operator [rho]
+    applied to [fix_G sF se], which runs the realiser `sF` of `F` in the
+    environment of `se` and of the recursive function ([env_rl]): by
+    induction on the budget, one unfolding takes 4 beta-steps (3 for [rho],
+    1 for the environment) and costs at least one, and the recursive calls
+    have a smaller budget. [fix_r sF] realises [f]: applied to `se`, it is
+    [rho (fix_G sF se)] after one beta-step, the cost of the closure. *)
+Definition fix_G (sF se : term) : term := lam (app sF (lam (app (app (var 0) se) (var 1)))).
+Definition fix_r (sF : term) : term :=
+  lam (lam (app (app (app r r) (lam (app sF (lam (app (app (var 0) (var 3)) (var 1)))))) (var 0))).
+
+Lemma fix_r_subst sF se : closed sF -> closed se ->
+  subst (lam (app (app (app r r) (lam (app sF (lam (app (app (var 0) (var 3)) (var 1)))))) (var 0))) 0 se
+  = rho (fix_G sF se).
+Proof.
+  intros HsF Hse. unfold rho, fix_G, r. cbn [subst Nat.eqb]. rewrite (HsF 2 se). reflexivity.
+Qed.
+
 Module LFX <: FixTimeCostModel LCM LBT LCB.
   Import LCM LBT.
   Definition c_fix := 1.
 
-  Lemma fix_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB}
-      (ar : Arity B) (f : A -> B)
-      (F : (A -> B) -> A -> B)
-      (cF : ℂI (A -> B) (ℂI A CA -> ℂO CB) -> ℂO (ℂI A CA -> ℂO CB))
-      (cf : ℂI A CA -> ℂO CB),
+  Lemma fix_complexity : forall {E CE A B CA CB} `{Repr E CE} `{Repr A CA} `{Repr B CB}
+      (ar : Arity B) (f : E -> A -> B)
+      (F : env E (A -> B) -> A -> B)
+      (cF : ℂI (env E (A -> B)) (CE * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
+      (cf : ℂI E CE -> ℂO (ℂI A CA -> ℂO CB)),
       1 <= c_fix ->
-      is_fixpoint ar F f ->
+      (forall e, is_fixpoint ar (fun g => F (ECons e g)) (f e)) ->
       ComplexityBound F cF ->
-      bound_order (fun ca : ℂI A CA => 1 ⊕ pot <$> (F ⋊ cF) · (f ⋊ cf) · ca) cf ->
+      bound_order
+        (fun ce : ℂI E CE => 1 +> fun ca : ℂI A CA =>
+           1 ⊕ pot <$> (F ⋊ cF) · (ECons (val ce) (f (val ce)) ⋊ (pot ce, res (cf ce))) · ca)
+        cf ->
       ComplexityBound f cf.
   Proof.
-    intros A B CA CB RA RB ar f F cF cf _ Hfix [sF HF]%complexity_bound_has Hrec.
+    intros E CE A B CA CB RE RA RB ar f F cF cf _ Hfix [sF HF]%complexity_bound_has Hrec.
     apply has_complexity_bound.
-    assert (Heq : forall a, f a = F f a) by (intro a; apply (pw_eq_eq ar), Hfix).
+    assert (Heq : forall e a, f e a = F (ECons e (f e)) a)
+      by (intros e a; apply (pw_eq_eq ar), (Hfix e)).
     pose proof (rl_proc (HF 0)) as HpF.
-    assert (Hprho : proc (rho sF)) by (split; [apply rho_cls, HpF | apply rho_lambda]).
-    exists (rho sF). intro k. induction k as [k IH] using (well_founded_induction lt_wf).
-    apply arr_lam; [exact Hprho |]. intros j a c1 sa Hj Ha Hc.
-    pose proof (rl_proc Ha).
-    destruct (Hrec (a ⋊ c1)) as [Hcost Hcomp].
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hcost, Hcomp.
-    assert (IHj : rl (Repr_arr RA RB) (j - 1) f cf (rho sF)) by (apply IH; Llia).
-    Lcall (HF j) IHj (j - 1).
-    Lcall R Ha (j - 1 - cost (cF (f ⋊ cf))).
+    exists (fix_r sF). intro k. unfold fix_r. Lfun.
+    destruct (Hrec (a ⋊ c)) as [Hcost0 Hcomp0].
+    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hcost0, Hcomp0.
+    set (cfe := res (cf (a ⋊ c))) in *.
+    assert (HpG : proc (rho (fix_G sF s)))
+      by (split; [apply rho_cls, proc_closed; unfold fix_G; Lproc | apply rho_lambda]).
+    (* the recursive function [f a], at every budget up to [j] *)
+    assert (Hrho : forall k', k' <= j -> rl (Repr_arr RA RB) k' (f a) cfe (rho (fix_G sF s))).
+    { intro k'. induction k' as [k' IH] using (well_founded_induction lt_wf). intro Hk'.
+      apply arr_lam; [exact HpG |]. intros j' x c1 sx Hj' Hx Hc'.
+      pose proof (rl_proc Hx).
+      destruct (Hcomp0 (x ⋊ c1)) as [Hcost Hcomp].
+      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hcost, Hcomp.
+      assert (IHj : rl (Repr_arr RA RB) (j' - 1) (f a) cfe (rho (fix_G sF s))) by (apply IH; Llia).
+      assert (Hpair : rl (env_repr RE (Repr_arr RA RB)) (j' - 1) (ECons a (f a)) (c, cfe)
+                        (lam (app (app (var 0) s) (rho (fix_G sF s))))).
+      { exists s, (rho (fix_G sF s)). split; [reflexivity |].
+        split; [exact (rl_down_ (j' - 1) Ha ltac:(Llia)) | exact IHj]. }
+      Lcall (HF j') Hpair (j' - 1).
+      Lcall R Hx (j' - 1 - cost (cF (ECons a (f a) ⋊ (c, cfe)))).
+      do 2 eexists; split.
+      { apply evalc_sound. unfold rho at 1, r, fix_G at 1. Leval. }
+      split; [Llia |].
+      rewrite Heq. eapply rl_mono; [exact Hcomp |]. Lend R0. }
     do 2 eexists; split.
-    { apply evalc_sound. unfold rho, r. Leval. }
+    { apply evalc_sound. eapply evalc_beta; [apply evalc_val; assumption |].
+      rewrite fix_r_subst by (try apply proc_closed; assumption). apply evalc_lam. }
     split; [Llia |].
-    rewrite Heq. eapply rl_mono; [exact Hcomp |]. Lend R0.
+    apply Hrho. Llia.
   Qed.
 
+  Include FixRules LCM LBT LCB.
 End LFX.
 
 (** ** The analyses hold in L
@@ -1215,4 +1438,10 @@ Module L <: TimeCostModel.
   Include LCM. Include LBT. Include LCB. Include LBO. Include LNT. Include LLM. Include LOM.
   Include LPM. Include LZM. Include LFX.
 End L.
+
+(** The same, with lists and options of any data ([HOTimeCostModel]). *)
+Module LH <: HOTimeCostModel.
+  Include LCM. Include LBT. Include LCB. Include LBO. Include LNT. Include LHLM. Include LHOM.
+  Include LPM. Include LZM. Include LFX.
+End LH.
 

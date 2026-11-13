@@ -11,9 +11,13 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
 - `time/`: the time cost model, as one signature gathering the costs of
   application (`TimeBasic`), of the combinators (`TimeCombinators`), of the
   datatypes (`TimeDatatypes`, with separate layers for the data, the
-  constructors and the case analysis of each datatype) and of fixpoints
-  (`TimeFix`). The costs are constants: `ParamTimeCostModel` leaves them
-  abstract, `TimeCostModel` sets them all to 1. `TimeArith` defines another
+  constructors and the case analysis of each datatype; lists in `TimeLists`,
+  with two models: lists of ground data, and lists of any data, whose
+  complexity is the list of the complexities of their elements) and of
+  fixpoints (`TimeFix`). The costs are constants: `ParamTimeCostModel` leaves
+  them abstract, `TimeCostModel` sets them all to 1, and `HOTimeCostModel` is
+  the same with lists and options of any data (`TimeDatatypes` has the two
+  models of options). `TimeArith` defines another
   model, with addition and multiplication as primitives and no case analysis
   on `nat`, and its instance counting arithmetic operations.
 - `space/`: the space cost model (`SpaceCostModel`): the layers of the time
@@ -23,18 +27,33 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   bounds the allocations of standard functions (`Nat.add`, `Nat.mul`, `app`,
   `rev`, `rev_append`, `map`, ...). `AllocCostModel` adds an experimental
   axiom relating allocations to the sizes of functionals.
-- `compiler/`: the combinators and the compilation of Gallina terms to them
-  (closure conversion in `Compile`, bracket abstraction in `BracketCompile`).
+- `compiler/`: the combinators and the compilers of Gallina terms to them:
+  closure conversion (`ClosureCompile`, the default) and bracket abstraction
+  (`BracketCompile`), over common tools (`CompileCommon`: case combinators,
+  unfolding equations of recursive functions). `cbound` uses the compiler
+  `ccompiler` (`Compile`), which a file can change for its proofs
+  (`#[local] Ltac2 Set ccompiler := ...`, as `BracketComparison` does).
 - `math/`: polynomials, the simply typed λ-calculus over a signature
   (`Lambda`), higher-order polynomials (`HOPoly`), second-order polynomials
   (`SOPoly`), sizes of binary numbers.
 - `stdlib/`: analyses of the standard library, as layers over
-  `TimeCostModel` (`TimeNat`, `TimePos`, `TimeStdlib`).
+  `TimeCostModel` (`TimeNat`, `TimePos`, `TimeStdlib`), and the
+  higher-order functions on lists and options of any data (`map`, `filter`,
+  `find`, the folds, `option_map`, ...) over `HOTimeCostModel`
+  (`HOListComplexity`).
 - `bff/`: the basic feasible functionals (PV^ω), their complexity, their
   higher-order polynomial bounds, and Irwin, Kapron and Royer's type-3
   example.
+- `machine/`: the cost model of an environment machine for L
+  (`MachineCostModel`: closures, variables read in a linked environment,
+  frames for the evaluations in non-tail position, so that tail calls are
+  cheaper), and running times on it (`MachineExamples`). The machine is an
+  instance of the whole time model, with ground lists and options and with
+  lists and options of any data (`instances/LMachine`: `LM`, `LMH`).
 - `instances/`: the call-by-value λ-calculus L as an instance of
-  `TimeCostModel` (`LInstance`) and of the arithmetic signature (`LArith`).
+  `TimeCostModel` and of `HOTimeCostModel` (`LInstance`), with the bounds of
+  the higher-order functions on lists (`LHOLists`), and of the arithmetic
+  signature (`LArith`).
 - `examples/`: examples, the analysis of an ETH algorithm, operation counts
   in the arithmetic model (`HornerCount`, and Strassen's matrix product in
   `StrassenCount`), and why unfoldings of fixpoints must not be free
@@ -50,9 +69,5 @@ compared in `bounds-comparison.md`; `make bounds-snapshot`,
 table in the browser) and `make bounds-check` manage them
 (`tools/bounds/README.md`).
 
-The top-level directory `examples/deque` holds an optional example, outside
-the main build: Kaplan and Tarjan's real-time deques, from the Rocq sources
-of the opam package `ktdeque`, have constant-time operations (`DequeCost.v`).
-`make deque` fetches these sources (version 0.2.0, checked against their
-hash), builds the part that the example uses with dune, and compiles the
-example.
+`attic/` keeps old experiments, not compiled (`attic/README.md`), among
+them the deque example (`attic/deque`).

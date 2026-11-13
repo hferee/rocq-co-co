@@ -15,7 +15,8 @@ usage: compare.py [options] RUN...
 Each row is a bound. Its template (the bound with its constants numbered
 ①, ②, ...) is shown once; each run gives the values of the constants. A run
 whose bound has another shape gives the bound itself, marked "(shape)". The
-last column compares the base run with the last one: ↓ every constant
+last column compares the base run with the last one that is not a reference
+(a run marked "reference" in the manifest, such as measurements): ↓ every constant
 lower or equal, ↑ every constant higher or equal, ↕ mixed, = unchanged. In
 md and html, a cell that differs from the previous run is in bold.
 
@@ -79,6 +80,7 @@ def simplify(b):
     for a, c in SHORT:
         b = re.sub(a, c, b)
     b = strip_parens(b)
+    binders = set(re.findall(r'\bfun \(?c(\w+)', b))
     b = re.sub(r'\bval c(\w+)', r'\1', b)
     b = re.sub(r'\bpot c(\w+)', r'pot \1', b)
     b = re.sub(r'\bfun \(c(\w+) : ℂI (?:\([^()]*\)|\S+) _\) =>', r'fun c\1 =>', b)   # typed binders
@@ -87,6 +89,8 @@ def simplify(b):
     b = re.sub(r'\bfun (\w+) =>', r'λ\1.', b)
     b = re.sub(r'λ (\w+(?: \w+)*),', lambda m: 'λ' + m.group(1).replace(' ', ' λ') + '.', b)
     b = re.sub(r'\s*>\|', '', b)                     # the end of a ground bound
+    for x in binders:                                  # the other occurrences of the arguments
+        b = re.sub(r'\bc%s\b' % re.escape(x), x, b)
     for _ in range(3):
         b = re.sub(r'\((\w+)\)', r'\1', b)
         b = re.sub(r'\b(?:N|Pos)\.size_nat (\w+)\b', r'|\1|', b)
@@ -159,7 +163,10 @@ def direction(a, b):
 
 # ---------------------------------------------------------------- rows
 
-def rows_of(runs, data, changed_only):
+def rows_of(runs, data, changed_only, li=None):
+    """The rows; the shape of a row is taken from the runs up to [li], the
+    last run that is not a reference (such as measurements)."""
+    li = len(runs) - 1 if li is None else li
     ids = []
     for r in runs:
         for i in data[r]:
@@ -167,7 +174,7 @@ def rows_of(runs, data, changed_only):
     rows = []
     for i in ids:
         es = [data[r].get(i) for r in runs]
-        present = [e for e in es if e is not None]
+        present = [e for e in es[:li + 1] if e is not None] or [e for e in es if e is not None]
         last = present[-1]
         # the most general shape: the others are it with constants 0
         ref = max(reversed(present), key=lambda e: (len(e['constants'])
@@ -196,9 +203,11 @@ def label(i, e):
     if e['kind'] == 'FirstOrderBound' or key.endswith('_size_complexity'): extra.append('in the sizes')
     if e['kind'] in ('Definition', 'Majorant'): extra.append(e['kind'].lower())
     if e['model'] == 'Space': extra.append('space')
+    if e['model'] == 'Machine': extra.append('machine steps')
     if '_tz_' in key: extra.append('amortised, in the trailing zeros')
     elif key.endswith('_linear_complexity'): extra.append('amortised')
-    if key in CONFIG['notes']: extra.append(CONFIG['notes'][key])
+    note = CONFIG['notes'].get(e['id'], CONFIG['notes'].get(key))     # by id, or by name
+    if note: extra.append(note)
     return name, extra
 
 def sections(rows):
@@ -210,10 +219,14 @@ def sections(rows):
 
 # ---------------------------------------------------------------- formats
 
+def last_model(runs, man):
+    """The index of the last run that is not a reference."""
+    return max((k for k, r in enumerate(runs) if not man.get(r, {}).get('reference')), default=len(runs) - 1)
+
 def md(runs, man, rows, base, mode, header):
-    bi = runs.index(base)
+    bi, li = runs.index(base), last_model(runs, man)
     out = [header] if header else []
-    head = '| Function | Bound | ' + ' | '.join(man[r].get('title', r) for r in runs) + f' | {base} → {runs[-1]} |'
+    head = '| Function | Bound | ' + ' | '.join(man[r].get('title', r) for r in runs) + f' | {base} → {runs[li]} |'
     sep = '|---|---|' + '---|' * len(runs) + '---|'
     for title, rs in sections(rows):
         out.append(f'\n## {title}\n')
@@ -235,7 +248,7 @@ def md(runs, man, rows, base, mode, header):
                 cells.append(txt); prev = e if e is not None else prev
             n = '`' + name.replace('|', '\\|') + '`' + (' (' + '; '.join(extra) + ')' if extra else '')
             out.append(f'| {n} | `{show_template(ref["template"]).replace("|", chr(92) + "|")}` | '
-                       + ' | '.join(cells) + f' | {direction(es[bi], es[-1])} |')
+                       + ' | '.join(cells) + f' | {direction(es[bi], es[li])} |')
     return '\n'.join(out) + '\n'
 
 def long_csv(runs, rows):
@@ -250,7 +263,7 @@ def long_csv(runs, rows):
     return buf.getvalue()
 
 def page(runs, man, rows, base, mode, header):
-    bi = runs.index(base)
+    bi, li = runs.index(base), last_model(runs, man)
     h = html.escape
     out = ['<!DOCTYPE html><html><head><meta charset="utf-8"><title>Complexity bounds</title><style>',
            'body{font-family:sans-serif;margin:1em} table{border-collapse:collapse;font-size:13px}',
@@ -262,7 +275,7 @@ def page(runs, man, rows, base, mode, header):
     out.append('<p>Filter: <input id="q" oninput="f()"></p>')
     out.append('<table id="t"><tr><th>Function</th><th>Bound</th>' + ''.join(
         f'<th title="{h(man[r].get("description", ""))}">{h(man[r].get("title", r))}</th>' for r in runs)
-        + f'<th>{h(base)} → {h(runs[-1])}</th></tr>')
+        + f'<th>{h(base)} → {h(runs[li])}</th></tr>')
     for title, rs in sections(rows):
         out.append(f'<tr><th colspan="{len(runs) + 3}" style="text-align:left">{h(title)}</th></tr>')
         for i, ref, es in rs:
@@ -275,7 +288,7 @@ def page(runs, man, rows, base, mode, header):
                 prev = e if e is not None else prev
             out.append(f'<tr><td title="{h(i)}"><code>{h(name)}</code> {h("; ".join(extra))}</td>'
                        f'<td><code>{h(show_template(ref["template"]))}</code></td>' + ''.join(tds)
-                       + f'<td>{direction(es[bi], es[-1])}</td></tr>')
+                       + f'<td>{direction(es[bi], es[li])}</td></tr>')
     out.append('</table><script>function f(){var q=document.getElementById("q").value.toLowerCase();'
                'for(var r of document.querySelectorAll("#t tr"))if(r.querySelector("td"))'
                'r.style.display=r.textContent.toLowerCase().includes(q)?"":"none"}</script></body></html>')
@@ -301,7 +314,7 @@ def main(argv):
         if r not in man: raise SystemExit(f'unknown run {r}: see bounds/runs.json')
     data = {r: load_run(r) for r in runs}
     base = opts['base'] or runs[0]
-    rows = rows_of(runs, data, opts['changed'])
+    rows = rows_of(runs, data, opts['changed'], last_model(runs, man))
     header = open(opts['header']).read() if opts['header'] else ''
     if opts['format'] == 'md': out = md(runs, man, rows, base, opts['cells'], header)
     elif opts['format'] == 'csv': out = long_csv(runs, rows)

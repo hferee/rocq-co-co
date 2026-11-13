@@ -87,7 +87,7 @@ def show(args):
 
 def check(args):
     man = json.load(open(MANIFEST))
-    base = args[0] if args else man[-1]['name']
+    base = args[0] if args else [r for r in man if not r.get('reference')][-1]['name']
     old = compare.load_run(base)
     new = {e['id']: e for e in extract.snapshot()}
     bad = []

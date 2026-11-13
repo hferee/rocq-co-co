@@ -30,10 +30,16 @@ Import ListNotations.
 
 Module SpaceExamples (Import Space : SpaceCostModel).
 
-  (** ** Natural numbers *)
+  (** ** Natural numbers
+
+      The second argument of [Nat.add], [Nat.mul] and [app], and the first
+      of [repeat], are passed unchanged by the recursive calls: they are in
+      the environment of the fixpoint ([fix_complexity]). The closure of
+      this environment, or the last unfolding, is allocated when the last
+      argument is given: the constant terms. *)
 
   Global Instance Nat_add_space : Space.ComplexityBound Nat.add
-    (fun cn => 3 +> fun cm => (4 * val cn) >|).
+    (fun cn => 1 +> fun cm => (3 * val cn + 3) >|).
   Proof. cbound. Qed.
 
   (** No data, but one frame and the closures of each step. *)
@@ -43,7 +49,7 @@ Module SpaceExamples (Import Space : SpaceCostModel).
 
   (** [n] additions of [m]: quadratic. *)
   Global Instance Nat_mul_space : Space.ComplexityBound Nat.mul
-    (fun cn => 3 +> fun cm => (val cn * (4 * val cm + 6)) >|).
+    (fun cn => 1 +> fun cm => (val cn * (3 * val cm + 6) + 3) >|).
   Proof. cbound. Qed.
 
   (** ** Lists *)
@@ -54,16 +60,16 @@ Module SpaceExamples (Import Space : SpaceCostModel).
 
   (** [app l m] copies [l] and shares [m]. *)
   Global Instance app_space {A} `{Ground A} : Space.ComplexityBound (@app A)
-    (fun cl => 3 +> fun cm => (5 * length (val cl)) >|).
+    (fun cl => 1 +> fun cm => (4 * length (val cl) + 3) >|).
   Proof. cbound. Qed.
 
   Global Instance repeat_space {A} `{Ground A} : Space.ComplexityBound (@repeat A)
-    (fun cx => 3 +> fun cn => (5 * val cn) >|).
+    (fun cx => 1 +> fun cn => (4 * val cn + 2) >|).
   Proof. cbound. Qed.
 
   (** Naive reversal: quadratic. *)
   Global Instance rev_space {A} `{Ground A} : Space.ComplexityBound (@rev A)
-    (fun cl => (length (val cl) * (3 * length (val cl) + 4) + 2) >|).
+    (fun cl => (length (val cl) * (2 * length (val cl) + 6) + 2) >|).
   Proof. cbound. all: rewrite ?length_rev; nia. Qed.
 
   (** Reversal with an accumulator: linear. *)
@@ -92,7 +98,7 @@ Module SpaceExamples (Import Space : SpaceCostModel).
 
   Lemma Nat_add_space_size_complexity :
     Space.ComplexityBound Nat.add
-      (fun (cn : ℂI nat _) => 3 +> fun cm => (4 * #|val cn|) >|).
+      (fun (cn : ℂI nat _) => 1 +> fun cm => (3 * #|val cn|) >|).
   Proof. csize_using Nat_add_space. Qed.
 
   Lemma Nat_eqb_space_size_complexity :
@@ -102,12 +108,12 @@ Module SpaceExamples (Import Space : SpaceCostModel).
 
   Lemma Nat_mul_space_size_complexity :
     Space.ComplexityBound Nat.mul
-      (fun (cn : ℂI nat _) => 3 +> fun (cm : ℂI nat _) => (#|val cn| * (4 * #|val cm| + 6)) >|).
+      (fun (cn : ℂI nat _) => 1 +> fun (cm : ℂI nat _) => (#|val cn| * (3 * #|val cm| + 3)) >|).
   Proof. csize_using Nat_mul_space. Qed.
 
   Lemma repeat_space_size_complexity {A} `{Ground A} :
     Space.ComplexityBound (@repeat A)
-      (fun cx => 3 +> fun (cn : ℂI nat _) => (5 * #|val cn|) >|).
+      (fun cx => 1 +> fun (cn : ℂI nat _) => (4 * #|val cn|) >|).
   Proof. csize_using repeat_space. Qed.
 
 End SpaceExamples.

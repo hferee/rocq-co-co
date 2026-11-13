@@ -3,10 +3,13 @@
 usage: minimise.py [--screen] [--start NAME] FILE [NAME...]
 
 For each declaration of a bound of FILE (a path under theories/), in file
-order, or only those named: the tunable literals of the bound
-(coqsrc.literal_positions) are first scaled up until the proof goes
-through, then lowered one at a time by a parallel binary search, until none
-can be lowered. A candidate is checked by compiling the file up to the
+order, or only those named, the tunable literals of the bound
+(coqsrc.literal_positions) are found from the inequalities that the proof
+leaves when they are variables (goals.py): one compilation in export mode,
+then one round that checks them, and that lowers each one by one. If this
+does not conclude, or if a constant can still be lowered, they are scaled up
+until the proof goes through, then lowered one at a time by a parallel
+binary search, until none can be lowered. A candidate is checked by compiling the file up to the
 declaration, with the candidate declaration. The proof script of the file is
 kept when it works; otherwise variants of [cbound] are tried. The file is
 rewritten with the constants found, and a report (JSON) is written in the
@@ -27,9 +30,9 @@ Environment: JOBS (parallel compilations, default 8), TIMEOUT (seconds per
 compilation, default 150), ROCQ (the compiler, default rocq), BOUNDS_TMP
 (scratch directory).
 """
-import concurrent.futures as cf, itertools, json, os, subprocess, sys, tempfile
+import concurrent.futures as cf, itertools, json, os, re, subprocess, sys, tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import coqsrc
+import coqsrc, goals
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..'))
@@ -62,7 +65,6 @@ def compile_ok(src):
 ALT_SCRIPTS = ['Proof. cbound. Qed.',
                'Proof. cbound. all: try (lia || nia). Qed.',
                'Proof. intros. cbound. all: try (lia || nia). Qed.']
-BRACKET_SCRIPTS = ['Proof. bcbound. Qed.', 'Proof. bcbound. all: try (lia || nia). Qed.']
 
 def instantiate(text, rel_pos, values):
     out = []; last = 0
@@ -98,13 +100,45 @@ def search(feasible, vals):
                 vals[i] = hi; changed = True
     return vals
 
+HEAD = re.compile(r"\s*(?:#\[[^\]]*\]\s*)?(?:Global\s+|Local\s+)?"
+                  r"(?:Instance|Lemma|Corollary|Theorem|Example)\s+[\w']+")
+
+ANALYSIS = re.compile(r'\b(?:cbound|cbound_core|cfinish|csize|csize_using|cproject|cweaken)\b')
+
+def goal_values(prefix, decl, d, pos, close, vals0):
+    """The constants from the inequalities that the proof leaves when they are
+    variables (goals.py), or [None]."""
+    names = [goals.KAPPA + str(i) for i in range(len(pos))]
+    t = instantiate(decl, pos, names)
+    m = HEAD.match(t)
+    if not m: return None
+    t = t[:m.end()] + ' (' + ' '.join(names) + ' : nat)' + t[m.end():]
+    mm = coqsrc.mask_comments(t)
+    e = coqsrc.sentence_end(mm, 0)
+    head, rest = t[:e], t[e:]
+    if d['kind'] == 'term':
+        head = head[:coqsrc.top_assign(head)].rstrip() + '.'
+        body = 'Proof. cbound_core.'
+    else:
+        body = re.sub(r'\b(Qed|Defined)\s*\.\s*$', '', rest.rstrip())
+        # up to the analysis, which exports and admits the goals: what
+        # follows it has nothing to work on
+        a = ANALYSIS.search(coqsrc.mask_comments(body))
+        if a:
+            body = body[:coqsrc.sentence_end(coqsrc.mask_comments(body), a.end())]
+    src = (prefix + 'Ltac2 Set cexport := Init.true.\nSet Printing Width 10000.\n' + head + '\n'
+           + body + '\nAbort.\nLtac2 Set cexport := Init.false.\n' + close + '\n')
+    ok, out = compile_ok(src)
+    if not ok: return None
+    return goals.solve(out, vals0)
+
 def minimise_decl(s, d, screen):
     prefix = s[:d['start']]
     decl = s[d['start']:d['end']]
     close = coqsrc.closers(prefix)
     pos = [(a - d['start'], b - d['start']) for (a, b) in coqsrc.tunables(s, d)]
     vals0 = [int(decl[a:b]) for (a, b) in pos]
-    scripts = [None] + (BRACKET_SCRIPTS if 'bcbound' in decl else ALT_SCRIPTS)
+    scripts = [None] + ALT_SCRIPTS
 
     def make(values, script):
         t = instantiate(decl, pos, values)
@@ -123,6 +157,16 @@ def minimise_decl(s, d, screen):
         return f
 
     entry = {'name': d['name'], 'before': vals0}
+    if pos and not screen:
+        g = goal_values(prefix, decl, d, pos, close, vals0)
+        if g is not None:
+            res = feasible_with(None)([g] + [g[:i] + [g[i] - 1] + g[i + 1:]
+                                            for i in range(len(g)) if g[i] > 0])
+            if res[0]:
+                vals = g if not any(res[1:]) else search(feasible_with(None), g)
+                new_decl = make(vals, None)[len(prefix):-len(close) - 1]
+                return (s[:d['start']] + new_decl + s[d['end']:],
+                        dict(entry, status='ok', after=vals, script=None, method='goals'))
     if screen and pos:
         res = feasible_with(None)([vals0] + [vals0[:i] + [vals0[i] - 1] + vals0[i + 1:]
                                              for i in range(len(vals0)) if vals0[i] > 0])

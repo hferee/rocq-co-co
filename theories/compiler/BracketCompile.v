@@ -1,7 +1,8 @@
 (** * Bracket abstraction (backup)
 
     The former compilation scheme, kept for comparison with closure
-    conversion ([Compile]; see [BracketComparison]): every lambda is
+    conversion ([ClosureCompile]; see [BracketComparison], which selects it
+    with [ccompiler], [Compile]): every lambda is
     eliminated by Turner's bracket abstraction, by value, with the
     combinators [Kc], [Ic], [Sc], [Cc] and [compose] (K, I, S, C, B).
 
@@ -18,7 +19,7 @@
 
 From Ltac2 Require Import Ltac2.
 From Stdlib Require Import Program.Basics.
-From Complexity Require Import Compile.
+From Complexity Require Export CompileCommon.
 Import Constr.Unsafe.
 
 (** Combinators: number of type arguments and of other arguments. *)
@@ -127,17 +128,5 @@ Ltac2 rec bracket_compile (t : constr) : constr :=
   | _ => t
   end.
 
-(** In a goal `@ComplexityBound A CA R f c`, replace [f] by its compiled
-    form. *)
-Ltac2 bracket_compile_goal () :=
-  match kind (Control.goal ()) with
-  | App _ args =>
-      let i := Int.sub (Array.length args) 2 in
-      replace_goal_arg i (bracket_compile (Array.get args i))
-  | _ => fail_msg "bracket_compile_goal: unexpected goal"
-  end.
-
-Ltac bracket_compile_goal := ltac2:(bracket_compile_goal ()).
-
-(** [cbc] with bracket abstraction. *)
-Ltac bcbc := unshelve (bracket_compile_goal; typeclasses eauto); try exact unit.
+(** The compiler, for [cbound] ([Compile]). *)
+Ltac2 bracket_compile_goal () := compile_goal_with bracket_compile.

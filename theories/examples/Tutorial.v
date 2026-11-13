@@ -27,14 +27,14 @@
     bound is then [fun cn => k >|], and [k >|] reads: the cost [k], and
     nothing after it. For example,
 <<
-      Time.ComplexityBound Nat.add (fun cn => 4 +> fun cm => 22 * val cn + 6 >|)
+      Time.ComplexityBound Nat.add (fun cn => 1 +> fun cm => 14 * val cn + 10 >|)
 >>
-    says that applying [Nat.add] to [n] costs 4 steps (it builds the closure
+    says that applying [Nat.add] to [n] costs 1 step (it builds the closure
     [Nat.add n]), and that applying [Nat.add n] to [m] costs at most
-    [22 n + 6] steps. A function of two arguments has a bound of the form
+    [14 n + 10] steps. A function of two arguments has a bound of the form
     [fun cn => k1 +> fun cm => k2 >|]. [k +> r] reads: the cost [k],
     then the costs of [r], when the result is used. [+>] and [>|] bind less
-    tightly than [+] and [*], so [22 * val cn + 6 >|] needs no parentheses.
+    tightly than [+] and [*], so [14 * val cn + 10 >|] needs no parentheses.
 
     ** The method
 

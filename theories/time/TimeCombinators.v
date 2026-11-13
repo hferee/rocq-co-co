@@ -181,7 +181,7 @@ Module Type CombinatorTimeCostAxioms
     ComplexityBound (@compose A B C)
       (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => c_clo +>
        fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => c_clo +>
-       fun ca : ℂI A CA => c_step ⊕ pot <$> cf · (cg · ca)).
+       fun ca : ℂI A CA => c_step ⊕ pot <$> cf · (c_frame ⊕ cg · ca)).
 
   (** `Cc f a x = f x a`. *)
   #[global] Declare Instance Cc_complexity :
@@ -189,7 +189,7 @@ Module Type CombinatorTimeCostAxioms
     ComplexityBound (@Cc X A B)
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo +>
        fun ca : ℂI A CA => c_clo +>
-       fun cx : ℂI X CX => c_step ⊕ pot <$> cf · cx · ca).
+       fun cx : ℂI X CX => c_step ⊕ pot <$> (c_frame ⊕ cf · cx) · ca).
 
   (** [Sc f g x = f x (g x)]: the bound variable is used twice. *)
   #[global] Declare Instance Sc_complexity :
@@ -197,7 +197,7 @@ Module Type CombinatorTimeCostAxioms
     ComplexityBound (@Sc X A B)
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo +>
        fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => c_clo +>
-       fun cx : ℂI X CX => c_step ⊕ pot <$> cf · cx · (cg · cx)).
+       fun cx : ℂI X CX => c_step ⊕ pot <$> (c_frame ⊕ cf · cx) · (c_frame ⊕ cg · cx)).
 End CombinatorTimeCostAxioms.
 
 Module CombinatorTactics
@@ -239,7 +239,7 @@ Module CombinatorTactics
 
   Definition found_compose {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC}
     (f : B -> C) (g : A -> B) (Hf : Found f) (Hg : Found g) : Found (compose f g : A -> C) :=
-    {| found := fun ca : ℂI A CA => c_step ⊕ pot <$> (f ⋊ found f) · ((g ⋊ found g) · ca);
+    {| found := fun ca : ℂI A CA => c_step ⊕ pot <$> (f ⋊ found f) · (c_frame ⊕ (g ⋊ found g) · ca);
        found_ok := compose_complexity f _ g _ (found_ok f) (found_ok g) |}.
 
   Global Existing Instance found_bound | 1.
@@ -376,7 +376,11 @@ Module CombinatorTactics
       | |- context [match ?x with _ => _ end] =>
           tryif is_var x then destruct x else (let E := fresh "E" in destruct x eqn:E)
       end);
-    csimpl; cnorm.
+    csimpl; cnorm;
+    (* the same tests in the claimed bound, revealed by [cnorm] *)
+    repeat match goal with
+           | E : ?x = _ |- context [match ?x with _ => _ end] => rewrite E; cnorm
+           end.
 
   (** The complexities of ground values, given by potentials of functions
       as [res (..)], are [tt]. *)
@@ -386,8 +390,32 @@ Module CombinatorTactics
       complexity is computed first ([csimpl]): as built by typeclass search,
       it is a large term (closures, environments, typed binders), which
       makes every later tactic slow, even [split] and [destruct]. *)
+  (** The records written out by the computation ([val x ⋊ pot x]) are
+      folded back, so that they compare equal to [x], and [bound_order x x]
+      holds. *)
+  Ltac cfold :=
+    repeat match goal with
+    | |- context [val ?x ⋊ pot ?x] => progress change (val x ⋊ pot x) with x
+    end;
+    try match goal with |- bound_order ?x ?x => reflexivity end.
+
+  (** *** Export of the inequalities
+
+      With [cexport] set ([Ltac2 Set cexport := true]), the tactics that
+      end with [lia] and [nia] ([cfinish], [csize]) print the inequalities
+      left instead, with the arithmetic hypotheses, and admit them. The
+      minimiser of the constants ([tools/bounds/minimise.py]) makes the
+      constants of a bound variables, and solves these inequalities for
+      them. Each one is printed as `#G (<= a b)` (or [<], [=]), after its
+      hypotheses `#H ...`, between `#CGOAL` and `#END`; the terms are
+      s-expressions over [+], [*] and [-], numerals and atoms `{t}`. A goal
+      of another form is printed as `#X t` ([Advice]). *)
+  (** [lia] and [nia], or the export. *)
+  Ltac carith := ltac2:(if Advice.cexport then Control.enter (fun () => Advice.cexport_goal (); ltac1:(admit))
+                        else ltac1:(try solve [lia | nia])).
+
   Ltac cfinish :=
-    csimpl; bo_split; destr_inputs; ccases; cunit; try solve [lia | nia]; try ring_simplify.
+    csimpl; bo_split; destr_inputs; ccases; cunit; cfold; carith; try ring_simplify.
 
   (** From a goal [ComplexityBound f c] to [bound_order c_found c]. *)
   Ltac cstart := eapply ComplexityBound_mono; [idtac | unfold_fun; cbc_found].
@@ -511,7 +539,7 @@ Module CombinatorTactics
   Ltac csize_by tac :=
     eapply ComplexityBound_mono; [idtac | tac];
     csimpl; bo_split; destr_inputs; ccases; cunit; add_size_facts;
-    try solve [lia | nia]; cadvice.
+    carith; cadvice.
   Ltac csize := let f := ltac2:(t |- ctimed "csize" t) in f ltac:(csize_by ltac:(typeclasses eauto)).
 
   (** [csize_using H]: the same, from the bound [H]. *)

@@ -36,31 +36,89 @@ lower or equal, ↑ every constant is higher or equal, ↕ mixed, = unchanged.
   holds for the functional `F` of a recursive function, whose first argument
   is the function itself: each recursive call is cheaper.
 
-No new axiom was needed after `env`.
+- **Fixpoints with an environment** (`envfix`): the fixpoint axiom
+  `fix_complexity` is stated for a recursive function `f e` with an
+  environment `e` (its free variables): its functional runs in
+  `ECons e (f e)`. A closed recursive function is the case `e = tt`: it
+  reads itself in `ECons tt f`, 2 steps more for each recursive call. The
+  arguments that every recursive call passes unchanged go in the
+  environment, and are no longer passed again: the second argument of
+  `app`, `Nat.add`, `Nat.mul` and `Pos.mul`, the first ones of `Nat.pow` and
+  `rec_pos`, the function of `fold_left`. Lists and options of any data get
+  their own models (`TimeLists`, `TimeDatatypes`, `HOTimeCostModel`), with
+  new bounds for `map`, `filter`, `find`, the folds, `option_map`, ...
+  (`HOListComplexity`). The constants were found from
+  the inequalities left by the proofs (`goals.py`), and the bounds in the
+  sizes were minimised too.
+
+- **x86-64 instructions** (`asm`, a reference, not compared): the
+  instructions executed by some functions extracted to OCaml and compiled
+  with `ocamlopt` without optimisation, counted exactly by single-stepping
+  them (`make bounds-asm`, `tools/bounds/asm`). Where the shape of the
+  bound is the same, the cells give the constants (a partial application
+  costs 0: the calls are saturated); otherwise the formula measured, for
+  the inputs described in `bounds/runs.json`. For `map` and `fold_left`, the
+  costs of `f` are included. The per-element constants of the model and of
+  x86 are close for the recursions on one argument (`Nat.add` 14 and 15,
+  `length` 16 and 15, `app` 21 and 21), and far apart for the functions of
+  several arguments with nested matches (`Pos.compare` 42 and 15 per bit).
+
+The section **Environment machine for L** gives bounds in another cost
+model: steps of an environment machine for L (`machine/MachineCostModel`,
+instance `instances/LMachine`, of the whole time model), which reads variables in a linked
+environment, allocates closures and pays a frame for each evaluation in
+non-tail position. Each combinator costs at most 16 steps of the machine,
+so that these bounds are about 17 times those of the time model.
+
+No new axiom was needed between `env` and `argenv`. `envfix` replaces the
+fixpoint axiom, and adds the axioms of lists and options of any data, all
+proved in L.
 
 ## Summary
 
-Against the old compilation, the last run has 88 bounds with every constant
-lower or equal, 13 mixed, 13 higher and 17 unchanged, out of 131. Each step
-after `env` only lowered constants: `selfcase` lowered 44 bounds, `argenv`
-90. The last run also has 39 bounds in the sizes of the arguments
-(`…_size_complexity`, in `#|x|`), derived from the bounds in the values.
+Against the old compilation, the last run has 83 bounds with every constant
+lower or equal, 18 mixed, 13 higher and 16 unchanged, out of 131 (one has
+another shape: `horner`, see below). From `env` to `argenv`, each step only
+lowered constants: `selfcase` lowered 44 bounds, `argenv` 90. `argenv` also
+added 39 bounds in the sizes of the arguments (`…_size_complexity`, in
+`#|x|`), derived from the bounds in the values.
 
-- Recursive functions are cheaper per step: `Nat.add` 36n → 22n, `Pos.add`
-  34 → 18 per bit, `Pos.compare` 86 → 40, `app` 47 → 31 per element,
-  `length` 17 → 14.
-- Partial applications cost one step less with `argenv` (`5 +>` → `4 +>`).
+`envfix` trades costs: 19 bounds are lower, 35 mixed, 71 higher and 44
+unchanged, against `argenv`.
+- Functions with an argument passed unchanged are cheaper per step:
+  `Nat.add` 22n → 14n, `Nat.mul` 22 → 14, `app` 31 → 21 per element,
+  `rec_pos` 105 → 75 per bit, `pad`/`chop` 28 → 20 per bit. Their partial
+  application costs 1 (a closure), and the last application 2 or 3 more,
+  once: `Nat.add` `4 +> 22n + 6` → `1 +> 14n + 10`.
+- The other recursive functions pay 2 more per call (`length` 14 → 16,
+  `Pos.compare` 40 → 42): they read themselves in their environment.
+- `horner x l` charges its last unfolding when `l` is given, not when `x`
+  is: its bound changed shape.
+- In the space model, the closure of the environment of `Nat.add`,
+  `Nat.mul`, `app` and `repeat` is allocated once, when the last argument is
+  given: their bounds have a constant term.
+
+Against the old compilation:
+- Recursive functions are cheaper per step: `Nat.add` 36n → 14n, `Pos.add`
+  34 → 19 per bit, `Pos.compare` 86 → 42, `app` 47 → 21 per element,
+  `length` 17 → 16.
 - Small non-recursive functions (`negb`, `Z.opp`, `tr`, `par`) are still
   dearer than with the old compilation: the matched value and the arguments
   of the constructors are read from the environment, where the old
   combinators received them directly.
-- Every space bound is lower: a `match` allocates nothing.
+- Every space bound is lower or equal per step: a `match` allocates
+  nothing. `Nat.add`, `Nat.mul`, `app` and `repeat` allocate a little more
+  once (the closure of the environment of their fixpoint), and much less
+  per step: `Nat.add` `3 +> 7n + 2` → `1 +> 3n + 3`.
 
 ## How the constants were obtained
 
 For each bound, in file order, every literal was lowered while the proof
-still checked, until none could be lowered. The search was a binary
-search, one literal at a time. The proof script of the file was kept when it
+still checked, until none could be lowered. Up to `argenv`, the search was a
+binary search, one literal at a time; for `envfix`, the literals were first
+solved from the inequalities that the proof leaves when they are variables
+(`tools/bounds/goals.py`), then checked and lowered by one, with the binary
+search as a fallback. The proof script of the file was kept when it
 worked; otherwise a `cbound` variant was used. Constants copied in several
 places were lowered jointly, with the whole file as the check:
 `rec_cost`/`step_bound`, `C_pot`/`V_cost`/`W_cost` and their majorants, and

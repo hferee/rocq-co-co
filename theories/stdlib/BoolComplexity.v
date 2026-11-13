@@ -2,14 +2,16 @@
 
     They are not recursive: compilation and typeclass search derive their
     complexity, and only the claimed bound remains to be checked. The
-    constants are the smallest ones (see [NatComplexity]). *)
+    constants are the smallest ones (see [NatComplexity]). They do not use
+    lists: they hold in both cost models ([TimeCostModelBase]), with ground
+    lists and with lists of any data ([HOListComplexity]). *)
 
 From Complexity Require Export TimeCostModel.
 
 (** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
-Module BoolComplexity (Import Time : TimeCostModel).
+Module BoolComplexity (Import Time : TimeCostModelBase).
 
   Global Instance negb_complexity : Time.ComplexityBound negb (fun cb => 3 >|) := _.
 

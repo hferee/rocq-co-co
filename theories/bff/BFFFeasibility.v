@@ -109,21 +109,21 @@ Module BFFFeasibility (Import Time : TimeCostModel).
 
   Global Instance pad_hpoly : Time.HPolyBound (bits (tN ⇒ tN ⇒ tN)) pad.
   Proof.
-    refine (hpoly_intro _ _ (db <{ λ a b, a + 28 * b + 13 }>) _ pad_complexity _). simpl_hp.
+    refine (hpoly_intro _ _ (db <{ λ a b, a + 20 * b + 10 }>) _ pad_complexity _). simpl_hp.
     intros x cx a _ Hx. split; [cbn; lia|].
     intros y cy b _ Hy. cbn in *. pose proof (size_pad x y). lia.
   Qed.
 
   Global Instance chop_hpoly : Time.HPolyBound (bits (tN ⇒ tN ⇒ tN)) chop.
   Proof.
-    refine (hpoly_intro _ _ (db <{ λ a b, a + 28 * b + 13 }>) _ chop_complexity _). simpl_hp.
+    refine (hpoly_intro _ _ (db <{ λ a b, a + 20 * b + 10 }>) _ chop_complexity _). simpl_hp.
     intros x cx a _ Hx. split; [cbn; lia|].
     intros y cy b _ Hy. cbn in *. pose proof (size_chop x y). lia.
   Qed.
 
   Global Instance smash_hpoly : Time.HPolyBound (bits (tN ⇒ tN ⇒ tN)) smash.
   Proof.
-    refine (hpoly_intro _ _ (db <{ λ a b, b * (28 * a + 41) + 13 }>) _ smash_complexity _).
+    refine (hpoly_intro _ _ (db <{ λ a b, b * (20 * a + 30) + 10 }>) _ smash_complexity _).
     simpl_hp. intros x cx a _ Hx. split; [cbn; lia|].
     intros y cy b _ Hy. cbn in *. pose proof (size_smash x y). nia.
   Qed.
@@ -139,7 +139,7 @@ Module BFFFeasibility (Import Time : TimeCostModel).
   Global Instance R_hpoly : Time.HPolyBound (bits (tN ⇒ (tN ⇒ tN ⇒ tN) ⇒ (tN ⇒ tN) ⇒ tN ⇒ tN)) R.
   Proof.
     refine (hpoly_intro _ _ (db <{ λ am mF mh wm,
-      wm * (mF wm 0 + mF wm (am + mh wm) + mh wm + rec_len * mh wm + rec_step) + 35 + (am + mh wm) }>)
+      wm * (mF wm 0 + mF wm (am + mh wm) + mh wm + rec_len * mh wm + rec_step) + 32 + (am + mh wm) }>)
       _ R_complexity _).
     simpl_hp.
     intros a ca am _ Ha. split; [cbn; lia|].

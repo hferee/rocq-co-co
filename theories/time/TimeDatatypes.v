@@ -1,7 +1,7 @@
 (** * Cost models for the basic datatypes
 
-    Booleans, natural numbers, lists, options and pairs of ground data, and
-    binary numbers. Values are ground data, with sizes ([Size]); constructors
+    Booleans, natural numbers, options (of ground data, and of any data) and
+    pairs of ground data, and binary numbers (lists are in [TimeLists]). Values are ground data, with sizes ([Size]); constructors
     and case analyses are primitive. Each case analysis is compiled to a case
     combinator ([Combinators]), defined here with its datatype. Recursion is
     covered by [TimeFix]: the functions of the standard library are analysed
@@ -62,7 +62,7 @@ Module Type BoolCaseTimeCostModel
       (fun ct : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cf : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cb : ℂI (E -> bool) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_bool ⊕ cost (pot cb ce) ⊕
+       fun ce : ℂI E CE => c_case_bool ⊕ c_frame ⊕ cost (pot cb ce) ⊕
          if val cb (val ce) then pot ct ce else pot cf ce).
 End BoolCaseTimeCostModel.
 
@@ -122,7 +122,7 @@ Module Type NatCaseTimeCostModel
       (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cs : ℂI (env E nat -> A) (ℂI (env E nat) (CE * unit) -> ℂO CA) => c_clo +>
        fun cn : ℂI (E -> nat) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_nat ⊕ cost (pot cn ce) ⊕
+       fun ce : ℂI E CE => c_case_nat ⊕ c_frame ⊕ cost (pot cn ce) ⊕
          match val cn (val ce) with
          | O => pot cz ce
          | S k => pot cs (ECons (val ce) k ⋊ (pot ce, tt))
@@ -134,79 +134,6 @@ Module Type NatTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
   NatData CM <+ NatCtorTimeCostModel CM BT <+ NatCaseTimeCostModel CM BT CB.
 
 (* See NatComplexity.v for examples. *)
-
-(** ** Lists (of ground data) *)
-
-(** Case combinator (see [Combinators]). *)
-
-Definition list_case {X E A : Type} (z : E -> A) (c : env (env E X) (list X) -> A)
-  (l : E -> list X) (e : E) : A :=
-  match l e with nil => z e | cons h t => c (ECons (ECons e h) t) end.
-
-#[global] Typeclasses Opaque list_case.
-#[global] Hint Unfold list_case : comb.
-
-Module Type ListData (Import CM : CostModel).
-  (* The cost of a list is the list of costs.
-    Other possible cost models: the maxiumum cost or the sum of the costs. *)
-(*   Parameter CT_list: forall {A CA : Type} `{CT A CA}, CT (list A) (list CA).
-  Global Existing Instance CT_list. *)
-
-  (* The complexity of a list is exactly the complexity of its elements *)
-  (* This mostly makes sense for lists containing functions, not ground types *)
-  #[global] Declare Instance Repr_list : forall {A}, Ground A -> Ground (list A).
-
-  #[global] Declare Instance Size_list : forall {A}, Size A -> Size (list A).
-  Parameter size_nil : forall {A} `{Size A}, 0 < size (@nil A).
-  Parameter size_cons : forall {A} `{Size A} (a : A) l, size a + size l < size (a :: l).
-
-  (** The empty list is a value; the other lists are built with [cons]. *)
-  #[global] Declare Instance nil_complexity : forall {A} `{Ground A}, ComplexityBound (@nil A) tt.
-End ListData.
-
-Module Type ListCtorTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import LD : ListData CM).
-
-  Parameter c_cons : nat.
-  #[global] Hint Unfold c_cons : costs.
-
-  (* TODO: annoyingly, this is required for cons_complexity to find the typeclass instance *)
-(*   Global Instance CT_cons {A CA : Type}: CT (A -> list A -> list A)
-                        (ℂI A -> ℂO (ℂI (list A) -> ℂO (list CA))).
-  Proof. typeclasses eauto. Defined. *)
-
-  #[global] Declare Instance cons_complexity: forall {A : Type} `{Ground A},
-    ComplexityBound (@cons A)
-                    (fun h => c_clo +> (
-                     fun t => c_cons >|)).
-End ListCtorTimeCostModel.
-
-Module Type ListCaseTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import LD : ListData CM).
-
-  Parameter c_case_list : nat.
-  #[global] Hint Unfold c_case_list : costs.
-
-  (** Case analysis, as a higher-order constant: matches on any expression,
-      with branches using other variables, are compiled to it ([Compile]). *)
-  #[global] Declare Instance list_case_complexity :
-    forall {X E CE A CA} `{Ground X} `{Repr E CE} `{Repr A CA},
-    ComplexityBound (@list_case X E A)
-      (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
-       fun cc : ℂI (env (env E X) (list X) -> A)
-                   (ℂI (env (env E X) (list X)) ((CE * unit) * unit) -> ℂO CA) => c_clo +>
-       fun cl : ℂI (E -> list X) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_list ⊕ cost (pot cl ce) ⊕
-         match val cl (val ce) with
-         | nil => pot cz ce
-         | cons h t => pot cc (ECons (ECons (val ce) h) t ⋊ ((pot ce, tt), tt))
-         end).
-End ListCaseTimeCostModel.
-
-Module Type ListTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
-  (CB : CombinatorTimeCostModel CM BT) :=
-  ListData CM <+ ListCtorTimeCostModel CM BT <+ ListCaseTimeCostModel CM BT CB.
 
 (** ** Options (of ground data) *)
 
@@ -253,7 +180,7 @@ Module Type OptionCaseTimeCostModel
       (fun cs : ℂI (env E X -> A) (ℂI (env E X) (CE * unit) -> ℂO CA) => c_clo +>
        fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun co : ℂI (E -> option X) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_option ⊕ cost (pot co ce) ⊕
+       fun ce : ℂI E CE => c_case_option ⊕ c_frame ⊕ cost (pot co ce) ⊕
          match val co (val ce) with
          | Some x => pot cs (ECons (val ce) x ⋊ (pot ce, tt))
          | None => pot cz ce
@@ -263,6 +190,76 @@ End OptionCaseTimeCostModel.
 Module Type OptionTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
   (CB : CombinatorTimeCostModel CM BT) :=
   OptionData CM <+ OptionCtorTimeCostModel CM BT <+ OptionCaseTimeCostModel CM BT CB.
+
+(** ** Options of any data
+
+    As for lists of any data ([TimeLists]): the element of an option may be
+    a function, or other data with complexities. An option of [A], with
+    complexities [CA], has an option of [CA] as its complexity: that of its
+    element. [Some] keeps the complexity of its argument, and the case
+    analysis gives it to the branch of [Some]. An option and its complexity
+    are both [Some] or both [None] (in L, the instance); the case analysis
+    treats [Some] without a complexity as [None] (this does not happen).
+    The order compares the complexities of the elements ([option_le]). A
+    cost model chooses one of the two models of options ([TimeCostModel],
+    [HOTimeCostModel]). *)
+
+(** The order on options: both [None], or both [Some] with related elements. *)
+Definition option_le {C} (R : C -> C -> Prop) (o o' : option C) : Prop :=
+  match o, o' with
+  | Some x, Some y => R x y
+  | None, None => True
+  | _, _ => False
+  end.
+
+Module Type HOptionData (Import CM : CostModel).
+  #[global] Declare Instance Repr_option : forall {A CA}, Repr A CA -> Repr (option A) (option CA).
+
+  #[global] Declare Instance Size_option : forall {A}, Size A -> Size (option A).
+  Parameter size_None : forall {A} `{Size A}, 0 < size (@None A).
+  Parameter size_Some : forall {A} `{Size A} (a : A), size a < size (Some a).
+
+  Parameter bound_order_option : forall {A CA} `{Repr A CA} (c c' : option CA),
+    option_le bound_order c c' -> bound_order c c'.
+
+  #[global] Declare Instance None_complexity : forall {A CA} `{Repr A CA},
+    ComplexityBound (@None A) (@None CA).
+End HOptionData.
+
+Module Type HOptionCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import OD : HOptionData CM).
+
+  Parameter c_Some : nat.
+  #[global] Hint Unfold c_Some : costs.
+
+  #[global] Declare Instance Some_complexity : forall {A CA} `{Repr A CA},
+    ComplexityBound (@Some A) (fun ca => c_Some +> Some (pot ca)).
+End HOptionCtorTimeCostModel.
+
+Module Type HOptionCaseTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
+  (Import CB : CombinatorTimeCostModel CM BT) (Import OD : HOptionData CM).
+
+  Parameter c_case_option : nat.
+  #[global] Hint Unfold c_case_option : costs.
+
+  (** The branch of [Some] receives the element with its complexity. *)
+  #[global] Declare Instance option_case_complexity :
+    forall {X CX E CE A CA} `{Repr X CX} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@option_case X E A)
+      (fun cs : ℂI (env E X -> A) (ℂI (env E X) (CE * CX) -> ℂO CA) => c_clo +>
+       fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
+       fun co : ℂI (E -> option X) (ℂI E CE -> ℂO (option CX)) => c_clo +>
+       fun ce : ℂI E CE => c_case_option ⊕ c_frame ⊕ cost (pot co ce) ⊕
+         match val co (val ce), res (pot co ce) with
+         | Some x, Some cx => pot cs (ECons (val ce) x ⋊ (pot ce, cx))
+         | _, _ => pot cz ce
+         end).
+End HOptionCaseTimeCostModel.
+
+Module Type HOptionTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
+  (CB : CombinatorTimeCostModel CM BT) :=
+  HOptionData CM <+ HOptionCtorTimeCostModel CM BT <+ HOptionCaseTimeCostModel CM BT CB.
 
 (** ** Pairs (of ground data)
 
@@ -309,7 +306,7 @@ Module Type ProdCaseTimeCostModel
       (fun cf : ℂI (env (env E X) Y -> A) (ℂI (env (env E X) Y) ((CE * unit) * unit) -> ℂO CA) =>
          c_clo +>
        fun cp : ℂI (E -> X * Y) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_prod ⊕ cost (pot cp ce) ⊕
+       fun ce : ℂI E CE => c_case_prod ⊕ c_frame ⊕ cost (pot cp ce) ⊕
          let (x, y) := val cp (val ce) in
          pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, tt), tt))).
 End ProdCaseTimeCostModel.
@@ -399,7 +396,7 @@ Module Type ZCaseTimeCostModel
        fun cO : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
        fun cH : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cp : ℂI (E -> positive) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_Z ⊕ cost (pot cp ce) ⊕
+       fun ce : ℂI E CE => c_case_Z ⊕ c_frame ⊕ cost (pot cp ce) ⊕
          match val cp (val ce) with
          | xI q => pot cI (ECons (val ce) q ⋊ (pot ce, tt))
          | xO q => pot cO (ECons (val ce) q ⋊ (pot ce, tt))
@@ -411,7 +408,7 @@ Module Type ZCaseTimeCostModel
       (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
        fun cn : ℂI (E -> N) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_Z ⊕ cost (pot cn ce) ⊕
+       fun ce : ℂI E CE => c_case_Z ⊕ c_frame ⊕ cost (pot cn ce) ⊕
          match val cn (val ce) with
          | N0 => pot cz ce
          | Npos p => pot cp (ECons (val ce) p ⋊ (pot ce, tt))
@@ -423,7 +420,7 @@ Module Type ZCaseTimeCostModel
        fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
        fun cn : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
        fun cx : ℂI (E -> Z) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_Z ⊕ cost (pot cx ce) ⊕
+       fun ce : ℂI E CE => c_case_Z ⊕ c_frame ⊕ cost (pot cx ce) ⊕
          match val cx (val ce) with
          | Z0 => pot cz ce
          | Zpos p => pot cp (ECons (val ce) p ⋊ (pot ce, tt))
@@ -436,7 +433,7 @@ Module Type ZCaseTimeCostModel
        fun cl : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cg : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cc : ℂI (E -> comparison) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_Z ⊕ cost (pot cc ce) ⊕
+       fun ce : ℂI E CE => c_case_Z ⊕ c_frame ⊕ cost (pot cc ce) ⊕
          match val cc (val ce) with
          | Eq => pot cq ce
          | Lt => pot cl ce
@@ -448,7 +445,7 @@ Module Type ZCaseTimeCostModel
       (fun cf : ℂI (env (env E Z) positive -> A)
                    (ℂI (env (env E Z) positive) ((CE * unit) * unit) -> ℂO CA) => c_clo +>
        fun cq : ℂI (E -> Q) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_Z ⊕ cost (pot cq ce) ⊕
+       fun ce : ℂI E CE => c_case_Z ⊕ c_frame ⊕ cost (pot cq ce) ⊕
          match val cq (val ce) with
          | Qmake n d => pot cf (ECons (ECons (val ce) n) d ⋊ ((pot ce, tt), tt))
          end).

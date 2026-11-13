@@ -34,10 +34,12 @@ Module HornerCount (Import Time : ArithOpsTimeCostModel).
     (fun cx => (c_mul + 2 * c_add) >|) := _.
 
   (** One addition, one multiplication and one unfolding for each
-      coefficient, and one more unfolding, charged when [horner] is applied
-      to [x]. *)
+      coefficient, and one more unfolding at the end of the list. [x] is
+      passed unchanged by the recursive calls: it is in the environment of
+      the fixpoint ([fix_complexity]), and applying [horner] to it only
+      builds a closure, which is free here. *)
   Lemma horner_complexity : 1 <= c_fix -> Time.ComplexityBound horner
-    (fun cx => c_fix +> fun cl => (length (val cl) * (c_add + c_mul + c_fix)) >|).
+    (fun cx => 0 +> fun cl => (length (val cl) * (c_add + c_mul + c_fix) + c_fix) >|).
   Proof. intro. cbound. Qed.
 
   (** Matches on numbers have no known cost. *)

@@ -20,6 +20,16 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
   Parameter c_clo c_step : nat.
   #[global] Hint Unfold c_clo c_step : costs.
 
+  (** [c_frame]: the cost of an evaluation that is not in tail position,
+      whose value is used afterwards (a frame on the stack of a machine,
+      pushed and popped). It is charged by the combinators that evaluate a
+      subterm before using its value: the argument of [compose], the two
+      subterms of [Sc], the function of [Cc], and the matched value of a
+      case analysis. A call in tail position does not pay it. [0] in the
+      models whose instance has no stack ([TimeCostModel]: L reduces terms). *)
+  Parameter c_frame : nat.
+  #[global] Hint Unfold c_frame : costs.
+
   (* Assume we know the cost of some basic functions *)
   (* General idea: we define a (complete) set of primitives and axiomatize their
   cost. These axioms are now the trust base, and users may not cheat,
@@ -49,7 +59,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     ComplexityBound f cf ->
     ComplexityBound g cg ->
     ComplexityBound (compose f g : A -> C)
-                    (fun ca => c_step ⊕ pot <$> (f ⋊ cf) · ((g ⋊ cg) · ca)).
+                    (fun ca => c_step ⊕ pot <$> (f ⋊ cf) · (c_frame ⊕ (g ⋊ cg) · ca)).
 
   #[global] Declare Instance constant_complexity :
     forall {A B CA CB} `{Repr A CA} `{Repr B CB} b {cb},

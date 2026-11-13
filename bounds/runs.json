@@ -1,14 +1,43 @@
 [
-  {"name": "thunks", "title": "Old compilation",
-   "source": "commit 3087c87, constants minimised",
-   "description": "A match is compiled to its case combinator applied to one closure per branch (a thunk for a constant constructor) and to the matched value; the closures are built at each evaluation."},
-  {"name": "env", "parent": "thunks", "title": "Environment combinators",
-   "source": "working tree of 2026-11-12, constants minimised",
-   "description": "The case combinators take the branches and the matched value as code over the environment of the enclosing closure (nat_case z s n e); no closure per evaluation of a match."},
-  {"name": "selfcase", "parent": "env", "title": "Matched variable as environment",
-   "source": "working tree of 2026-11-12, constants minimised (screened)",
-   "description": "A closed function fun x => match x with ... end is the case combinator itself, with x as its environment, read by Ic."},
-  {"name": "argenv", "parent": "selfcase", "title": "Argument as environment",
-   "source": "working tree of 2026-11-12, constants minimised (screened)",
-   "description": "Every closed function that is not an eta-reduction is the code of its body with its argument as the environment: no closure step, and the first argument is read with etl alone."}
+ {
+  "name": "thunks",
+  "title": "Old compilation",
+  "source": "commit 3087c87, constants minimised",
+  "description": "A match is compiled to its case combinator applied to one closure per branch (a thunk for a constant constructor) and to the matched value; the closures are built at each evaluation."
+ },
+ {
+  "name": "env",
+  "parent": "thunks",
+  "title": "Environment combinators",
+  "source": "working tree of 2026-11-12, constants minimised",
+  "description": "The case combinators take the branches and the matched value as code over the environment of the enclosing closure (nat_case z s n e); no closure per evaluation of a match."
+ },
+ {
+  "name": "selfcase",
+  "parent": "env",
+  "title": "Matched variable as environment",
+  "source": "working tree of 2026-11-12, constants minimised (screened)",
+  "description": "A closed function fun x => match x with ... end is the case combinator itself, with x as its environment, read by Ic."
+ },
+ {
+  "name": "argenv",
+  "parent": "selfcase",
+  "title": "Argument as environment",
+  "source": "working tree of 2026-11-12, constants minimised (screened)",
+  "description": "Every closed function that is not an eta-reduction is the code of its body with its argument as the environment: no closure step, and the first argument is read with etl alone."
+ },
+ {
+  "name": "envfix",
+  "parent": "argenv",
+  "title": "Fixpoints with an environment",
+  "source": "working tree of 2026-11-13, constants minimised (goals, then binary search)",
+  "description": "fix_complexity for a recursive function f e of an environment e: its functional runs in ECons e (f e). A closed recursive function reads itself in ECons tt f (2 more per call). The arguments passed unchanged by every recursive call (the second of app, Nat.add, Nat.mul, Pos.mul; the first ones of Nat.pow, rec_pos; the function of fold_left) are in the environment and are not passed again."
+ },
+ {
+  "name": "asm",
+  "title": "x86-64 instructions",
+  "reference": true,
+  "source": "measured, tools/bounds/asm/measure.py",
+  "description": "x86-64 instructions executed by the functions extracted to OCaml (ocamlopt 5.4, -inline 0, no flambda), counted by single-stepping (tools/bounds/asm). Nat.add and Nat.mul: the second argument of size 3 (Nat.mul: 10 and 20, for its two coefficients); app: the second list of length 3; Pos.add and Pos.compare: two numbers of n bits, all 1; map: f = fun x => S x; fold_left: f = fun a _ => S a, from 0 (the costs of f included). Partial applications: 0 (the calls are saturated). The constants include the call from the measuring program."
+ }
 ]

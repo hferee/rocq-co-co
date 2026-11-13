@@ -59,7 +59,7 @@ def top_assign(stmt):
 
 DECL = re.compile(r'^[ \t]*(?:#\[[^\]]*\][ \t]*)?(?:Global[ \t]+|Local[ \t]+)?'
                   r'(Instance|Lemma|Corollary|Theorem|Example)[ \t]+([\w\']+)', re.M)
-KIND = re.compile(r'((?:Time|Space)\.)?(ComplexityBound|FirstOrderBound)\b')
+KIND = re.compile(r'((?:Time|Space|Machine)\.)?(ComplexityBound|FirstOrderBound)\b')
 
 def find_decls(s):
     """The declarations of bounds of [s]: name, kind, positions of the

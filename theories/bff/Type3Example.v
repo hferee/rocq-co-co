@@ -223,12 +223,12 @@ Qed.
     ([W_a], [W_b], [W_c]) and [W_maj], [W_poly], [W_cost_sized],
     [W_cost_paid]; [V_clo] and [W_clo], the costs of the applications of
     `V` and [W] to `F`. *)
-Abbreviation C_a := 12 (only parsing).
-Abbreviation C_b := 37 (only parsing).
+Abbreviation C_a := 14 (only parsing).
+Abbreviation C_b := 39 (only parsing).
 Abbreviation C_c := 15 (only parsing).
-Abbreviation V_a := 26 (only parsing).
+Abbreviation V_a := 28 (only parsing).
 Abbreviation V_b := 30 (only parsing).
-Abbreviation W_a := 64 (only parsing).
+Abbreviation W_a := 72 (only parsing).
 Abbreviation W_b := 4 (only parsing).
 Abbreviation W_c := 0 (only parsing).
 Abbreviation V_clo := 1 (only parsing).
@@ -367,23 +367,23 @@ Module Type3Complexity (Import Time : TimePos).
 
   (** [zeros p q] makes [2 p - 1] calls. *)
   Global Instance zeros_complexity : Time.ComplexityBound zeros
-    (fun cp => 4 +> fun cq => (32 * (2 * Pos.to_nat (val cp) - 1)) >|).
+    (fun cp => 4 +> fun cq => (36 * (2 * Pos.to_nat (val cp) - 1)) >|).
   Proof. cbound. all: pose proof (Pos2Nat.is_pos cp); lia. Qed.
 
   Global Instance pow2_complexity : Time.ComplexityBound pow2
-    (fun cx => (64 * N.to_nat (val cx) + 3) >|) := _.
+    (fun cx => (72 * N.to_nat (val cx) + 3) >|) := _.
 
   Global Instance pred_N_complexity : Time.ComplexityBound Pos.pred_N
-    (fun cp => (12 * Pos.size_nat (val cp)) >|) := _.
+    (fun cp => (14 * Pos.size_nat (val cp)) >|) := _.
 
   Global Instance N_pred_complexity : Time.ComplexityBound N.pred
-    (fun cx => (12 * N.size_nat (val cx) + 4) >|) := _.
+    (fun cx => (14 * N.size_nat (val cx) + 4) >|) := _.
 
   Global Instance N_eqb_complexity : Time.ComplexityBound N.eqb
-    (fun cx => 1 +> fun cy => (26 * N.size_nat (val cx) + 17) >|) := _.
+    (fun cx => 1 +> fun cy => (28 * N.size_nat (val cx) + 17) >|) := _.
 
   Global Instance pow2_eq_pos_complexity : Time.ComplexityBound pow2_eq_pos
-    (fun cx => 4 +> fun cp => (Pos.size_nat (val cp) * (12 * N.size_nat (val cx) + 37)) >|).
+    (fun cx => 4 +> fun cp => (Pos.size_nat (val cp) * (14 * N.size_nat (val cx) + 39)) >|).
   Proof.
     cbound.
     all: match goal with |- context [Pos.pred_N ?p] => pose proof (size_nat_pred (Npos p)) as H end;
@@ -431,10 +431,10 @@ Module Type3Complexity (Import Time : TimePos).
     pose proof (Nat.pow_le_mono_r 2 _ _ ltac:(lia) (Nat.lt_le_incl _ _ H0)). cbn [N.to_nat]. lia.
   Qed.
 
-  Lemma zeros_size_bound : Time.FirstOrderBound zeros (fun ss => 64 * 2 ^ List.nth 0 ss 0).
+  Lemma zeros_size_bound : Time.FirstOrderBound zeros (fun ss => 72 * 2 ^ List.nth 0 ss 0).
   Proof. cost_split. all: pose proof (pos_to_nat_le_pow_size ca); lia. Qed.
 
-  Lemma pow2_size_bound : Time.FirstOrderBound pow2 (fun ss => 64 * 2 ^ List.nth 0 ss 0 + 3).
+  Lemma pow2_size_bound : Time.FirstOrderBound pow2 (fun ss => 72 * 2 ^ List.nth 0 ss 0 + 3).
   Proof. cost_split. pose proof (N_to_nat_le_pow_size ca). lia. Qed.
 
   (** ** Higher-order polynomial bounds ([BFFFeasibility]) *)

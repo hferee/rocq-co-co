@@ -24,7 +24,7 @@
 From Complexity Require Export TimeCostModel.
 
 Module Type SpaceCostModel := ParamTimeCostModel
-  with Definition c_clo := 1 with Definition c_step := 0
+  with Definition c_clo := 1 with Definition c_step := 0 with Definition c_frame := 0
   with Definition c_case_bool := 0
   with Definition c_S := 1 with Definition c_case_nat := 0
   with Definition c_cons := 1 with Definition c_case_list := 0
