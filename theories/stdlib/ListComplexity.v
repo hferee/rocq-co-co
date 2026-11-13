@@ -60,47 +60,51 @@ Module ListComplexity (Import Time : TimeNat).
          ((c1 + c2 + 31) * length (val cl) + 6) >|).
   Proof. intro Hf. cbound. Qed.
 
-(** The cost of `fold_left f l x`, from the complexity [cf] of `f` and
-    [cx] of `x`: [k_nil] at the end of the list and, at each element `b`,
-    [k_step] and the costs of the applications of `f` to the accumulator
-    and to `b`, as [cf] gives them. The potential of the accumulator is
-    the one that [cf] gives at the previous step, so that the accumulator
-    may be of any type, a function for instance. The result is the last
-    accumulator, with its potential. *)
-
-  Fixpoint fold_left_cost {A CA B : Type} (k_nil k_step : nat)
+  (** `fold_left f l x`, from the complexity [cf] of `f` and [cx] of `x`:
+      the costs of the applications of `f` to the accumulators and to the
+      elements, as [cf] gives them ([fold_left_fcost]), and the complexity
+      of the last accumulator ([fold_left_pot]). The complexity of an
+      accumulator is the one that [cf] gives at the previous step, so that
+      the accumulator may be of any type, a function for instance. *)
+  Fixpoint fold_left_fcost {A CA B : Type}
     (cf : ℂI (A -> B -> A) (ℂI A CA -> ℂO (ℂI B unit -> ℂO CA)))
-    (l : list B) (cx : ℂI A CA) : ℂO CA :=
+    (l : list B) (cx : ℂI A CA) : nat :=
     match l with
-    | [] => k_nil +> pot cx
+    | [] => 0
     | b :: t =>
         let r1 := pot cf cx in          (* f x *)
         let r2 := res r1 (b ⋊ tt) in    (* f x b *)
-        (k_step + cost r1 + cost r2) ⊕
-          fold_left_cost k_nil k_step cf t (val cf (val cx) b ⋊ res r2)
+        cost r1 + cost r2 + fold_left_fcost cf t (val cf (val cx) b ⋊ res r2)
     end.
 
-(** For a function of constant complexity, on ground data, the cost is
-    linear in the length. *)
-Lemma fold_left_cost_constant {A B} (f : A -> B -> A) (c1 c2 k_nil k_step : nat) l cx :
-  cost (fold_left_cost k_nil k_step (f ⋊ (fun _ => c1 +> fun _ => c2 >|)) l cx)
-  = (c1 + c2 + k_step) * length l + k_nil.
-Proof.
-  revert cx. induction l as [|b t IH]; intro cx; cbn [fold_left_cost length]; cbn; [lia|].
-  rewrite IH. lia.
-Qed.
+  Fixpoint fold_left_pot {A CA B : Type}
+    (cf : ℂI (A -> B -> A) (ℂI A CA -> ℂO (ℂI B unit -> ℂO CA)))
+    (l : list B) (cx : ℂI A CA) : CA :=
+    match l with
+    | [] => pot cx
+    | b :: t => fold_left_pot cf t (val cf (val cx) b ⋊ res (res (pot cf cx) (b ⋊ tt)))
+    end.
+
+  (** For a function of constant complexity, on ground data, the costs of
+      its applications are linear in the length. *)
+  Lemma fold_left_fcost_constant {A B} (f : A -> B -> A) (c1 c2 : nat) l cx :
+    fold_left_fcost (f ⋊ (fun _ => c1 +> fun _ => c2 >|)) l cx = (c1 + c2) * length l.
+  Proof.
+    revert cx. induction l as [|b t IH]; intro cx; cbn [fold_left_fcost length]; cbn; [lia|].
+    rewrite IH. lia.
+  Qed.
 
   (** [fold_left] itself, a higher-order bound: for any function `f`, of
-      complexity [cf], and an accumulator of any type ([fold_left_cost]).
-      The bound of `fold_left f` follows for any bound of `f`
-      ([apply_complexity]); for a constant one, on ground data, it is a
-      linear bound in the length, of slope [c1 + c2 + 40]
-      ([fold_left_cost_constant]). [fold_left] is a fixpoint under
-      `fun f`: `f` is in the environment of the fixpoint ([crec_env]), and
-      the recursive calls do not pass it again. *)
+      complexity [cf], and an accumulator of any type. The bound of
+      `fold_left f` follows for any bound of `f` ([apply_complexity]); for
+      a constant one, on ground data, it is a linear bound in the length, of
+      slope [c1 + c2 + 40] ([fold_left_fcost_constant]). [fold_left] is a
+      fixpoint under `fun f`: `f` is in the environment of the fixpoint
+      ([crec_env]), and the recursive calls do not pass it again. *)
   Lemma fold_left_hcomplexity {A CA B} `{Repr A CA} `{Ground B} :
     Time.ComplexityBound (@fold_left A B)
-      (fun cf => 1 +> fun cl => 4 +> fun cx => fold_left_cost 6 40 cf (val cl) cx).
+      (fun cf => 1 +> fun cl => 4 +> fun cx =>
+         (fold_left_fcost cf (val cl) cx + 40 * length (val cl) + 6) +> fold_left_pot cf (val cl) cx).
   Proof. cbound. Qed.
 
   (* TODO: use the relation between complexity and size to obtain a closed 

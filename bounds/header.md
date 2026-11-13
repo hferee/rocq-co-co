@@ -57,11 +57,22 @@ lower or equal, ↑ every constant is higher or equal, ↕ mixed, = unchanged.
   them (`make bounds-asm`, `tools/bounds/asm`). Where the shape of the
   bound is the same, the cells give the constants (a partial application
   costs 0: the calls are saturated); otherwise the formula measured, for
-  the inputs described in `bounds/runs.json`. For `map` and `fold_left`, the
-  costs of `f` are included. The per-element constants of the model and of
-  x86 are close for the recursions on one argument (`Nat.add` 14 and 15,
-  `length` 16 and 15, `app` 21 and 21), and far apart for the functions of
-  several arguments with nested matches (`Pos.compare` 42 and 15 per bit).
+  the inputs described in `bounds/runs.json`. For the functions of lists
+with a function argument (`map`, `filter`, `forallb`, the folds), the
+costs of the function are included. Per element (or per bit), the model and
+x86 are close for the recursions on one argument: `Nat.add` 14 and 15,
+`Nat.mul` 14 and 15, `length` 16 and 15, `app` 21 and 21, `filter` 33 and
+35, `fold_left` 40 and 35 (with the cost of the function). The model is
+dearer for the recursions on two arguments, which match on both: `Nat.sub`,
+`Nat.eqb`, `Nat.leb` 28 and 9, `Pos.eqb` 28 and 15, `Pos.compare` 42 and 15,
+`Pos.add` 38 and 24, `Z.add` 52 and 21 (for two numbers of `n` bits): the
+match on the second argument goes through a case combinator, and the
+recursive call through a partial application, where OCaml compares tags and
+passes arguments in registers. It is cheaper where x86 allocates or keeps a
+frame for each element: `Pos.succ` 14 and 18 (the carry), `fold_right` 28 and
+36. On x86, tail recursion is the cheapest (`count_acc` 11, `rev_append`
+13, against `length` 15); on the machine it is the dearest (see below). The
+constants of x86 include the call from the measuring program.
 
 The section **Environment machine for L** gives bounds in another cost
 model: steps of an environment machine for L (`machine/MachineCostModel`,
