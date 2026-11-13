@@ -124,8 +124,10 @@ Module Type CombinatorTimeCostAxioms
 
   (** ** Costs
 
-      Partial applications (building closures) cost [c_clo], full
-      applications of the combinators [c_step] ([BasicTimeCostModel]); the
+      Partial applications (building closures) cost [c_clo], a full
+      application of a combinator its own constant ([c_ehd], [c_etl],
+      [c_Lam], [c_Kc], [c_Ic], [c_compose], [c_Cc], [c_Sc];
+      [BasicTimeCostModel]); the
       models of the datatypes and of fixpoints charge their case combinators,
       constructors and unfoldings with their own constants. In
       [TimeCostModel], every application costs one, as a beta-step of the
@@ -136,7 +138,7 @@ Module Type CombinatorTimeCostAxioms
       Free steps would break this bound, even when they are affine: with a
       free [compose], a closure duplicated once (and charged once) can be
       executed exponentially many times at no cost ([tower] in [Examples]).
-      A model with free combinators ([c_clo = c_step = 0]) does not bound
+      A model with free combinators (all these constants [0]) does not bound
       the running time: it counts the uses of the other primitives (see
       [TimeArith]). *)
 
@@ -149,10 +151,10 @@ Module Type CombinatorTimeCostAxioms
     forall {E CE A CA}, Repr E CE -> Repr A CA -> Repr (env E A) (CE * CA).
 
   #[global] Declare Instance ehd_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
-    ComplexityBound (@ehd E A) (fun ce => c_step +> snd (pot ce)).
+    ComplexityBound (@ehd E A) (fun ce => c_ehd +> snd (pot ce)).
 
   #[global] Declare Instance etl_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
-    ComplexityBound (@etl E A) (fun ce => c_step +> fst (pot ce)).
+    ComplexityBound (@etl E A) (fun ce => c_etl +> fst (pot ce)).
 
   (** ** Closures *)
 
@@ -163,16 +165,16 @@ Module Type CombinatorTimeCostAxioms
     ComplexityBound (@Lam E A B)
       (fun cc : ℂI (env E A -> B) (ℂI (env E A) (CE * CA) -> ℂO CB) => c_clo +>
        fun ce : ℂI E CE => c_clo +>
-       fun ca : ℂI A CA => c_step ⊕ pot <$> cc · (ECons (val ce) (val ca) ⋊ (pot ce, pot ca))).
+       fun ca : ℂI A CA => c_Lam ⊕ pot <$> cc · (ECons (val ce) (val ca) ⋊ (pot ce, pot ca))).
 
   (** ** Applications and constants *)
 
   #[global] Declare Instance Kc_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB},
-    ComplexityBound (@Kc A B) (fun ca => c_clo +> (fun _ => c_step +> pot ca)).
+    ComplexityBound (@Kc A B) (fun ca => c_clo +> (fun _ => c_Kc +> pot ca)).
 
   (** Only used by bracket abstraction. *)
   #[global] Declare Instance Ic_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@Ic A) (fun ca => c_step +> pot ca).
+    ComplexityBound (@Ic A) (fun ca => c_Ic +> pot ca).
 
   (** [compose] (B) as a constant, whereas [compose_complexity] requires fixed
       arguments. *)
@@ -181,7 +183,7 @@ Module Type CombinatorTimeCostAxioms
     ComplexityBound (@compose A B C)
       (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => c_clo +>
        fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => c_clo +>
-       fun ca : ℂI A CA => c_step ⊕ pot <$> cf · (c_frame ⊕ cg · ca)).
+       fun ca : ℂI A CA => c_compose ⊕ pot <$> cf · (c_frame ⊕ cg · ca)).
 
   (** `Cc f a x = f x a`. *)
   #[global] Declare Instance Cc_complexity :
@@ -189,7 +191,7 @@ Module Type CombinatorTimeCostAxioms
     ComplexityBound (@Cc X A B)
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo +>
        fun ca : ℂI A CA => c_clo +>
-       fun cx : ℂI X CX => c_step ⊕ pot <$> (c_frame ⊕ cf · cx) · ca).
+       fun cx : ℂI X CX => c_Cc ⊕ pot <$> (c_frame ⊕ cf · cx) · ca).
 
   (** [Sc f g x = f x (g x)]: the bound variable is used twice. *)
   #[global] Declare Instance Sc_complexity :
@@ -197,7 +199,7 @@ Module Type CombinatorTimeCostAxioms
     ComplexityBound (@Sc X A B)
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo +>
        fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => c_clo +>
-       fun cx : ℂI X CX => c_step ⊕ pot <$> (c_frame ⊕ cf · cx) · (c_frame ⊕ cg · cx)).
+       fun cx : ℂI X CX => c_Sc ⊕ pot <$> (c_frame ⊕ cf · cx) · (c_frame ⊕ cg · cx)).
 End CombinatorTimeCostAxioms.
 
 Module CombinatorTactics
@@ -239,7 +241,7 @@ Module CombinatorTactics
 
   Definition found_compose {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC}
     (f : B -> C) (g : A -> B) (Hf : Found f) (Hg : Found g) : Found (compose f g : A -> C) :=
-    {| found := fun ca : ℂI A CA => c_step ⊕ pot <$> (f ⋊ found f) · (c_frame ⊕ (g ⋊ found g) · ca);
+    {| found := fun ca : ℂI A CA => c_compose ⊕ pot <$> (f ⋊ found f) · (c_frame ⊕ (g ⋊ found g) · ca);
        found_ok := compose_complexity f _ g _ (found_ok f) (found_ok g) |}.
 
   Global Existing Instance found_bound | 1.

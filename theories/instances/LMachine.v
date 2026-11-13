@@ -16,10 +16,10 @@
     Data are encoded as in [LInstance] (Scott encodings), as closures.
 
     It proves the whole time cost model, with the constants of the machine
-    ([MachineTimeCostModel], [machine/MachineCostModel]): a combinator costs
-    at most [c_step = 16] steps of the machine, the projections of the
-    environments being the dearest (environments are Scott-encoded pairs);
-    a non-tail evaluation [c_frame = 2]. [LM] gathers the layers, with
+    ([MachineTimeCostModel], [machine/MachineCostModel]): each combinator
+    costs the steps of its realiser, from [c_Ic = 1] to [c_etl = 16], the
+    projections of the environments being the dearest (environments are
+    Scott-encoded pairs); a non-tail evaluation [c_frame = 2]. [LM] gathers the layers, with
     lists and options of ground data, and [LMH] with lists and options of
     any data ([MachineHOTimeCostModel]). *)
 
@@ -226,14 +226,22 @@ End MCM.
 Module MBT <: BasicTimeCostModel MCM.
   Import MCM.
   (** A partial application of a combinator allocates a closure; a full
-      application costs at most [16] steps (the projections of an
-      environment); a frame [2]. *)
+      application costs the steps of its realiser, below: the reads of its
+      variables, its β-steps, and for [Lam] the closure of the environment;
+      a frame [2]. *)
   Definition c_clo := 1.
-  Definition c_step := 16.
+  Definition c_ehd := 15.
+  Definition c_etl := 16.
+  Definition c_Lam := 5.
+  Definition c_Kc := 2.
+  Definition c_Ic := 1.
+  Definition c_compose := 8.
+  Definition c_Cc := 8.
+  Definition c_Sc := 10.
   Definition c_frame := 2.
 
   Lemma id_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (fun (x : A) => x) (fun ca => (16 +> pot ca) : ℂO CA).
+      ComplexityBound (fun (x : A) => x) (fun ca => (1 +> pot ca) : ℂO CA).
   Proof.
     intros A CA R. apply has_complexity_bound. exists (clos (var 0) []). intro k. Mfun.
     Mstep. Mend Ha.
@@ -262,21 +270,21 @@ Module MBT <: BasicTimeCostModel MCM.
       ComplexityBound f cf ->
       ComplexityBound g cg ->
       ComplexityBound (compose f g : A -> C)
-                      (fun ca => 16 ⊕ pot <$> (f ⋊ cf) · (2 ⊕ (g ⋊ cg) · ca)).
+                      (fun ca => 8 ⊕ pot <$> (f ⋊ cf) · (2 ⊕ (g ⋊ cg) · ca)).
   Proof.
     intros A B C CA CB CC RA RB RC f cf g cg [sf Hf]%complexity_bound_has
       [sg Hg]%complexity_bound_has.
     apply has_complexity_bound.
     destruct sf as [uf Ef], sg as [ug Eg].
     exists (clos (app (var 2) (app (var 1) (var 0))) [clos ug Eg; clos uf Ef]). intro k. Mfun.
-    Mcall (Hg j) Ha (j - 16).
-    Mcall (Hf j) R (j - 16 - 2 - cost (cg (a ⋊ c))).
+    Mcall (Hg j) Ha (j - 8).
+    Mcall (Hf j) R (j - 8 - 2 - cost (cg (a ⋊ c))).
     Mstep. Mend R0.
   Qed.
 
   Lemma constant_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB} b {cb},
       ComplexityBound (b : B) (cb : CB) ->
-      ComplexityBound (fun (_ : A) => b) (fun _ => 16 +> cb).
+      ComplexityBound (fun (_ : A) => b) (fun _ => 2 +> cb).
   Proof.
     intros A B CA CB RA RB b cb [sb Hb]%complexity_bound_has. apply has_complexity_bound.
     exists (clos (var 1) [sb]). intro k. Mfun. Mstep. apply Hb.
@@ -296,7 +304,7 @@ Module MCB <: CombinatorTimeCostModel MCM MBT.
   (** A pair applied to a selector: [15] steps for the second component,
       [16] for the first. *)
   Lemma ehd_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
-    ComplexityBound (@ehd E A) (fun ce => 16 +> snd (pot ce)).
+    ComplexityBound (@ehd E A) (fun ce => 15 +> snd (pot ce)).
   Proof.
     intros. apply has_complexity_bound. exists (clos (app (var 0) (lam (lam (var 0)))) []).
     intro k. Mfun. destruct Ha as (r1 & r2 & rest & Ep & Hr1 & Hr2). injection Ep as -> ->.
@@ -315,27 +323,27 @@ Module MCB <: CombinatorTimeCostModel MCM MBT.
     ComplexityBound (@Lam E A B)
       (fun cc : ℂI (env E A -> B) (ℂI (env E A) (CE * CA) -> ℂO CB) => 1 +>
        fun ce : ℂI E CE => 1 +>
-       fun ca : ℂI A CA => 16 ⊕ pot <$> cc · (ECons (val ce) (val ca) ⋊ (pot ce, pot ca))).
+       fun ca : ℂI A CA => 5 ⊕ pot <$> cc · (ECons (val ce) (val ca) ⋊ (pot ce, pot ca))).
   Proof.
     intros E CE A CA B CB RE RA RB. apply has_complexity_bound.
     exists (clos (lam (lam (app (var 2) (lam pair_body)))) []). intro k.
     Mfun. Mstep. Mfun. Mstep. Mfun.
-    assert (He : rl (env_repr RE RA) (j1 - 16) (ECons a0 a1) (c0, c1)
+    assert (He : rl (env_repr RE RA) (j1 - 5) (ECons a0 a1) (c0, c1)
                    (clos pair_body (clos wu1 wE1 :: clos wu0 wE0 :: [clos wu wE]))).
     { exists (clos wu0 wE0), (clos wu1 wE1), [clos wu wE]. split; [reflexivity |].
-      split; [exact (rl_down_ (j1 - 16) Ha0 ltac:(lia)) | exact (rl_down_ (j1 - 16) Ha1 ltac:(lia))]. }
-    Mcall Ha He (j1 - 16). Mstep. Mend R.
+      split; [exact (rl_down_ (j1 - 5) Ha0 ltac:(lia)) | exact (rl_down_ (j1 - 5) Ha1 ltac:(lia))]. }
+    Mcall Ha He (j1 - 5). Mstep. Mend R.
   Qed.
 
   Lemma Kc_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB},
-      ComplexityBound (@Kc A B) (fun ca => 1 +> (fun _ => 16 +> pot ca)).
+      ComplexityBound (@Kc A B) (fun ca => 1 +> (fun _ => 2 +> pot ca)).
   Proof.
     intros. apply has_complexity_bound. exists (clos (lam (var 1)) []). intro k.
     Mfun. Mstep. Mfun. Mstep. Mend Ha.
   Qed.
 
   Lemma Ic_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@Ic A) (fun ca => 16 +> pot ca).
+      ComplexityBound (@Ic A) (fun ca => 1 +> pot ca).
   Proof.
     intros. apply has_complexity_bound. exists (clos (var 0) []). intro k. Mfun. Mstep. Mend Ha.
   Qed.
@@ -344,12 +352,12 @@ Module MCB <: CombinatorTimeCostModel MCM MBT.
     ComplexityBound (@compose A B C)
       (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 1 +>
        fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => 1 +>
-       fun ca : ℂI A CA => 16 ⊕ pot <$> cf · (2 ⊕ cg · ca)).
+       fun ca : ℂI A CA => 8 ⊕ pot <$> cf · (2 ⊕ cg · ca)).
   Proof.
     intros. apply has_complexity_bound.
     exists (clos (lam (lam (app (var 2) (app (var 1) (var 0))))) []). intro k.
     Mfun. Mstep. Mfun. Mstep. Mfun.
-    Mcall Ha0 Ha1 (j1 - 16). Mcall Ha R (j1 - 16 - 2 - cost (c0 (a1 ⋊ c1))).
+    Mcall Ha0 Ha1 (j1 - 8). Mcall Ha R (j1 - 8 - 2 - cost (c0 (a1 ⋊ c1))).
     Mstep. Mend R0.
   Qed.
 
@@ -357,13 +365,13 @@ Module MCB <: CombinatorTimeCostModel MCM MBT.
     ComplexityBound (@Cc X A B)
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 +>
        fun ca : ℂI A CA => 1 +>
-       fun cx : ℂI X CX => 16 ⊕ pot <$> (2 ⊕ cf · cx) · ca).
+       fun cx : ℂI X CX => 8 ⊕ pot <$> (2 ⊕ cf · cx) · ca).
   Proof.
     intros. apply has_complexity_bound.
     exists (clos (lam (lam (app (app (var 2) (var 0)) (var 1)))) []). intro k.
     Mfun. Mstep. Mfun. Mstep. Mfun.
-    Mcall Ha Ha1 (j1 - 16). destruct r as [ur Er].
-    Mcall R Ha0 (j1 - 16 - 2 - cost (c (a1 ⋊ c1))).
+    Mcall Ha Ha1 (j1 - 8). destruct r as [ur Er].
+    Mcall R Ha0 (j1 - 8 - 2 - cost (c (a1 ⋊ c1))).
     Mstep. Mend R0.
   Qed.
 
@@ -371,14 +379,14 @@ Module MCB <: CombinatorTimeCostModel MCM MBT.
     ComplexityBound (@Sc X A B)
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => 1 +>
        fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => 1 +>
-       fun cx : ℂI X CX => 16 ⊕ pot <$> (2 ⊕ cf · cx) · (2 ⊕ cg · cx)).
+       fun cx : ℂI X CX => 10 ⊕ pot <$> (2 ⊕ cf · cx) · (2 ⊕ cg · cx)).
   Proof.
     intros. apply has_complexity_bound.
     exists (clos (lam (lam (app (app (var 2) (var 0)) (app (var 1) (var 0))))) []). intro k.
     Mfun. Mstep. Mfun. Mstep. Mfun.
-    Mcall Ha Ha1 (j1 - 16). destruct r as [ur Er].
-    Mcall Ha0 Ha1 (j1 - 16 - 2 - cost (c (a1 ⋊ c1))).
-    Mcall R R0 (j1 - 16 - 2 - cost (c (a1 ⋊ c1)) - 2 - cost (c0 (a1 ⋊ c1))).
+    Mcall Ha Ha1 (j1 - 10). destruct r as [ur Er].
+    Mcall Ha0 Ha1 (j1 - 10 - 2 - cost (c (a1 ⋊ c1))).
+    Mcall R R0 (j1 - 10 - 2 - cost (c (a1 ⋊ c1)) - 2 - cost (c0 (a1 ⋊ c1))).
     Mstep. Mend R1.
   Qed.
 

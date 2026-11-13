@@ -78,8 +78,13 @@ The section **Environment machine for L** gives bounds in another cost
 model: steps of an environment machine for L (`machine/MachineCostModel`,
 instance `instances/LMachine`, of the whole time model), which reads variables in a linked
 environment, allocates closures and pays a frame for each evaluation in
-non-tail position. Each combinator costs at most 16 steps of the machine,
-so that these bounds are about 17 times those of the time model.
+non-tail position. Each combinator costs the steps of its realiser on the
+machine (`c_ehd = 15`, `c_etl = 16`, `c_Lam = 5`, `c_Kc = 2`, `c_Ic = 1`,
+`c_compose = 8`, `c_Cc = 8`, `c_Sc = 10`; one constant per combinator in
+the model, all `1` in the models of L), so that these bounds are about 14
+times those of the time model. With a single constant for all the
+combinators, the largest (16), they were about 20% higher (`length` 290 per
+element, now 238; `count_acc` 479, now 377).
 
 No new axiom was needed between `env` and `argenv`. `envfix` replaces the
 fixpoint axiom, and adds the axioms of lists and options of any data, all

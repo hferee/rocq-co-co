@@ -31,7 +31,7 @@
   "parent": "argenv",
   "title": "Fixpoints with an environment",
   "source": "working tree of 2026-11-13, constants minimised (goals, then binary search)",
-  "description": "fix_complexity for a recursive function f e of an environment e: its functional runs in ECons e (f e). A closed recursive function reads itself in ECons tt f (2 more per call). The arguments passed unchanged by every recursive call (the second of app, Nat.add, Nat.mul, Pos.mul; the first ones of Nat.pow, rec_pos; the function of fold_left) are in the environment and are not passed again."
+  "description": "fix_complexity for a recursive function f e of an environment e: its functional runs in ECons e (f e). A closed recursive function reads itself in ECons tt f (2 more per call). The arguments passed unchanged by every recursive call (the second of app, Nat.add, Nat.mul, Pos.mul; the first ones of Nat.pow, rec_pos; the function of fold_left) are in the environment and are not passed again. The bounds of the environment machine have one constant per combinator, the steps of its realiser (all 1 in the models of L)."
  },
  {
   "name": "asm",

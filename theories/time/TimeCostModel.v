@@ -8,7 +8,7 @@
     ([TimeDatatypes], [TimeLists]) and fixpoints ([FixTimeCostModel]).
 
     The costs of the primitives are constants, parameters of the module
-    types ([c_clo], [c_step], [c_S], [c_case_nat], ..., [c_fix]).
+    types ([c_clo], [c_ehd], ..., [c_Sc], [c_S], [c_case_nat], ..., [c_fix]).
     [ParamTimeCostModel] leaves them abstract. A cost model is a choice of
     layers and a choice of constants, fixed with [with Definition]: in
     [TimeCostModel], over which the analyses of the standard library are
@@ -29,7 +29,10 @@ Module Type ParamTimeCostModelBase := CostModel.CostModel <+ BasicTimeCostModel
     use lists ([BoolComplexity]) are functors over it, and hold in both
     models. *)
 Module Type TimeCostModelBase := ParamTimeCostModelBase
-  with Definition c_clo := 1 with Definition c_step := 1 with Definition c_frame := 0
+  with Definition c_clo := 1 with Definition c_frame := 0
+  with Definition c_ehd := 1 with Definition c_etl := 1 with Definition c_Lam := 1
+  with Definition c_Kc := 1 with Definition c_Ic := 1 with Definition c_compose := 1
+  with Definition c_Cc := 1 with Definition c_Sc := 1
   with Definition c_case_bool := 1
   with Definition c_S := 1 with Definition c_case_nat := 1
   with Definition c_pair := 1 with Definition c_case_prod := 1
@@ -40,7 +43,10 @@ Module Type ParamTimeCostModel := ParamTimeCostModelBase <+ ListTimeCostModel
   <+ OptionTimeCostModel.
 
 Module Type TimeCostModel := ParamTimeCostModel
-  with Definition c_clo := 1 with Definition c_step := 1 with Definition c_frame := 0
+  with Definition c_clo := 1 with Definition c_frame := 0
+  with Definition c_ehd := 1 with Definition c_etl := 1 with Definition c_Lam := 1
+  with Definition c_Kc := 1 with Definition c_Ic := 1 with Definition c_compose := 1
+  with Definition c_Cc := 1 with Definition c_Sc := 1
   with Definition c_case_bool := 1
   with Definition c_S := 1 with Definition c_case_nat := 1
   with Definition c_cons := 1 with Definition c_case_list := 1
@@ -55,7 +61,10 @@ Module Type ParamHOTimeCostModel := ParamTimeCostModelBase <+ HListTimeCostModel
   <+ HOptionTimeCostModel.
 
 Module Type HOTimeCostModel := ParamHOTimeCostModel
-  with Definition c_clo := 1 with Definition c_step := 1 with Definition c_frame := 0
+  with Definition c_clo := 1 with Definition c_frame := 0
+  with Definition c_ehd := 1 with Definition c_etl := 1 with Definition c_Lam := 1
+  with Definition c_Kc := 1 with Definition c_Ic := 1 with Definition c_compose := 1
+  with Definition c_Cc := 1 with Definition c_Sc := 1
   with Definition c_case_bool := 1
   with Definition c_S := 1 with Definition c_case_nat := 1
   with Definition c_cons := 1 with Definition c_case_list := 1

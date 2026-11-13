@@ -595,9 +595,16 @@ End LCM.
 (** Higher-order primitives. *)
 Module LBT <: BasicTimeCostModel LCM.
   Import LCM.
-  (** Every application is a beta-step. *)
+  (** Every application is a beta-step: each combinator costs [1]. *)
   Definition c_clo := 1.
-  Definition c_step := 1.
+  Definition c_ehd := 1.
+  Definition c_etl := 1.
+  Definition c_Lam := 1.
+  Definition c_Kc := 1.
+  Definition c_Ic := 1.
+  Definition c_compose := 1.
+  Definition c_Cc := 1.
+  Definition c_Sc := 1.
   (** L reduces terms: there is no stack, and no frame to pay. *)
   Definition c_frame := 0.
 

@@ -25,14 +25,14 @@ Module UnguardedFix (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
 
   (** Any function [f] is a fixpoint of the functional that reads it in its
       environment ([ehd]): the unfolding only costs this read. *)
-  Theorem every_bound : unguarded_fix -> c_fix = 0 -> c_step = 0 ->
+  Theorem every_bound : unguarded_fix -> c_fix = 0 -> c_ehd = 0 ->
     forall {A B CA CB} `{Repr A CA} `{Repr B CB} (f : A -> B) (cf : ℂI A CA -> ℂO CB),
     ComplexityBound f cf.
   Proof.
     intros Hfix Hc Hs A B CA CB RA RB f cf.
     assert (H : ComplexityBound (fun _ : unit => f) (fun _ => c_clo +> cf)).
     { apply (Hfix unit unit A B CA CB _ RA RB (ar_val B) (fun _ => f) (@ehd unit (A -> B))
-               (fun ce => c_step +> snd (pot ce)) (fun _ => c_clo +> cf)).
+               (fun ce => c_ehd +> snd (pot ce)) (fun _ => c_clo +> cf)).
       - intros e a. exact eq_refl.
       - exact ehd_complexity.
       - apply bound_order_arr. intro ce. split; [apply Nat.le_refl |].

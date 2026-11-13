@@ -10,8 +10,8 @@
     - the unfolding of a recursive function ([c_fix]) allocates one frame
       (the fixpoint rule needs [1 <= c_fix]: a recursion that allocates
       nothing could not be bounded);
-    - an application ([c_step]) and a case analysis ([c_case_bool], ...)
-      allocate nothing: they read memory.
+    - the application of a combinator ([c_ehd], ..., [c_Sc]) and a case
+      analysis ([c_case_bool], ...) allocate nothing: they read memory.
 
     The space is the total allocation, without deallocation. The costs of
     the cost model are added along a computation ([CostModelCore.app]), so
@@ -24,7 +24,10 @@
 From Complexity Require Export TimeCostModel.
 
 Module Type SpaceCostModel := ParamTimeCostModel
-  with Definition c_clo := 1 with Definition c_step := 0 with Definition c_frame := 0
+  with Definition c_clo := 1 with Definition c_frame := 0
+  with Definition c_ehd := 0 with Definition c_etl := 0 with Definition c_Lam := 0
+  with Definition c_Kc := 0 with Definition c_Ic := 0 with Definition c_compose := 0
+  with Definition c_Cc := 0 with Definition c_Sc := 0
   with Definition c_case_bool := 0
   with Definition c_S := 1 with Definition c_case_nat := 0
   with Definition c_cons := 1 with Definition c_case_list := 0

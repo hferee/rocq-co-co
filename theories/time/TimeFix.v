@@ -238,7 +238,7 @@ Module FixTactics
       let inner := Constr.in_context n1 constr:(ℂI $t1 $c1) (fun () =>
         let cl := Control.hyp n1 in
         Control.refine (fun () =>
-          constr:((cost (res ($ch $cl) $cm) - (c_step + c_frame + c_clo)) +> res (res ($ch $cl) $cm)))) in
+          constr:((cost (res ($ch $cl) $cm) - (c_Cc + c_frame + c_clo)) +> res (res ($ch $cl) $cm)))) in
       Control.refine (fun () => constr:(c_clo +> $inner))).
 
   Ltac clear_wrappers := repeat match goal with H : ComplexityBound _ _ |- _ => clear H end.

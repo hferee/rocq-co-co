@@ -54,7 +54,10 @@ Module Type ParamArithTimeCostModel := CostModel.CostModel <+ BasicTimeCostModel
 Module Type ArithOpsTimeCostModel := ParamArithTimeCostModel
   with Definition c_add_clo := 0 with Definition c_add_n := 0
   with Definition c_mul_clo := 0 with Definition c_mul_nm := 0 with Definition c_mul_n := 0
-  with Definition c_clo := 0 with Definition c_step := 0 with Definition c_frame := 0
+  with Definition c_clo := 0 with Definition c_frame := 0
+  with Definition c_ehd := 0 with Definition c_etl := 0 with Definition c_Lam := 0
+  with Definition c_Kc := 0 with Definition c_Ic := 0 with Definition c_compose := 0
+  with Definition c_Cc := 0 with Definition c_Sc := 0
   with Definition c_case_bool := 0 with Definition c_S := 0
   with Definition c_cons := 0 with Definition c_case_list := 0.
 
