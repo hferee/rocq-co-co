@@ -23,7 +23,7 @@
     lists and options of ground data, and [LMH] with lists and options of
     any data ([MachineHOTimeCostModel]). *)
 
-From Stdlib Require Import List Lia PeanoNat FunctionalExtensionality PArith NArith ZArith QArith.
+From Stdlib Require Import List Lia PeanoNat PArith NArith ZArith QArith.
 From Complexity Require Export MachineCostModel.
 From Undecidability.L Require Import L.
 Import ListNotations.
@@ -1133,19 +1133,35 @@ Definition XB : term := app (app (var 4) (app (app MK (var 3)) (lam ETAB))) (var
 Definition WB : term := lam XB.
 Definition BODY1 : term := app (app (lam WB) (lam WB)) (var 0).
 
-(** The unfolding equation of [fix_complexity] is pointwise. *)
-Lemma pw_eq_eq {T} (ar : Arity T) : forall x y, pw_eq ar x y -> x = y.
+(** The unfolding equation of [fix_complexity] is pointwise: the realisers
+    of a function only observe it through its applications, so that
+    pointwise-equal functions have the same realisers ([PwExt] of
+    [TimeFix]), without functional extensionality. *)
+Definition pw_ext {B CB} (R : MRepr B CB) (ar : Arity B) : Prop :=
+  forall k x y c v, pw_eq ar x y -> rl R k y c v -> rl R k x c v.
+
+Lemma pw_ext_val_ {B CB} (R : MRepr B CB) : pw_ext R (ar_val B).
+Proof. intros k x y c v E H. cbn in E. subst. exact H. Qed.
+
+Lemma pw_ext_fun_ {A CA B CB} (RA : MRepr A CA) (RB : MRepr B CB) (ar : Arity B) :
+  pw_ext RB ar -> pw_ext (arr_repr RA RB) (ar_fun A B ar).
 Proof.
-  induction ar as [T | A B ar IH]; cbn; [auto |].
-  intros f g H. apply functional_extensionality. intro a. apply IH, H.
+  intros HB k f g c v E H j a c1 w Hj Ha Hc. destruct (H j a c1 w Hj Ha Hc) as (r & n & Hv & Hn & Hr).
+  exists r, n. split; [exact Hv | split; [exact Hn | exact (HB _ _ _ _ _ (E a) Hr)]].
 Qed.
 
 Module MFX <: FixTimeCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_fix := 36.
 
-  Lemma fix_complexity : forall {E CE A B CA CB} `{Repr E CE} `{Repr A CA} `{Repr B CB}
-      (ar : Arity B) (f : E -> A -> B)
+  Definition PwExt {B CB} (R : Repr B CB) (ar : Arity B) : Prop := pw_ext R ar.
+  Existing Class PwExt.
+  Global Instance pw_ext_val {B CB} (R : Repr B CB) : PwExt R (ar_val B) := pw_ext_val_ R.
+  Global Instance pw_ext_fun {A CA B CB} (RA : Repr A CA) (RB : Repr B CB) (ar : Arity B) :
+    PwExt RB ar -> PwExt (Repr_arr RA RB) (ar_fun A B ar) := pw_ext_fun_ RA RB ar.
+
+  Lemma fix_complexity : forall {E CE A B CA CB} `{Repr E CE} `{Repr A CA} {RB : Repr B CB}
+      (ar : Arity B) `{!PwExt RB ar} (f : E -> A -> B)
       (F : env E (A -> B) -> A -> B)
       (cF : ℂI (env E (A -> B)) (CE * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
       (cf : ℂI E CE -> ℂO (ℂI A CA -> ℂO CB)),
@@ -1158,10 +1174,8 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
         cf ->
       ComplexityBound f cf.
   Proof.
-    intros E CE A B CA CB RE RA RB ar f F cF cf _ Hfix [sF HF]%complexity_bound_has Hrec.
+    intros E CE A B CA CB RE RA RB ar Hpw f F cF cf _ Hfix [sF HF]%complexity_bound_has Hrec.
     apply has_complexity_bound.
-    assert (Heq : forall e a, f e a = F (ECons e (f e)) a)
-      by (intros e a; apply (pw_eq_eq ar), (Hfix e)).
     destruct sF as [uF EF].
     exists (clos (lam BODY1) [clos uF EF]). intro k. Mfun.
     destruct (Hrec (a ⋊ c)) as [Hcost0 Hcomp0].
@@ -1186,7 +1200,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
       do 2 eexists; split.
       { cbn [call]. unfold ETAB, WB, XB, MK. subst eta w x e sF. Mev. }
       split; [cbn; lia |].
-      rewrite Heq. eapply rl_mono; [exact Hcomp |]. Mend R0. }
+      apply (Hpw _ _ _ _ _ (Hfix a a0)). eapply rl_mono; [exact Hcomp |]. Mend R0. }
     (* applied to [e], the realiser returns the closure [BODY1] *)
     do 2 eexists; split; [cbn [call]; apply ev_lam | split; [lia |]].
     Mfun.
@@ -1203,7 +1217,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
     do 2 eexists; split.
     { cbn [call]. unfold BODY1, ETAB, WB, XB, MK. subst eta w x e sF. Mev. }
     split; [cbn; lia |].
-    rewrite Heq. eapply rl_mono; [exact Hcomp |]. Mend R0.
+    apply (Hpw _ _ _ _ _ (Hfix a a0)). eapply rl_mono; [exact Hcomp |]. Mend R0.
   Qed.
 
   Include FixRules MCM MBT MCB.

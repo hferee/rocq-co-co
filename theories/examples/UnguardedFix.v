@@ -8,10 +8,10 @@ From Complexity Require Import TimeCostModel TimeArith.
 Module UnguardedFix (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
   (Import CB : CombinatorTimeCostModel CM BT) (Import FX : FixTimeCostModel CM BT CB).
 
-  (** The rule of [TimeFix], without its premise. *)
+  (** The rule of [TimeFix], without its premise [1 <= c_fix]. *)
   Definition unguarded_fix : Prop :=
     forall E CE A B CA CB (RE : Repr E CE) (RA : Repr A CA) (RB : Repr B CB)
-      (ar : Arity B) (f : E -> A -> B)
+      (ar : Arity B) (Hpw : PwExt RB ar) (f : E -> A -> B)
       (F : env E (A -> B) -> A -> B)
       (cF : ℂI (env E (A -> B)) (CE * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
       (cf : ℂI E CE -> ℂO (ℂI A CA -> ℂO CB)),
@@ -31,7 +31,7 @@ Module UnguardedFix (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
   Proof.
     intros Hfix Hc Hs A B CA CB RA RB f cf.
     assert (H : ComplexityBound (fun _ : unit => f) (fun _ => c_clo +> cf)).
-    { apply (Hfix unit unit A B CA CB _ RA RB (ar_val B) (fun _ => f) (@ehd unit (A -> B))
+    { apply (Hfix unit unit A B CA CB _ RA RB (ar_val B) (pw_ext_val RB) (fun _ => f) (@ehd unit (A -> B))
                (fun ce => c_ehd +> snd (pot ce)) (fun _ => c_clo +> cf)).
       - intros e a. exact eq_refl.
       - exact ehd_complexity.

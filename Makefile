@@ -8,28 +8,29 @@ _: makefile.coq
 makefile.coq:
 	coq_makefile -f _CoqProject -o $@
 
+# CoqdocJS (see doc below), before makefile.coq, whose default flags of
+# coqdoc would take precedence otherwise.
+COQDOCJS_DIR := doc/coqdocjs
+COQMAKEFILE := makefile.coq
+include $(COQDOCJS_DIR)/Makefile.doc
+
 -include makefile.coq
 
 clean::
 	rm makefile.coq makefile.coq.conf
 	rm -f $(BUILD_FILES)
 
-# HTML documentation in html/ (removed by cleanall), styled by doc/: the
-# libraries by directory (index.html), with foldable proofs and an outline,
-# and the index of identifiers (idents.html).
-DOC_OUT := html
-DOC_ASSETS := doc/header.html doc/footer.html doc/rocqdoc.css doc/rocqdoc.js
+# HTML documentation in html/ (removed by cleanall), with CoqdocJS
+# (doc/coqdocjs, a copy of https://github.com/coq-community/coqdocjs without
+# its Google Fonts import, see doc/coqdocjs/UPSTREAM): foldable proofs and Unicode display. Its
+# Makefile.doc (included above) runs the html target of makefile.coq with its
+# flags, and copies its resources; html/index.html is the table of contents.
 
-doc: $(GLOBFILES) $(VFILES) $(DOC_ASSETS)
-	rm -rf $(DOC_OUT)
-	mkdir -p $(DOC_OUT)
-	$(COQDOC) --toc --toc-depth 3 --no-lib-name --interpolate --utf8 --html \
-	  --index idents --with-header doc/header.html --with-footer doc/footer.html \
-	  $(COQDOCLIBS) -d $(DOC_OUT) $(VFILES)
-	cp doc/rocqdoc.css doc/rocqdoc.js $(DOC_OUT)/
-	rm -f $(DOC_OUT)/coqdoc.css
-	cp $(DOC_OUT)/toc.html $(DOC_OUT)/index.html
-	@echo "Documentation: $(DOC_OUT)/index.html"
+doc:
+	rm -rf html
+	$(MAKE) coqdoc
+	cp html/toc.html html/index.html
+	@echo "Documentation: html/index.html"
 
 # Complexity bounds (tools/bounds): snapshots in bounds/runs/, their
 # comparison in bounds-comparison.md.

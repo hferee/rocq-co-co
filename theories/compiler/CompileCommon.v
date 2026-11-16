@@ -89,16 +89,99 @@ Ltac2 peel (n : int) (t : constr) : constr := let (_, t) := peel_b n t in t.
 
 (** ** Preprocessing *)
 
-(** Let-ins become beta-redexes; matches are kept, and compiled by the compilers. *)
-Ltac2 rec decase (t : constr) : constr :=
+(** *** Local fixpoints
+
+    A local fixpoint that uses variables [x1 .. xk] of the function (a
+    [let fix] whose body reads an argument, say) is not closed: it is
+    lifted to the application [(fun x1 .. xk => t) x1 .. xk], whose
+    function is closed, a constant of the compiled code (the variables are
+    taken in their order in the function, the outermost first). Its bound
+    is not derived: it is given, as a hypothesis or an instance, for this
+    function of [x1 .. xk] ([cbound] prints it when it is missing). The
+    lifting is impossible when the type of a variable is not closed, or is
+    a type: the fixpoint is then left as it is. *)
+
+(** A closed function whose body is a fixpoint: a lifted local fixpoint. *)
+Ltac2 is_lifted_fix (t : constr) : bool :=
+  let rec inner t := match kind t with Lambda _ b => inner b | _ => t end in
+  Bool.and (is_closed t)
+    (match kind t with
+     | Lambda _ _ => match kind (inner t) with Fix _ _ _ _ => true | _ => false end
+     | _ => false
+     end).
+
+(** [lift_fix ctx t], where [ctx] are the binders of the context of [t],
+    the latest first. *)
+Ltac2 lift_fix (ctx : binder list) (t : constr) : constr option :=
   match kind t with
-  | Lambda b body => mklam b (decase body)
-  | App f args => mkapp (decase f) (Array.map decase args)
-  | LetIn b v body => decase (mkapp (mklam b body) [| v |])
-  | Cast c _ _ => decase c
-  | Case ci r iv scrut branches => make (Case ci r iv (decase scrut) (Array.map decase branches))
+  | Fix _ _ _ _ =>
+      if is_closed t then None else
+      let d := List.length ctx in
+      (* the variables used, the outermost first *)
+      let fvs := List.filter (fun i => Bool.neg (noccurn i t))
+                   (List.rev (List.init d (fun i => Int.add i 1))) in
+      let bs := List.map (fun i => List.nth ctx (Int.sub i 1)) fvs in
+      if Bool.neg (List.for_all (fun b =>
+             let ty := Constr.Binder.type b in
+             Bool.and (is_closed ty) (match kind ty with Sort _ => false | _ => true end)) bs)
+      then None
+      else
+        let k := List.length fvs in
+        let rec index l i n :=
+          match l with [] => None | x :: l => if Int.equal x i then Some n else index l i (Int.add n 1) end in
+        (* the variable [Rel i] of [t] is the binder at position [p] (from
+           the outermost) of the [k] new lambdas: [Rel (k - p)] under them *)
+        let sub := List.init d (fun j =>
+                     match index fvs (Int.add j 1) 0 with
+                     | Some p => mkrel (Int.sub k p)
+                     | None => dummy ()
+                     end) in
+        let g := List.fold_right (fun b acc => mklam b acc) bs (substnl sub 0 t) in
+        Some (mkapp_l g (List.map mkrel fvs))
+  | _ => None
+  end.
+
+(** The local fixpoints of [t] lifted (for the compilers that do not use
+    [decase]). *)
+Ltac2 rec lift_fixes_in (ctx : binder list) (t : constr) : constr :=
+  match kind t with
+  | Lambda b body => mklam b (lift_fixes_in (b :: ctx) body)
+  | App f args => mkapp (lift_fixes_in ctx f) (Array.map (lift_fixes_in ctx) args)
+  | LetIn b v body => make (LetIn b (lift_fixes_in ctx v) (lift_fixes_in (b :: ctx) body))
+  | Case ci r iv scrut branches =>
+      make (Case ci r iv (lift_fixes_in ctx scrut) (Array.map (lift_fixes_in ctx) branches))
+  | Fix _ _ _ _ => match lift_fix ctx t with Some t' => t' | None => t end
   | _ => t
   end.
+Ltac2 lift_fixes (t : constr) : constr := lift_fixes_in [] t.
+
+(** Let-ins become beta-redexes, so that their value is computed once,
+    except when their value is closed: it is then inlined, since a closed
+    term is a constant of the compiled code ([closed] in [ClosureCompile],
+    [hoist] in [BracketCompile]), evaluated once. This is the case of a
+    local function, such as the worker of a [let fix]: its calls are then
+    direct calls, and its bound is found as that of any constant (from an
+    instance, or from a hypothesis of the context). A local fixpoint that
+    uses variables of the function is lifted ([lift_fix]); as the value of
+    a let-in, it is inlined too: each use applies the lifted function to
+    the variables. Matches are kept, and compiled by the compilers. *)
+Ltac2 rec decase_in (ctx : binder list) (t : constr) : constr :=
+  match kind t with
+  | Lambda b body => mklam b (decase_in (b :: ctx) body)
+  | App f args => mkapp (decase_in ctx f) (Array.map (decase_in ctx) args)
+  | LetIn b v body =>
+      if is_closed v then decase_in ctx (substnl [v] 0 body)
+      else match lift_fix ctx v with
+           | Some v' => decase_in ctx (substnl [v'] 0 body)
+           | None => decase_in ctx (mkapp (mklam b body) [| v |])
+           end
+  | Cast c _ _ => decase_in ctx c
+  | Case ci r iv scrut branches =>
+      make (Case ci r iv (decase_in ctx scrut) (Array.map (decase_in ctx) branches))
+  | Fix _ _ _ _ => match lift_fix ctx t with Some t' => t' | None => t end
+  | _ => t
+  end.
+Ltac2 decase (t : constr) : constr := decase_in [] t.
 
 
 (** [lift_cases t]: [t] without its let-ins' casts. The matches are kept:
@@ -265,6 +348,13 @@ Ltac2 fix_functional (f : constr) : constr * int * int :=
         fail_msg "fix_equation: mutual fixpoint (use fix_equation_mutual)"
       else
         let p := Array.length args in
+        (* the recursive argument is one of those the fixpoint is applied to
+           (a worker applied to its initial arguments): the recursive calls
+           change them, and the function is not a fixpoint of its own; it is
+           a local fixpoint, analysed as a constant by [cbc] *)
+        if Int.lt (Array.get structs 0) p then
+          fail_msg "fix_equation: a local fixpoint applied to its initial arguments"
+        else
         let body := Array.get bodies 0 in
         let (pbs, _) := decompose_prod p (Constr.Binder.type (Array.get binders 0)) in
         (* in the context [xL; ..; x1; rec], under the [p] binders: the
@@ -557,8 +647,71 @@ Ltac2 unfold_fun () :=
   | _ => fail_msg "unfold_fun: unexpected goal"
   end.
 
+(** ** Recursive functions given by their unfolding equation
+
+    A function defined by well-founded recursion ([Function], [Program
+    Fixpoint], Equations) is not a [fix] on its arguments: its body is a
+    fixpoint on a proof of accessibility. The fixpoint rule only needs its
+    unfolding equation, which these commands prove. [fix_equation_from e],
+    for [e : forall x1 .. xn, f x1 .. xn = b] in a goal [ComplexityBound f
+    c], adds the premise [is_fixpoint ar FF f] of the rule, where the
+    functional [FF] is [b] abstracted over [f]. [equation_of f] is the
+    equation [f_equation] that [Function] proves, if any. *)
+Ltac2 rec strip_prods (t : constr) : binder list * constr :=
+  match kind t with
+  | Prod b body => let (bs, t) := strip_prods body in (b :: bs, t)
+  | _ => ([], t)
+  end.
+
+Ltac2 fix_equation_from (e : constr) :=
+  match kind (Control.goal ()) with
+  | App _ gargs =>
+      let f := Array.get gargs (Int.sub (Array.length gargs) 2) in
+      let (bs, eq) := strip_prods (Constr.type e) in
+      let n := List.length bs in
+      match kind eq with
+      | App _ eargs =>
+          if Bool.neg (Int.equal (Array.length eargs) 3) then fail_msg "fix_equation_from: not an equation" else
+          let (h, _) := split_app (Array.get eargs 1) in
+          if Bool.neg (Constr.equal h f) then
+            fail_msg "fix_equation_from: the equation is not the one of the function"
+          else
+            (* [fun x1 .. xn => b], closed, abstracted over [f] *)
+            let fb := List.fold_right (fun b acc => mklam b acc) bs (Array.get eargs 2) in
+            let ff := match kind (Std.eval_pattern [(f, Std.AllOccurrences)] fb) with
+                      | App g _ => g
+                      | _ => fail_msg "fix_equation_from: the equation does not use the function"
+                      end in
+            let ff := lift_cases ff in
+            let ar := mk_arity (Int.sub n 1) (codomain (Constr.type f)) in
+            add_premise constr:(is_fixpoint $ar $ff $f)
+              (fun () => ltac1:(e |- unfold is_fixpoint; intros; cbn [pw_eq]; intros; cbv beta; apply e)
+                           (Ltac1.of_constr e))
+      | _ => fail_msg "fix_equation_from: not an equation"
+      end
+  | _ => fail_msg "fix_equation_from: unexpected goal"
+  end.
+
+Ltac2 equation_of (f : constr) : constr option :=
+  match kind f with
+  | Constant c _ =>
+      let name := String.app (ref_name (Std.ConstRef c)) "_equation" in
+      match Option.map (fun id => Env.expand [id]) (Ident.of_string name) with
+      | Some (r :: _) => Some (Env.instantiate r)
+      | _ => None
+      end
+  | _ => None
+  end.
+
 (** Ltac1 entry points. *)
 Ltac fix_equation := ltac2:(fix_equation ()).
+Ltac fix_equation_from e :=
+  let tac := ltac2:(e |-
+    match Ltac1.to_constr e with
+    | Some e => fix_equation_from e
+    | None => fail_msg "fix_equation_from: not a term"
+    end) in
+  tac e.
 Ltac fix_equation_mutual := ltac2:(fix_equation_mutual ()).
 Ltac unfold_fun := ltac2:(unfold_fun ()).
 

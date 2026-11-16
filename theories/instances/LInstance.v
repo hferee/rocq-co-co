@@ -21,8 +21,10 @@
       are representable whenever their elements are. The environments of
       closures ([Combinators]) are pairs of realisers of any
       representations.
-    - Only [fix_complexity] uses an axiom: functional extensionality, to
-      turn its pointwise unfolding equation into an equality.
+    - No axiom is used. The unfolding equation of [fix_complexity] is
+      pointwise: the realisers of a function only observe it through its
+      applications, so that pointwise-equal functions have the same
+      realisers ([PwExt]), without functional extensionality.
 
     L and its reduction are those of the Rocq Library of Undecidability
     Proofs (opam package [coq-library-undecidability]): the terms [term],
@@ -33,7 +35,7 @@
     [evalc], a big-step evaluation that counts beta-steps, which is sound
     and complete for [pow step] ([evalc_sound], [pow_evalc]). *)
 
-From Stdlib Require Import List ZArith QArith FunctionalExtensionality.
+From Stdlib Require Import List ZArith QArith.
 From Complexity Require Export TimeCostModel.
 From Undecidability.L Require Import Util.L_facts.
 Import HOAS_Notations.
@@ -537,11 +539,21 @@ Ltac LcaseE3_start := LunfoldE; Lfun; Lstep; Lfun; Lstep; Lfun; Lstep; Lfun; Lst
 (** Unfold the encoding of the matched value in its evaluation. *)
 Ltac Lscrut x e := match goal with H : evalc _ (app x e) _ |- _ => cbn in H end.
 
-(** The unfolding equation of [fix_complexity] is pointwise. *)
-Lemma pw_eq_eq {T} (ar : Arity T) : forall x y, pw_eq ar x y -> x = y.
+(** The realisers of a representation [R] do not distinguish the values
+    that are pointwise equal at the arity [ar] ([PwExt] of [TimeFix]). *)
+Definition pw_ext {B CB} (R : LRepr B CB) (ar : Arity B) : Prop :=
+  forall k x y c s, pw_eq ar x y -> rl R k y c s -> rl R k x c s.
+
+Lemma pw_ext_val_ {B CB} (R : LRepr B CB) : pw_ext R (ar_val B).
+Proof. intros k x y c s E H. cbn in E. subst. exact H. Qed.
+
+(** A function is only observed through its applications. *)
+Lemma pw_ext_fun_ {A CA B CB} (RA : LRepr A CA) (RB : LRepr B CB) (ar : Arity B) :
+  pw_ext RB ar -> pw_ext (arr_repr RA RB) (ar_fun A B ar).
 Proof.
-  induction ar as [T | A B ar IH]; cbn; [auto |].
-  intros f g H. apply functional_extensionality. intro a. apply IH, H.
+  intros HB k f g c s E [Hp H]. split; [exact Hp |].
+  intros j a c1 sa Hj Ha Hc. destruct (H j a c1 sa Hj Ha Hc) as (n & v & Hv & Hn & Hr).
+  exists n, v. split; [exact Hv | split; [exact Hn | exact (HB _ _ _ _ _ (E a) Hr)]].
 Qed.
 
 (** ** L is an instance of the cost model *)
@@ -1358,8 +1370,8 @@ Module LZM <: ZTimeCostModel LCM LBT LCB.
 
 End LZM.
 
-(** Fixpoints. The unfolding equation, pointwise, gives
-    `f e = F (ECons e (f e))` with functional extensionality. For a
+(** Fixpoints. The unfolding equation is pointwise, and the realisers of
+    the result do not distinguish pointwise-equal values ([PwExt]). For a
     realiser `se` of `e`, `f e` is realised by L's fixpoint operator [rho]
     applied to [fix_G sF se], which runs the realiser `sF` of `F` in the
     environment of `se` and of the recursive function ([env_rl]): by
@@ -1382,8 +1394,14 @@ Module LFX <: FixTimeCostModel LCM LBT LCB.
   Import LCM LBT.
   Definition c_fix := 1.
 
-  Lemma fix_complexity : forall {E CE A B CA CB} `{Repr E CE} `{Repr A CA} `{Repr B CB}
-      (ar : Arity B) (f : E -> A -> B)
+  Definition PwExt {B CB} (R : Repr B CB) (ar : Arity B) : Prop := pw_ext R ar.
+  Existing Class PwExt.
+  Global Instance pw_ext_val {B CB} (R : Repr B CB) : PwExt R (ar_val B) := pw_ext_val_ R.
+  Global Instance pw_ext_fun {A CA B CB} (RA : Repr A CA) (RB : Repr B CB) (ar : Arity B) :
+    PwExt RB ar -> PwExt (Repr_arr RA RB) (ar_fun A B ar) := pw_ext_fun_ RA RB ar.
+
+  Lemma fix_complexity : forall {E CE A B CA CB} `{Repr E CE} `{Repr A CA} {RB : Repr B CB}
+      (ar : Arity B) `{!PwExt RB ar} (f : E -> A -> B)
       (F : env E (A -> B) -> A -> B)
       (cF : ℂI (env E (A -> B)) (CE * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
       (cf : ℂI E CE -> ℂO (ℂI A CA -> ℂO CB)),
@@ -1396,10 +1414,8 @@ Module LFX <: FixTimeCostModel LCM LBT LCB.
         cf ->
       ComplexityBound f cf.
   Proof.
-    intros E CE A B CA CB RE RA RB ar f F cF cf _ Hfix [sF HF]%complexity_bound_has Hrec.
+    intros E CE A B CA CB RE RA RB ar Hpw f F cF cf _ Hfix [sF HF]%complexity_bound_has Hrec.
     apply has_complexity_bound.
-    assert (Heq : forall e a, f e a = F (ECons e (f e)) a)
-      by (intros e a; apply (pw_eq_eq ar), (Hfix e)).
     pose proof (rl_proc (HF 0)) as HpF.
     exists (fix_r sF). intro k. unfold fix_r. Lfun.
     destruct (Hrec (a ⋊ c)) as [Hcost0 Hcomp0].
@@ -1424,7 +1440,7 @@ Module LFX <: FixTimeCostModel LCM LBT LCB.
       do 2 eexists; split.
       { apply evalc_sound. unfold rho at 1, r, fix_G at 1. Leval. }
       split; [Llia |].
-      rewrite Heq. eapply rl_mono; [exact Hcomp |]. Lend R0. }
+      apply (Hpw _ _ _ _ _ (Hfix a x)). eapply rl_mono; [exact Hcomp |]. Lend R0. }
     do 2 eexists; split.
     { apply evalc_sound. eapply evalc_beta; [apply evalc_val; assumption |].
       rewrite fix_r_subst by (try apply proc_closed; assumption). apply evalc_lam. }

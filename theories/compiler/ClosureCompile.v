@@ -113,7 +113,9 @@ Ltac2 rec conv (base : int) (t : constr) : constr :=
       | None => mkapp constr:(@Lam) [| hole (); binder_type b; hole (); conv (shift base 1) body |]
       end
   | Case ci _ _ scrut branches => case_code base ci scrut branches
-  | _ => fail_msg "compile: unsupported term (local fixpoint, dependent match, ...)"
+  | Fix _ _ _ _ =>
+      fail_msg "compile: a local fixpoint uses variables of the function: make it a function of them, closed, and declare its bound first"
+  | _ => fail_msg "compile: unsupported term (dependent match, ...)"
   end
 
 (** The code of a match, for its environment [e]: the case combinator
@@ -138,6 +140,8 @@ with branch_codes (base : int) (ci : case) (branches : constr array) : constr li
 with closed (t : constr) : constr :=
   match kind t with
   | Lambda b body =>
+      (* a lifted local fixpoint is a constant, whose bound is given *)
+      if is_lifted_fix t then t else
       match simple_lambda b body with
       | Some u => closed u
       | None => conv 1 body

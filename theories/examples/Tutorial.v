@@ -57,7 +57,35 @@
        that you have not proved yet, or one of the library that nobody has
        studied. Prove a bound for [g] first, and declare it as an instance
        ([Global Instance], or [Existing Instance] after a [Lemma]), so that
-       [cbound] finds it.
+       [cbound] finds it. If it fails with "unknown complexity bound for
+       the local fixpoint", your function contains a [fix] (a [let fix],
+       say): prove its bound first, as a hypothesis ([assert (H :
+       Time.ComplexityBound (fix ...) ...) by cbound]) or an instance, and
+       [cbound] reads it from the context (see the local fixpoints of
+       [Examples]).
+
+    ** Finding the constants
+
+    Instead of 0s, you can make the constants unknowns. In the proof
+    (before [Abort], or in a [Goal True]), introduce temporary constants
+    with [evar], state the bound with them, and run [cbound] on it. The
+    constants are opaque: [lia] proves nothing about them, so every
+    inequality is left, in terms of them. For [length]:
+<<
+      evar (a : nat). evar (b : nat).
+      assert (Time.ComplexityBound (@length nat) (fun cl => (a * length (val cl) + b) >|)).
+      { cbound. }
+>>
+    leaves two inequalities, one for each case of the list:
+    - [6 <= b], for the empty list;
+    - [a * length cl + b + 16 <= a * length cl + a + b], for a list whose
+      tail is [cl] (the cost of the recursive call is the bound itself).
+    That is, [b >= 6] and [a >= 16]: the bound is [16 * length (val cl) + 6].
+    Put the values in the bound, in place of its 0s. To check them first,
+    give them to the unknowns, and finish the proof:
+<<
+      instantiate (a := 16). instantiate (b := 6). all: subst a b; lia.
+>>
 
     In a recursive case, the variables are those of the case: in the case
     [S n'] of an argument [n], the inequality is written with [n'].

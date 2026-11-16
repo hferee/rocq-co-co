@@ -58,10 +58,23 @@ Module Type FixTimeCostAxioms
   Parameter c_fix : nat.
   #[global] Hint Unfold c_fix : costs.
 
+  (** [PwExt R ar]: the representation [R] does not distinguish values that
+      are pointwise equal at the arity [ar] ([pw_eq]), the form of the
+      unfolding equation. It holds for [ar_val] (the equality), and for
+      functions represented as functions ([Repr_arr]), which are only
+      observed through their applications. With it, the instances prove the
+      fixpoint rule without functional extensionality. Typeclass search
+      finds it for the arities of the compiler ([mk_arity]). *)
+  Parameter PwExt : forall {B CB}, Repr B CB -> Arity B -> Prop.
+  Existing Class PwExt.
+  #[global] Declare Instance pw_ext_val : forall {B CB} (R : Repr B CB), PwExt R (ar_val B).
+  #[global] Declare Instance pw_ext_fun : forall {A CA B CB} (RA : Repr A CA) (RB : Repr B CB)
+    (ar : Arity B), PwExt RB ar -> PwExt (Repr_arr RA RB) (ar_fun A B ar).
+
   (** For a recursive function [f e] with the environment [e]: its
       functional [F] runs in [e] extended with [f e]. *)
-  Parameter fix_complexity : forall {E CE A B CA CB} `{Repr E CE} `{Repr A CA} `{Repr B CB}
-    (ar : Arity B) (f : E -> A -> B)
+  Parameter fix_complexity : forall {E CE A B CA CB} `{Repr E CE} `{Repr A CA} {RB : Repr B CB}
+    (ar : Arity B) `{!PwExt RB ar} (f : E -> A -> B)
     (F : env E (A -> B) -> A -> B)
     (cF : ℂI (env E (A -> B)) (CE * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
     (cf : ℂI E CE -> ℂO (ℂI A CA -> ℂO CB)),
@@ -86,8 +99,8 @@ Module FixRules
       of an empty environment: its functional runs in [ECons tt f], and
       reads [f] in it ([ehd]). The cost of building the closure [f' tt] is
       not that of [f], a value. *)
-  Lemma fix_closed_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB}
-    (ar : Arity B) (f : A -> B) (F : env unit (A -> B) -> A -> B)
+  Lemma fix_closed_complexity : forall {A B CA CB} `{Repr A CA} {RB : Repr B CB}
+    (ar : Arity B) `{!PwExt RB ar} (f : A -> B) (F : env unit (A -> B) -> A -> B)
     (cF : ℂI (env unit (A -> B)) (unit * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
     (cf : ℂI A CA -> ℂO CB),
     1 <= c_fix ->
@@ -96,7 +109,7 @@ Module FixRules
     bound_order (fun ca : ℂI A CA => c_fix ⊕ pot <$> (F ⋊ cF) · (ECons tt f ⋊ (tt, cf)) · ca) cf ->
     ComplexityBound f cf.
   Proof.
-    intros A B CA CB RA RB ar f F cF cf Hpos Hfix HF Hrec.
+    intros A B CA CB RA RB ar Hpw f F cF cf Hpos Hfix HF Hrec.
     assert (H : ComplexityBound (fun _ : unit => f) (fun _ => c_clo +> cf)).
     { apply (fix_complexity ar (fun _ => f) F cF (fun _ => c_clo +> cf) Hpos).
       - intros []. exact Hfix.
@@ -135,6 +148,21 @@ Module FixTactics
     end; clear H Hpos.
   Ltac crec := crec_with fix_equation.
   Ltac crec_mutual := crec_with fix_equation_mutual.
+
+  (** Well-founded recursion ([Function], Equations, ...): [crec_eq e] is
+      [crec] with the functional of the unfolding equation [e]
+      ([fix_equation_from]). [cbound] uses the equation [f_equation] that
+      [Function] proves, when there is one ([crec_eq_auto]). *)
+  Ltac crec_eq e := crec_with ltac:(fix_equation_from e).
+  Ltac2 crec_eq_auto () :=
+    match Constr.Unsafe.kind (Control.goal ()) with
+    | Constr.Unsafe.App _ args =>
+        match equation_of (Array.get args (Int.sub (Array.length args) 2)) with
+        | Some e => ltac1:(e |- crec_eq e) (Ltac1.of_constr e)
+        | None => Control.zero (Tactic_failure None)
+        end
+    | _ => Control.zero (Tactic_failure None)
+    end.
 
   (** ** Arguments passed unchanged
 
@@ -335,7 +363,9 @@ Module FixTactics
       the bound of each one. [cbound_mutual] is the same, for mutually
       recursive functions only. A recursive function with arguments passed
       unchanged is analysed with them in the environment of its fixpoint
-      ([crec_env]), which is tried first. *)
+      ([crec_env]), which is tried first. A function defined by
+      well-founded recursion is analysed from its unfolding equation
+      ([crec_eq_auto]), which is tried last. *)
   Ltac2 Set cbound_start as previous := fun () =>
     let rec first_rec tacs :=
       match tacs with
@@ -346,7 +376,7 @@ Module FixTactics
           | Err _ => first_rec tacs
           end
       end in
-    first_rec [crec_env; (fun () => ltac1:(crec)); (fun () => ltac1:(crec_mutual))].
+    first_rec [crec_env; (fun () => ltac1:(crec)); (fun () => ltac1:(crec_mutual)); crec_eq_auto].
   Ltac cbound_mutual := crec_mutual; [cbc_found | cfinish].
 End FixTactics.
 

@@ -320,6 +320,29 @@ Module CombinatorTactics
                     Advice.nl (); Message.of_string "(or Existing Instance after a Lemma)."]
     end.
 
+  (** The local fixpoints of a compiled term: its [fix] subterms, which
+      the compiler keeps as constants (they are closed). [cbound] does not
+      analyse them: their bounds must be given, as hypotheses or
+      instances. *)
+  Ltac2 rec local_fixes (t : constr) (acc : constr list) : constr list :=
+    let add t := if List.exist (Constr.equal t) acc then acc else t :: acc in
+    match Constr.Unsafe.kind t with
+    | Constr.Unsafe.Fix _ _ _ _ => add t
+    | Constr.Unsafe.App f args => Array.fold_left (fun acc a => local_fixes a acc) (local_fixes f acc) args
+    | Constr.Unsafe.Lambda _ b => if is_lifted_fix t then add t else local_fixes b acc
+    | _ => acc
+    end.
+
+  Ltac2 fixes_message (fs : constr list) : message :=
+    Advice.cat
+      (List.append
+         (List.map (fun f => Advice.cat
+            [Message.of_string "cbound: unknown complexity bound for the local fixpoint ";
+             Message.of_constr f; Message.of_string "."; Advice.nl ()]) fs)
+         [Message.of_string "Declare it first: the bound is then read from the context, e.g.";
+          Advice.nl (); Message.of_string "  assert (H : Time.ComplexityBound (fix ...) (fun cx => ... >|)) by cbound.";
+          Advice.nl (); Message.of_string "(For a fixpoint that uses variables of the function, the bound is that of the function of them printed.)"]).
+
   Ltac2 csearch_diag () : unit :=
     match Control.case (fun () => ltac1:(csearch)) with
     | Val _ => ()
@@ -327,7 +350,10 @@ Module CombinatorTactics
         match Constr.Unsafe.kind (Control.goal ()) with
         | Constr.Unsafe.App _ args =>
             let t := Array.get args (Int.sub (Array.length args) 2) in
-            Control.zero (Tactic_failure (Some (missing_message (missing_bounds t))))
+            match List.filter (fun f => Bool.neg (has_found f)) (List.rev (local_fixes t [])) with
+            | [] => Control.zero (Tactic_failure (Some (missing_message (missing_bounds t))))
+            | fs => Control.zero (Tactic_failure (Some (fixes_message fs)))
+            end
         | _ => Control.zero (Tactic_failure (Some (missing_message [])))
         end
     end.
@@ -412,9 +438,27 @@ Module CombinatorTactics
       hypotheses `#H ...`, between `#CGOAL` and `#END`; the terms are
       s-expressions over [+], [*] and [-], numerals and atoms `{t}`. A goal
       of another form is printed as `#X t` ([Advice]). *)
-  (** [lia] and [nia], or the export. *)
-  Ltac carith := ltac2:(if Advice.cexport then Control.enter (fun () => Advice.cexport_goal (); ltac1:(admit))
-                        else ltac1:(try solve [lia | nia])).
+  (** The tests of the case analyses ([ccases]) as facts on numbers: a
+      comparison [Nat.eqb], [Nat.leb] or [Nat.ltb] that is [true] or
+      [false] ([x =? 0] false: [0 < x]). [lia] and [nia] do not read them
+      as booleans. *)
+  Ltac cbool_facts :=
+    repeat match goal with
+    | H : Nat.eqb ?x 0 = false |- _ => apply Nat.eqb_neq in H; assert (0 < x) by lia; clear H
+    | H : Nat.eqb 0 ?x = false |- _ => apply Nat.eqb_neq in H; assert (0 < x) by lia; clear H
+    | H : Nat.eqb _ _ = true |- _ => apply Nat.eqb_eq in H
+    | H : Nat.eqb _ _ = false |- _ => apply Nat.eqb_neq in H
+    | H : Nat.leb _ _ = true |- _ => apply Nat.leb_le in H
+    | H : Nat.leb _ _ = false |- _ => apply Nat.leb_gt in H
+    | H : Nat.ltb _ _ = true |- _ => apply Nat.ltb_lt in H
+    | H : Nat.ltb _ _ = false |- _ => apply Nat.ltb_ge in H
+    end.
+
+  (** [lia] and [nia], with the facts of the tests if needed, or the
+      export (with these facts). *)
+  Ltac carith := ltac2:(if Advice.cexport then
+                          Control.enter (fun () => ltac1:(cbool_facts); Advice.cexport_goal (); ltac1:(admit))
+                        else ltac1:(try solve [lia | nia | progress cbool_facts; first [lia | nia]])).
 
   Ltac cfinish :=
     csimpl; bo_split; destr_inputs; ccases; cunit; cfold; carith; try ring_simplify.

@@ -82,7 +82,9 @@ Ltac2 rec abs (t : constr) : constr :=
       else if hoist last then
         mkapp constr:(@Cc) [| hole (); hole (); hole (); abs init; lower last |]
       else mkapp constr:(@Sc) [| hole (); hole (); hole (); abs init; abs last |]
-  | _ => fail_msg "abs: unsupported term (local fixpoint, dependent match, ...)"
+  | Fix _ _ _ _ =>
+      fail_msg "abs: a local fixpoint uses variables of the function: make it a function of them, closed, and declare its bound first"
+  | _ => fail_msg "abs: unsupported term (dependent match, ...)"
   end.
 
 (** The value at position [k] of the environment [Rel 1]:
@@ -100,7 +102,9 @@ Ltac2 rec env_access (k : int) : constr :=
     environment [tt] otherwise. *)
 Ltac2 rec bracket_compile (t : constr) : constr :=
   match kind t with
-  | Lambda _ body => abs (bracket_compile body)
+  | Lambda _ body =>
+      (* a lifted local fixpoint is a constant, whose bound is given *)
+      if is_lifted_fix t then t else abs (bracket_compile body)
   | App f args => mkapp (bracket_compile f) (Array.map bracket_compile args)
   | LetIn b v body => bracket_compile (mkapp (mklam b body) [| v |])
   | Cast c _ _ => bracket_compile c
@@ -129,4 +133,4 @@ Ltac2 rec bracket_compile (t : constr) : constr :=
   end.
 
 (** The compiler, for [cbound] ([Compile]). *)
-Ltac2 bracket_compile_goal () := compile_goal_with bracket_compile.
+Ltac2 bracket_compile_goal () := compile_goal_with (fun t => bracket_compile (lift_fixes t)).

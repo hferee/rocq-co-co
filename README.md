@@ -50,6 +50,11 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   cheaper), and running times on it (`MachineExamples`). The machine is an
   instance of the whole time model, with ground lists and options and with
   lists and options of any data (`instances/LMachine`: `LM`, `LMH`).
+- `lower/`: lower bounds. A cost model with elements compared at cost 1,
+  and the axiom that lower bounds need: a function with a bound is a
+  comparison tree (`ComparisonModel`); the counting argument
+  (`DecisionTrees`); the `log2 (n!)` and `n log n` lower bounds for sorting
+  (`SortingLowerBound`).
 - `instances/`: the call-by-value λ-calculus L as an instance of
   `TimeCostModel` and of `HOTimeCostModel` (`LInstance`), with the bounds of
   the higher-order functions on lists (`LHOLists`), and of the arithmetic
@@ -59,8 +64,15 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   `StrassenCount`), and why unfoldings of fixpoints must not be free
   (`UnguardedFix`). `Tutorial` is a set of exercises for students: bounds
   to prove, with the method (`cbound`, `cexplain`, `cproject`, `csize`).
+  `Examples` also shows how to prove functions with local fixpoints (their
+  bounds declared first) and functions defined by well-founded recursion
+  (`Function`). `Limitations` shows what the analysis does not cover
+  (dependent matches), with the error reported.
 
 Build with `make` (Rocq 9.2, rocq-stdlib, coq-library-undecidability).
+`make doc` generates the HTML documentation in `html/` (start at
+`html/index.html`), with [CoqdocJS](https://github.com/coq-community/coqdocjs)
+(`doc/coqdocjs`): proofs are folded, and unfolded by clicking on them.
 
 The complexity bounds of the repository are recorded in snapshots
 (`bounds/runs/`, one per version of the compiler or of the cost model) and
