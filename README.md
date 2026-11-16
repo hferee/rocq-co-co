@@ -17,7 +17,9 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   fixpoints (`TimeFix`). The costs are constants: `ParamTimeCostModel` leaves
   them abstract, `TimeCostModel` sets them all to 1, and `HOTimeCostModel` is
   the same with lists and options of any data (`TimeDatatypes` has the two
-  models of options). `TimeArith` defines another
+  models of options; sums are of any data in both). The size of a value is
+  the length of its binary encoding, its number of constructors (exact
+  equations: `size (S n) = 1 + size n`, ...). `TimeArith` defines another
   model, with addition and multiplication as primitives and no case analysis
   on `nat`, and its instance counting arithmetic operations.
 - `space/`: the space cost model (`SpaceCostModel`): the layers of the time
@@ -40,7 +42,8 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   `TimeCostModel` (`TimeNat`, `TimePos`, `TimeStdlib`), and the
   higher-order functions on lists and options of any data (`map`, `filter`,
   `find`, the folds, `option_map`, ...) over `HOTimeCostModel`
-  (`HOListComplexity`).
+  (`HOListComplexity`), and the usual functions on sums (of any data, in
+  both models) and on lists of sums (`SumComplexity`).
 - `bff/`: the basic feasible functionals (PV^ω), their complexity, their
   higher-order polynomial bounds, and Irwin, Kapron and Royer's type-3
   example.

@@ -28,8 +28,8 @@ Module Type ListData (Import CM : CostModel).
   #[global] Declare Instance Repr_list : forall {A}, Ground A -> Ground (list A).
 
   #[global] Declare Instance Size_list : forall {A}, Size A -> Size (list A).
-  Parameter size_nil : forall {A} `{Size A}, 0 < size (@nil A).
-  Parameter size_cons : forall {A} `{Size A} (a : A) l, size a + size l < size (a :: l).
+  Parameter size_nil : forall {A} `{Size A}, size (@nil A) = 1.
+  Parameter size_cons : forall {A} `{Size A} (a : A) l, size (a :: l) = 1 + size a + size l.
 
   (** The empty list is a value; the other lists are built with [cons]. *)
   #[global] Declare Instance nil_complexity : forall {A} `{Ground A}, ComplexityBound (@nil A) tt.
@@ -95,8 +95,8 @@ Module Type HListData (Import CM : CostModel).
   #[global] Declare Instance Repr_list : forall {A CA}, Repr A CA -> Repr (list A) (list CA).
 
   #[global] Declare Instance Size_list : forall {A}, Size A -> Size (list A).
-  Parameter size_nil : forall {A} `{Size A}, 0 < size (@nil A).
-  Parameter size_cons : forall {A} `{Size A} (a : A) l, size a + size l < size (a :: l).
+  Parameter size_nil : forall {A} `{Size A}, size (@nil A) = 1.
+  Parameter size_cons : forall {A} `{Size A} (a : A) l, size (a :: l) = 1 + size a + size l.
 
   (** The order on the complexities of lists: element by element. *)
   Parameter bound_order_list : forall {A CA} `{Repr A CA} (c c' : list CA),

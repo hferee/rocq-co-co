@@ -93,3 +93,59 @@ Proof.
     try pose proof (zsize_pred_double (Z.pos_sub x y));
     cbn [zsize Pos.size_nat] in *; lia.
 Qed.
+
+(** ** Monotonicity, sums and products
+
+    For the bounds of the division, the gcd and the power ([ZComplexity]):
+    the sizes of their intermediate results follow from bounds on their
+    values. *)
+Section Monotonicity.
+  Local Open Scope Z_scope.
+
+  Lemma zsize_pos z : (1 <= zsize z)%nat.
+  Proof. destruct z; cbn; try apply size_nat_pos; lia. Qed.
+
+  Lemma zsize_abs z : zsize (Z.abs z) = zsize z.
+  Proof. destruct z; reflexivity. Qed.
+
+  Lemma zsize_mono x y : 0 <= x <= y -> (zsize x <= zsize y)%nat.
+  Proof.
+    intros [Hx Hxy]. destruct x as [|p|p], y as [|q|q]; cbn [zsize]; try lia;
+    try (pose proof (size_nat_pos q); lia).
+    destruct (Pos.eq_dec p q) as [-> | Hne]; [lia |].
+    apply Pos.size_nat_monotone. lia.
+  Qed.
+
+  Lemma zsize_abs_mono x y : Z.abs x <= Z.abs y -> (zsize x <= zsize y)%nat.
+  Proof. intro H. rewrite <- (zsize_abs x), <- (zsize_abs y). apply zsize_mono. lia. Qed.
+
+  Lemma zsize_mul x y : (zsize (x * y) <= zsize x + zsize y)%nat.
+  Proof.
+    destruct x as [|p|p], y as [|q|q]; cbn [zsize Z.mul]; try lia;
+    try (pose proof (size_nat_pos p); lia); try (pose proof (size_nat_pos q); lia);
+    apply size_nat_mul.
+  Qed.
+
+  Lemma zsize_add x y : (zsize (x + y) <= S (Nat.max (zsize x) (zsize y)))%nat.
+  Proof.
+    destruct (Z.le_ge_cases (Z.abs x) (Z.abs y)) as [H | H].
+    - assert (zsize (x + y) <= zsize (2 * Z.abs y))%nat by (apply zsize_abs_mono; lia).
+      destruct y as [|p|p]; cbn in *; lia.
+    - assert (zsize (x + y) <= zsize (2 * Z.abs x))%nat by (apply zsize_abs_mono; lia).
+      destruct x as [|p|p]; cbn in *; lia.
+  Qed.
+End Monotonicity.
+
+Lemma size_nat_le x y : (x <= y)%positive -> Pos.size_nat x <= Pos.size_nat y.
+Proof.
+  intro H. destruct (Pos.eq_dec x y) as [-> | Hne]; [lia |].
+  apply Pos.size_nat_monotone. lia.
+Qed.
+
+Lemma size_nat_sub x y : Pos.size_nat (x - y) <= Pos.size_nat x.
+Proof.
+  apply size_nat_le. destruct (Pos.compare_spec x y) as [-> | H | H].
+  - rewrite Pos.sub_diag. lia.
+  - rewrite (Pos.sub_lt _ _ H). lia.
+  - apply Pos.lt_le_incl, Pos.sub_decr, H.
+Qed.

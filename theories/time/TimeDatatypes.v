@@ -1,7 +1,8 @@
 (** * Cost models for the basic datatypes
 
-    Booleans, natural numbers, options (of ground data, and of any data) and
-    pairs of ground data, and binary numbers (lists are in [TimeLists]). Values are ground data, with sizes ([Size]); constructors
+    Booleans, natural numbers, options (of ground data, and of any data),
+    pairs of ground data, sums of any data, and binary numbers (lists are in
+    [TimeLists]). Values are ground data, with sizes ([Size]); constructors
     and case analyses are primitive. Each case analysis is compiled to a case
     combinator ([Combinators]), defined here with its datatype. Recursion is
     covered by [TimeFix]: the functions of the standard library are analysed
@@ -43,7 +44,7 @@ Module Type BoolData (Import CM : CostModel).
   #[global] Declare Instance Repr_bool : Ground bool.
 
   #[global] Declare Instance Size_bool : Size bool.
-  Parameter size_bool : forall b : bool, 0 < size b.
+  Parameter size_bool : forall b : bool, size b = 1.
 
   #[global] Declare Instance bool_complexity : forall b : bool, ComplexityBound b tt.
 End BoolData.
@@ -91,8 +92,8 @@ Module Type NatData (Import CM : CostModel).
   #[global] Declare Instance Repr_nat : Ground nat.
 
   #[global] Declare Instance Size_nat : Size nat.
-  Parameter size_O : 0 < size 0.
-  Parameter size_S : forall n, size n < size (S n).
+  Parameter size_O : size 0 = 1.
+  Parameter size_S : forall n, size (S n) = 1 + size n.
 
   #[global] Declare Instance nat_complexity : forall n : nat, ComplexityBound n tt.
 End NatData.
@@ -150,8 +151,8 @@ Module Type OptionData (Import CM : CostModel).
   #[global] Declare Instance Repr_option : forall {A}, Ground A -> Ground (option A).
 
   #[global] Declare Instance Size_option : forall {A}, Size A -> Size (option A).
-  Parameter size_None : forall {A} `{Size A}, 0 < size (@None A).
-  Parameter size_Some : forall {A} `{Size A} (a : A), size a < size (Some a).
+  Parameter size_None : forall {A} `{Size A}, size (@None A) = 1.
+  Parameter size_Some : forall {A} `{Size A} (a : A), size (Some a) = 1 + size a.
 
   (** [None] is a value; the other options are built with [Some]. *)
   #[global] Declare Instance None_complexity : forall {A} `{Ground A}, ComplexityBound (@None A) tt.
@@ -216,8 +217,8 @@ Module Type HOptionData (Import CM : CostModel).
   #[global] Declare Instance Repr_option : forall {A CA}, Repr A CA -> Repr (option A) (option CA).
 
   #[global] Declare Instance Size_option : forall {A}, Size A -> Size (option A).
-  Parameter size_None : forall {A} `{Size A}, 0 < size (@None A).
-  Parameter size_Some : forall {A} `{Size A} (a : A), size a < size (Some a).
+  Parameter size_None : forall {A} `{Size A}, size (@None A) = 1.
+  Parameter size_Some : forall {A} `{Size A} (a : A), size (Some a) = 1 + size a.
 
   Parameter bound_order_option : forall {A CA} `{Repr A CA} (c c' : option CA),
     option_le bound_order c c' -> bound_order c c'.
@@ -279,7 +280,7 @@ Module Type ProdData (Import CM : CostModel).
 
   #[global] Declare Instance Size_prod : forall {A B}, Size A -> Size B -> Size (A * B).
   Parameter size_pair : forall {A B} `{Size A} `{Size B} (a : A) (b : B),
-    size a + size b < size (a, b).
+    size (a, b) = 1 + size a + size b.
 End ProdData.
 
 (* Pairs are built with [pair]. *)
@@ -315,6 +316,101 @@ Module Type ProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
   (CB : CombinatorTimeCostModel CM BT) :=
   ProdData CM <+ ProdCtorTimeCostModel CM BT <+ ProdCaseTimeCostModel CM BT CB.
 
+(** ** Sums (of any data)
+
+    The sum [A + B] of the standard library, built with [inl] and [inr]. A
+    match on a sum is compiled to [sum_case]; each branch receives the
+    argument of its constructor, in its environment, as the branch of
+    [Some] does. Sums are in every time model ([TimeCostModel]).
+
+    As for options of any data ([HOptionTimeCostModel]), the elements may
+    be functions, or other data with complexities: a sum of [A] and [B],
+    with complexities [CA] and [CB], has a sum of [CA] and [CB] as its
+    complexity, that of its element, both [inl] or both [inr] (in L, the
+    instance). The case analysis gives the complexity of the element to its
+    branch. When the value and its complexity disagree (which does not
+    happen), it still gives a complexity to the branch of the value: options
+    take the branch of [None], which has no argument, but both branches of a
+    sum have one. It gives the default complexity of the representation of
+    the element ([cdefault]), which each representable type has. The order
+    compares the complexities of the elements ([sum_le]). *)
+
+(** Case combinator (see [Combinators]). *)
+
+Definition sum_case {X Y E A : Type} (l : env E X -> A) (r : env E Y -> A) (s : E -> X + Y)
+  (e : E) : A :=
+  match s e with inl x => l (ECons e x) | inr y => r (ECons e y) end.
+
+#[global] Typeclasses Opaque sum_case.
+#[global] Hint Unfold sum_case : comb.
+
+(** The order on sums: both [inl] or both [inr], with related elements. *)
+Definition sum_le {C D} (R : C -> C -> Prop) (S : D -> D -> Prop) (s s' : C + D) : Prop :=
+  match s, s' with
+  | inl x, inl y => R x y
+  | inr x, inr y => S x y
+  | _, _ => False
+  end.
+
+Module Type SumData (Import CM : CostModel).
+  #[global] Declare Instance Repr_sum :
+    forall {A CA B CB}, Repr A CA -> Repr B CB -> Repr (A + B) (CA + CB).
+
+  #[global] Declare Instance Size_sum : forall {A B}, Size A -> Size B -> Size (A + B).
+  (** The size of a sum is the size of its element, plus one. *)
+  Parameter size_inl : forall {A B} `{Size A} `{Size B} (a : A), size (@inl A B a) = 1 + size a.
+  Parameter size_inr : forall {A B} `{Size A} `{Size B} (b : B), size (@inr A B b) = 1 + size b.
+
+  Parameter bound_order_sum : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA + CB),
+    sum_le bound_order bound_order c c' -> bound_order c c'.
+
+  (** A complexity of each representable type, for the case analysis of
+      sums. *)
+  Parameter cdefault : forall {A CA} `{Repr A CA}, CA.
+End SumData.
+
+(** Both constructors cost [c_ctor_sum], as the constructors of the binary
+    numbers cost [c_ctor_Z]. *)
+Module Type SumCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import SD : SumData CM).
+
+  Parameter c_ctor_sum : nat.
+  #[global] Hint Unfold c_ctor_sum : costs.
+
+  #[global] Declare Instance inl_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@inl A B) (fun ca => c_ctor_sum +> @inl CA CB (pot ca)).
+  #[global] Declare Instance inr_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@inr A B) (fun cb => c_ctor_sum +> @inr CA CB (pot cb)).
+End SumCtorTimeCostModel.
+
+Module Type SumCaseTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
+  (Import CB : CombinatorTimeCostModel CM BT) (Import SD : SumData CM).
+
+  Parameter c_case_sum : nat.
+  #[global] Hint Unfold c_case_sum : costs.
+
+  (** The branch of the value receives the element with its complexity (the
+      default one if the complexity is of the other side). *)
+  #[global] Declare Instance sum_case_complexity :
+    forall {X CX Y CY E CE A CA} `{Repr X CX} `{Repr Y CY} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@sum_case X Y E A)
+      (fun cl : ℂI (env E X -> A) (ℂI (env E X) (CE * CX) -> ℂO CA) => c_clo +>
+       fun cr : ℂI (env E Y -> A) (ℂI (env E Y) (CE * CY) -> ℂO CA) => c_clo +>
+       fun cs : ℂI (E -> X + Y) (ℂI E CE -> ℂO (CX + CY)) => c_clo +>
+       fun ce : ℂI E CE => c_case_sum ⊕ c_frame ⊕ cost (pot cs ce) ⊕
+         match val cs (val ce), res (pot cs ce) with
+         | inl x, inl cx => pot cl (ECons (val ce) x ⋊ (pot ce, cx))
+         | inl x, inr _ => pot cl (ECons (val ce) x ⋊ (pot ce, cdefault))
+         | inr y, inr cy => pot cr (ECons (val ce) y ⋊ (pot ce, cy))
+         | inr y, inl _ => pot cr (ECons (val ce) y ⋊ (pot ce, cdefault))
+         end).
+End SumCaseTimeCostModel.
+
+Module Type SumTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
+  (CB : CombinatorTimeCostModel CM BT) :=
+  SumData CM <+ SumCtorTimeCostModel CM BT <+ SumCaseTimeCostModel CM BT CB.
+
 (** ** Binary numbers: [positive], [N], [Z], and [Q] *)
 
 (** Case combinators (see [Combinators]). *)
@@ -348,16 +444,18 @@ Module Type ZData (Import CM : CostModel).
   #[global] Declare Instance Size_Z : Size Z.
   #[global] Declare Instance Size_Q : Size Q.
   #[global] Declare Instance Size_comparison : Size comparison.
-  Parameter size_xH : (0 < size xH)%nat.
-  Parameter size_xO : (forall p, size p < size (xO p))%nat.
-  Parameter size_xI : (forall p, size p < size (xI p))%nat.
-  Parameter size_N0 : (0 < size N0)%nat.
-  Parameter size_Npos : (forall p, size p < size (Npos p))%nat.
-  Parameter size_Z0 : (0 < size Z0)%nat.
-  Parameter size_Zpos : (forall p, size p < size (Zpos p))%nat.
-  Parameter size_Zneg : (forall p, size p < size (Zneg p))%nat.
-  Parameter size_Qmake : (forall n d, size n + size d < size (Qmake n d))%nat.
-  Parameter size_comparison : (forall c : comparison, 0 < size c)%nat.
+  (** The size of a [positive] is its number of binary digits
+      ([Pos.size_nat]); [N] and [Z] have one more, for the sign or zero. *)
+  Parameter size_xH : (size xH = 1)%nat.
+  Parameter size_xO : (forall p, size (xO p) = 1 + size p)%nat.
+  Parameter size_xI : (forall p, size (xI p) = 1 + size p)%nat.
+  Parameter size_N0 : (size N0 = 1)%nat.
+  Parameter size_Npos : (forall p, size (Npos p) = 1 + size p)%nat.
+  Parameter size_Z0 : (size Z0 = 1)%nat.
+  Parameter size_Zpos : (forall p, size (Zpos p) = 1 + size p)%nat.
+  Parameter size_Zneg : (forall p, size (Zneg p) = 1 + size p)%nat.
+  Parameter size_Qmake : (forall n d, size (Qmake n d) = 1 + size n + size d)%nat.
+  Parameter size_comparison : (forall c : comparison, size c = 1)%nat.
 
   #[global] Declare Instance positive_complexity : forall p : positive, ComplexityBound p tt.
   #[global] Declare Instance N_complexity : forall n : N, ComplexityBound n tt.

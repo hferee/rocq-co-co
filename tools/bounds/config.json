@@ -30,7 +30,7 @@
   },
   "sections": [
     [
-      "Natural numbers, booleans, lists, binary integers (stdlib)",
+      "Natural numbers, booleans, lists, binary integers, sums (stdlib)",
       "stdlib/"
     ],
     [
@@ -71,6 +71,7 @@
     "stdlib/HOListComplexity.v",
     "stdlib/PosComplexity.v",
     "stdlib/ZComplexity.v",
+    "stdlib/SumComplexity.v",
     "bff/BFFComplexity.v",
     "bff/BFFFeasibility.v",
     "bff/Type3Example.v",

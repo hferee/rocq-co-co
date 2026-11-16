@@ -21,11 +21,11 @@ Module ListComplexity (Import Time : TimeNat).
 
   (** ** Sizes *)
   Lemma length_lt_size {A} `{Size A} (l : list A) : length l < size l.
-  Proof. induction l as [|a l]; [apply size_nil | pose proof (size_cons a l); cbn [length]; lia]. Qed.
+  Proof. induction l as [|a l]; cbn [length]; [rewrite size_nil | rewrite size_cons]; lia. Qed.
 
   Lemma list_sum_lt_size (l : list nat) : list_sum l + length l < size l.
   Proof.
-    induction l as [|a l]; [apply size_nil|].
+    induction l as [|a l]; [rewrite size_nil; cbn; lia |].
     change (list_sum (a :: l)) with (a + list_sum l). cbn [length].
     pose proof (nat_lt_size a). pose proof (size_cons a l). lia.
   Qed.

@@ -30,6 +30,9 @@ def bounds_of(path, s):
     out = []
     m = coqsrc.mask_comments(s)
     for d in coqsrc.find_decls(s):
+        # a statement without a proof (Abort: a goal to prove) is not a bound
+        if d['kind'] == 'none':
+            continue
         fun, a, b = coqsrc.bound_span(s, d)
         pn = coqsrc.literal_positions(m, a, b, subtracted=True)
         tmpl, vals = coqsrc.template(m, a, b, [p for p, _ in pn])

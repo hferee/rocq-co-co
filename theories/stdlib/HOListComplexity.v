@@ -8,20 +8,23 @@
     The bounds of the higher-order functions of the standard library are
     then as general as their types: the function and the elements may be of
     any type, and their bounds are those of the function and of the
-    elements, given as complexities. The costs are
-    - the costs of the applications of the function to the elements
-      ([hsum]), or to the accumulators ([fold_left_fcost],
-      [fold_right_fcost]), as its complexity gives them;
-    - a constant per element and a constant, those of the recursion;
-    and the complexity of the result is that of the elements, or that given
-    by the complexity of the function ([hmap], [hfilter], [fold_left_pot],
-    [fold_right_pot], [flat_map_pot]).
+    elements, given as complexities.
 
-    A list [l] with complexity [c] is read as the case analysis reads it
-    ([list_case_complexity]): its elements paired with their complexities,
-    up to the end of the shorter one (they have the same length in the
-    instance, but the bounds do not need it). As in [ListComplexity],
-    [cbound] proves the bounds, with the smallest constants.
+    A list with complexity [cl] is read as the case analysis reads it
+    ([list_case_complexity]): its elements [val cl] paired with their
+    complexities [pot cl] ([czip cl]), up to the end of the shorter one
+    (they have the same length in the instance, but the bounds do not need
+    it). The bounds are stated with the functions of the standard library
+    on [czip cl]: the costs are the costs of the applications of the
+    function to the elements ([list_sum (map _ (czip cl))]), a constant per
+    element and a constant; the complexity of the result is that of the
+    elements, or that given by the complexity of the function ([map],
+    [filter], [find], [flat_map] on [czip cl]). The folds thread an
+    accumulator, whose value is the one that the function computes: their
+    costs are given by [fold_left_fcost], [fold_right_fcost] and the
+    complexities of their results by [fold_left_pot], [fold_right_pot]
+    (below). As in [ListComplexity], [cbound] proves the bounds, with the
+    smallest constants.
 
     Not covered: [partition], whose result is a pair of lists (pairs are
     modelled for ground data only). *)
@@ -33,61 +36,26 @@ Import ListNotations.
 (** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
-(** ** Functions of the elements, with their complexities *)
-Section Elements.
-  Context {A CA : Type}.
+(** ** The elements of a list, with their complexities *)
 
-  (** The sum of [g] on the elements. *)
-  Fixpoint hsum (g : ℂI A CA -> nat) (l : list A) (c : list CA) : nat :=
-    match l, c with
-    | x :: l, cx :: c => g (x ⋊ cx) + hsum g l c
-    | _, _ => 0
-    end.
+Definition czip {A CA} (cl : ℂI (list A) (list CA)) : list (ℂI A CA) :=
+  map (fun p => fst p ⋊ snd p) (combine (val cl) (pot cl)).
 
-  Context {D : Type}.
+(** The element of an option, with its complexity. *)
+Definition czip_option {A CA} (co : ℂI (option A) (option CA)) : option (ℂI A CA) :=
+  match val co, pot co with Some x, Some c => Some (x ⋊ c) | _, _ => None end.
 
-  (** [g] on each element. *)
-  Fixpoint hmap (g : ℂI A CA -> D) (l : list A) (c : list CA) : list D :=
-    match l, c with
-    | x :: l, cx :: c => g (x ⋊ cx) :: hmap g l c
-    | _, _ => []
-    end.
+(** [cbound] reads them as the case analyses do. *)
+#[global] Hint Unfold czip czip_option : costs.
+#[local] Hint Unfold list_sum : costs.
 
-  (** The complexities of the elements that satisfy [p]. *)
-  Fixpoint hfilter (p : A -> bool) (l : list A) (c : list CA) : list CA :=
-    match l, c with
-    | x :: l, cx :: c => if p x then cx :: hfilter p l c else hfilter p l c
-    | _, _ => []
-    end.
+(** ** Folds
 
-  (** [find p]: the sum of [g] on the elements examined, up to the first one
-      that satisfies [p]; their number; the complexity of this element. *)
-  Fixpoint hfind_sum (p : A -> bool) (g : ℂI A CA -> nat) (l : list A) (c : list CA) : nat :=
-    match l, c with
-    | x :: l, cx :: c => g (x ⋊ cx) + (if p x then 0 else hfind_sum p g l c)
-    | _, _ => 0
-    end.
-
-  Fixpoint hfind_len (p : A -> bool) (l : list A) (c : list CA) : nat :=
-    match l, c with
-    | x :: l, _ :: c => S (if p x then 0 else hfind_len p l c)
-    | _, _ => 0
-    end.
-
-  Fixpoint hfind (p : A -> bool) (l : list A) (c : list CA) : option CA :=
-    match l, c with
-    | x :: l, cx :: c => if p x then Some cx else hfind p l c
-    | _, _ => None
-    end.
-
-  (** On an option [o] with complexity [c]: [g] on its element, if any. *)
-  Definition osum (g : ℂI A CA -> nat) (o : option A) (c : option CA) : nat :=
-    match o, c with Some x, Some cx => g (x ⋊ cx) | _, _ => 0 end.
-
-  Definition omap (g : ℂI A CA -> D) (o : option A) (c : option CA) : option D :=
-    match o, c with Some x, Some cx => Some (g (x ⋊ cx)) | _, _ => None end.
-End Elements.
-
+    The value of an accumulator is the one that the function computes
+    ([val cf (val cx) b], [fold_right (val cf) (val ca0) l]), so that the
+    recurrences of the bounds hold by computation; a fold of the standard
+    library on [czip cl] would compute them from the values of [czip cl],
+    equal only after an induction. *)
 Section Folds.
   Context {A CA B CB : Type}.
 
@@ -131,14 +99,6 @@ Section Folds.
     | _, _ => 0
     end.
 
-  (** [flat_map f l]: the complexities of the elements of the lists that
-      [f] gives. *)
-  Fixpoint flat_map_pot (cf : ℂI (A -> list B) (ℂI A CA -> ℂO (list CB)))
-    (l : list A) (c : list CA) : list CB :=
-    match l, c with
-    | x :: l, cx :: c => hmap pot (val cf x) (res (pot cf (x ⋊ cx))) ++ flat_map_pot cf l c
-    | _, _ => []
-    end.
 End Folds.
 
 (** The model with lists of any data, with the bounds of the boolean
@@ -155,7 +115,7 @@ Module HOListComplexity (Import Time : HOTimeBool).
 
   (** The complexity of [l ++ m] is that of the elements of [l], then of [m]. *)
   Global Instance app_complexity {A CA} `{Repr A CA} : Time.ComplexityBound (@app A)
-    (fun cl => 1 +> fun cm => (21 * length (val cl) + 10) +> (hmap pot (val cl) (pot cl) ++ pot cm)).
+    (fun cl => 1 +> fun cm => (21 * length (val cl) + 10) +> (map pot (czip cl) ++ pot cm)).
   Proof. cbound. Qed.
 
   (** ** Higher-order functions *)
@@ -163,36 +123,39 @@ Module HOListComplexity (Import Time : HOTimeBool).
   Global Instance map_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@map A B)
       (fun cf => 1 +> fun cl =>
-         (hsum (fun x => cost (pot cf x)) (val cl) (pot cl) + 29 * length (val cl) + 6)
-         +> hmap (fun x => res (pot cf x)) (val cl) (pot cl)).
+         (list_sum (map (fun x => cost (pot cf x)) (czip cl)) + 29 * length (val cl) + 6)
+         +> map (fun x => res (pot cf x)) (czip cl)).
   Proof. cbound. Qed.
 
   Global Instance filter_complexity {A CA} `{Repr A CA} :
     Time.ComplexityBound (@filter A)
       (fun cf => 1 +> fun cl =>
-         (hsum (fun x => cost (pot cf x)) (val cl) (pot cl) + 33 * length (val cl) + 6)
-         +> hfilter (val cf) (val cl) (pot cl)).
+         (list_sum (map (fun x => cost (pot cf x)) (czip cl)) + 33 * length (val cl) + 6)
+         +> map pot (filter (fun x => val cf (val x)) (czip cl))).
   Proof. cbound. Qed.
 
-  (** [find f l] stops at the first element that satisfies [f]. *)
+  (** [find f l] stops at the first element that satisfies [f]: the costs
+      of the elements examined, and their number. *)
   Global Instance find_complexity {A CA} `{Repr A CA} :
     Time.ComplexityBound (@find A)
-      (fun cf => 1 +> fun cl =>
-         (hfind_sum (val cf) (fun x => cost (pot cf x)) (val cl) (pot cl)
-          + 26 * hfind_len (val cf) (val cl) (pot cl) + 6)
-         +> hfind (val cf) (val cl) (pot cl)).
+      (fun cf : ℂI (A -> bool) (ℂI A CA -> ℂO unit) => 1 +> fun cl : ℂI (list A) (list CA) =>
+         (fold_right (fun (x : ℂI A CA) (n : nat) => cost (pot cf x) + (if val cf (val x) then 0 else n))
+            0 (czip cl)
+          + 26 * fold_right (fun (x : ℂI A CA) (n : nat) => S (if val cf (val x) then 0 else n))
+                   0 (czip cl) + 6)
+         +> option_map pot (find (fun x : ℂI A CA => val cf (val x)) (czip cl))).
   Proof. cbound. Qed.
 
   Global Instance existsb_complexity {A CA} `{Repr A CA} :
     Time.ComplexityBound (@existsb A)
       (fun cf => 1 +> fun cl =>
-         (hsum (fun x => cost (pot cf x)) (val cl) (pot cl) + 32 * length (val cl) + 6) >|).
+         (list_sum (map (fun x => cost (pot cf x)) (czip cl)) + 32 * length (val cl) + 6) >|).
   Proof. cbound. Qed.
 
   Global Instance forallb_complexity {A CA} `{Repr A CA} :
     Time.ComplexityBound (@forallb A)
       (fun cf => 1 +> fun cl =>
-         (hsum (fun x => cost (pot cf x)) (val cl) (pot cl) + 32 * length (val cl) + 6) >|).
+         (list_sum (map (fun x => cost (pot cf x)) (czip cl)) + 32 * length (val cl) + 6) >|).
   Proof. cbound. Qed.
 
   Global Instance fold_left_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
@@ -213,11 +176,11 @@ Module HOListComplexity (Import Time : HOTimeBool).
       linear in the length of each of them. *)
   Global Instance flat_map_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@flat_map A B)
-      (fun cf => 1 +> fun cl =>
-         (hsum (fun x => cost (pot cf x)) (val cl) (pot cl)
-          + 21 * hsum (fun x => length (val cf (val x))) (val cl) (pot cl)
+      (fun cf : ℂI (A -> list B) (ℂI A CA -> ℂO (list CB)) => 1 +> fun cl : ℂI (list A) (list CA) =>
+         (list_sum (map (fun x => cost (pot cf x)) (czip cl))
+          + 21 * list_sum (map (fun x => length (val cf (val x))) (czip cl))
           + 38 * length (val cl) + 6)
-         +> flat_map_pot cf (val cl) (pot cl)).
+         +> flat_map (fun x => map pot (czip (val cf (val x) ⋊ res (pot cf x)))) (czip cl)).
   Proof. cbound. Qed.
 
   (** ** Options *)
@@ -225,8 +188,8 @@ Module HOListComplexity (Import Time : HOTimeBool).
   Global Instance option_map_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@option_map A B)
       (fun cf => 1 +> fun co =>
-         (osum (fun x => cost (pot cf x)) (val co) (pot co) + 10)
-         +> omap (fun x => res (pot cf x)) (val co) (pot co)).
+         (match czip_option co with Some x => cost (pot cf x) | None => 0 end + 10)
+         +> option_map (fun x => res (pot cf x)) (czip_option co)).
   Proof. cbound. Qed.
 
 End HOListComplexity.

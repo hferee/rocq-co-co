@@ -428,7 +428,7 @@ Module Type3Complexity (Import Time : TimePos).
   Proof.
     destruct x as [|p]; [cbn; lia|].
     pose proof (pos_to_nat_le_pow_size p). pose proof (size_Npos p).
-    pose proof (Nat.pow_le_mono_r 2 _ _ ltac:(lia) (Nat.lt_le_incl _ _ H0)). cbn [N.to_nat]. lia.
+    pose proof (Nat.pow_le_mono_r 2 (size p) (size (Npos p)) ltac:(lia) ltac:(lia)). cbn [N.to_nat]. lia.
   Qed.
 
   Lemma zeros_size_bound : Time.FirstOrderBound zeros (fun ss => 72 * 2 ^ List.nth 0 ss 0).

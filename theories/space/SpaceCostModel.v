@@ -33,5 +33,6 @@ Module Type SpaceCostModel := ParamTimeCostModel
   with Definition c_cons := 1 with Definition c_case_list := 0
   with Definition c_Some := 1 with Definition c_case_option := 0
   with Definition c_pair := 1 with Definition c_case_prod := 0
+  with Definition c_ctor_sum := 1 with Definition c_case_sum := 0
   with Definition c_ctor_Z := 1 with Definition c_case_Z := 0
   with Definition c_fix := 1.

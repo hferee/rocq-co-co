@@ -85,7 +85,7 @@ Module SpaceExamples (Import Space : SpaceCostModel).
 
   (** ** Bounds in the size of the arguments ([Bounds]) *)
   Lemma nat_lt_size (n : nat) : n < size n.
-  Proof. induction n; [apply size_O | pose proof (size_S n); lia]. Qed.
+  Proof. induction n; [rewrite size_O | rewrite size_S]; lia. Qed.
   Global Instance nat_size_fact (n : nat) : SizeFact n (n < size n) := nat_lt_size n.
 
   Global Instance Nat_add_space_linear : Space.LinearBound Nat.add := _.

@@ -94,7 +94,14 @@ Ltac destr_inputs :=
     As complexity bounds are usually expressed in terms of the size of the
     inputs, we will record in a typeclass the size function of given types.
     For now, this is only relevant for ground types ; but we will later 
-    define and used second or higher-order sizes. *)
+    define and used second or higher-order sizes.
+
+    The size of a value of a datatype is the length of its binary
+    encoding, its number of constructors: one bit per constructor for the
+    types with two constructors ([bool], [nat], [option], [list], [sum]),
+    the binary digits of a [positive] (with one more for the sign or the
+    zero of [N] and [Z]), and one for each pair. The models of the
+    datatypes state it as equations ([size_S], [size_cons], ...). *)
 Class Size (A : Type) := size : A -> nat.
 (** [#|x|]: the size of [x]. (The bar of [|x|] would also open a term:
     [#|] is a distinct token, as in mathcomp.) *)
@@ -141,7 +148,7 @@ Module Type CostModelAxioms.
   #[global] Declare Instance Repr_unit : Ground unit.
 
   #[global] Declare Instance Size_unit : Size unit.
-  Parameter size_tt : 0 < size tt.
+  Parameter size_tt : size tt = 1.
 
   #[global] Declare Instance Repr_arr : forall {A CA B CB}, Repr A CA -> Repr B CB ->
     Repr (A -> B) (ℂI A CA -> ℂO CB).

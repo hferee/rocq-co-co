@@ -6,7 +6,10 @@
     the smallest constants for the shape of each bound. Sizes are bit sizes
     ([zsize], in [BitSize]). Addition and subtraction get two bounds: a
     quadratic one, from a direct analysis, and a linear one, from an
-    amortised analysis (at the end of the file). *)
+    amortised analysis. The division, the modulo ([Z.div_eucl]), the gcd
+    ([Z.ggcd]) and the power ([Z.pow]) follow, from the sizes of their
+    intermediate results; [Pos.sub] gets the bound of an equal function,
+    as the model has no representation of its type [mask]. *)
 
 From Complexity Require Export PosComplexity.
 From Complexity Require Import BitSize.
@@ -41,6 +44,96 @@ Proof. destruct z; cbn; try apply ptz_pred_double; reflexivity. Qed.
 
 Lemma ztz_pred_double z : ztz (Z.pred_double z) = 0.
 Proof. destruct z; cbn; try apply ptz_pred_double; reflexivity. Qed.
+
+(** ** Sizes of intermediate results
+
+    The costs of the division, the gcd and the power depend on the sizes of
+    their intermediate results: the quotient and the remainder of
+    [Z.pos_div_eucl] (for any divisor, also negative ones, for which the
+    remainder grows), the cofactors of [Pos.ggcdn], and the powers computed
+    by [Pos.iter (Z.mul z)]. *)
+Section Intermediate.
+  Local Open Scope Z_scope.
+
+  Lemma pos_div_eucl_inv a b :
+    0 <= fst (Z.pos_div_eucl a b) < 2 * Z.pos a /\
+    0 <= snd (Z.pos_div_eucl a b) <= (2 * Z.pos a - 1) * (Z.abs b + 1).
+  Proof.
+    assert (HB : 0 <= Z.abs b /\ b <= Z.abs b /\ - b <= Z.abs b) by lia.
+    set (B := Z.abs b) in *. clearbody B.
+    induction a as [a IH | a IH |]; cbn [Z.pos_div_eucl].
+    - destruct (Z.pos_div_eucl a b) as [q r]; cbn [fst snd] in *.
+      rewrite (Pos2Z.inj_xI a). destruct (2 * r + 1 <? b) eqn:E; cbn [fst snd];
+        [apply Z.ltb_lt in E | apply Z.ltb_ge in E]; nia.
+    - destruct (Z.pos_div_eucl a b) as [q r]; cbn [fst snd] in *.
+      rewrite (Pos2Z.inj_xO a). destruct (2 * r <? b) eqn:E; cbn [fst snd];
+        [apply Z.ltb_lt in E | apply Z.ltb_ge in E]; nia.
+    - destruct (2 <=? b); cbn [fst snd]; lia.
+  Qed.
+
+  Lemma pos_div_eucl_size a b :
+    (zsize (fst (Z.pos_div_eucl a b)) <= S (Pos.size_nat a))%nat /\
+    (zsize (snd (Z.pos_div_eucl a b)) <= Pos.size_nat a + zsize b + 2)%nat.
+  Proof.
+    pose proof (pos_div_eucl_inv a b) as [[Hq0 Hq] [Hr0 Hr]].
+    assert (Ha : (zsize (2 * Z.pos a - 1) <= S (Pos.size_nat a))%nat).
+    { change (S (Pos.size_nat a)) with (zsize (Z.pos a~0)). apply zsize_mono. lia. }
+    assert (Hb : (zsize (Z.abs b + 1) <= S (zsize b))%nat).
+    { destruct b as [|p|p]; cbn [Z.abs]; [cbn; lia | |];
+        change (S (zsize (Z.pos p))) with (zsize (Z.pos p~0));
+        [| change (S (zsize (Z.neg p))) with (zsize (Z.pos p~0))];
+        apply zsize_mono; lia. }
+    split.
+    - change (S (Pos.size_nat a)) with (zsize (Z.pos a~0)). apply zsize_mono. lia.
+    - pose proof (zsize_mul (2 * Z.pos a - 1) (Z.abs b + 1)).
+      assert (zsize (snd (Z.pos_div_eucl a b)) <= zsize ((2 * Z.pos a - 1) * (Z.abs b + 1)))%nat
+        by (apply zsize_mono; lia).
+      lia.
+  Qed.
+
+  (** The accumulator of [Pos.iter (Z.mul z)]. *)
+  Lemma iter_mul_size z x n :
+    (zsize (Pos.iter (Z.mul z) x n) <= zsize x + Pos.to_nat n * zsize z)%nat.
+  Proof.
+    revert x. induction n as [n IH | n IH |]; intro x; cbn [Pos.iter];
+      rewrite ?Pos2Nat.inj_xI, ?Pos2Nat.inj_xO, ?Pos2Nat.inj_1.
+    - pose proof (zsize_mul z (Pos.iter (Z.mul z) (Pos.iter (Z.mul z) x n) n)).
+      pose proof (IH x). pose proof (IH (Pos.iter (Z.mul z) x n)). lia.
+    - pose proof (IH x). pose proof (IH (Pos.iter (Z.mul z) x n)). lia.
+    - pose proof (zsize_mul z x). lia.
+  Qed.
+End Intermediate.
+
+(** The cofactors of [Pos.ggcdn] are at most the arguments. *)
+Lemma size_nat_cofactor g u x : x = (g * u)%positive -> Pos.size_nat u <= Pos.size_nat x.
+Proof. intros ->. apply size_nat_le. nia. Qed.
+
+Lemma ggcdn_size n a b :
+  Pos.size_nat (fst (snd (Pos.ggcdn n a b))) <= Pos.size_nat a /\
+  Pos.size_nat (snd (snd (Pos.ggcdn n a b))) <= Pos.size_nat b.
+Proof.
+  pose proof (Pos.ggcdn_correct_divisors n a b) as H.
+  destruct (Pos.ggcdn n a b) as [g [aa bb]]; cbn [fst snd]. destruct H as [Ha Hb].
+  split; eapply size_nat_cofactor; eassumption.
+Qed.
+
+(** [Pos.sub] goes through the type [mask] of [Pos.sub_mask], which the
+    model does not represent; it is the function [pos_sub_pos], whose bound
+    it gets ([complexity_pw] below). *)
+Definition pos_sub_pos (x y : positive) : positive := Z.to_pos (Z.pos_sub x y).
+
+Lemma pos_sub_to_pos x y : Pos.sub x y = pos_sub_pos x y.
+Proof.
+  unfold pos_sub_pos. destruct (Pos.compare_spec x y) as [-> | H | H].
+  - rewrite Pos.sub_diag, Z.pos_sub_diag. reflexivity.
+  - rewrite (Pos.sub_lt _ _ H), (Z.pos_sub_lt _ _ H). reflexivity.
+  - rewrite (Z.pos_sub_gt _ _ H). reflexivity.
+Qed.
+
+(** [Z.pow_pos z] is [Pos.iter (Z.mul z) 1]: the iteration, for any
+    accumulator, eta-reduced so that [cbound] sees a fixpoint under
+    [fun z]. *)
+Definition iter_mul (z : Z) : Z -> positive -> Z := Pos.iter (Z.mul z).
 
 Module ZComplexity (Import Time : TimePos).
 
@@ -176,6 +269,150 @@ Module ZComplexity (Import Time : TimePos).
     (fun cx => 1 +> fun cy =>
        (26 * (zsize (val cx) + zsize (val cy)) + 29) >|) | 0.
   Proof. cbound. all: zfacts; lia. Qed.
+
+  (** ** Division, gcd and power
+
+      Their costs depend on the sizes of their intermediate results
+      (above): the facts are given to [lia] and [nia] (in a few seconds:
+      [timeout]). The constants are not minimised. *)
+
+  (** Pointwise-equal functions have the same bounds, up to [2] ([complexity_ext]
+      in [Examples]). *)
+  Lemma complexity_pw {A B CA CB} `{Repr A CA} {RB : Repr B CB} (ar : Arity B) `{!PwExt RB ar}
+    (f g : A -> B) (cg : ℂI A CA -> ℂO CB) :
+    (forall a, pw_eq ar (f a) (g a)) -> Time.ComplexityBound g cg ->
+    Time.ComplexityBound f (fun ca => 2 ⊕ cg ca).
+  Proof.
+    intros Hfg Hg.
+    eapply (fix_closed_complexity ar f (fun _ => g) (fun _ => 1 +> cg));
+      [cfix_pos | exact Hfg | apply constant_complexity, Hg |].
+    apply bound_order_arr. intro ca. cbn. split; [autounfold with costs; lia | reflexivity].
+  Qed.
+
+  Global Instance Z_to_pos_complexity : Time.ComplexityBound Z.to_pos (fun cz => 10 >|).
+  Proof. cbound. Qed.
+
+  Global Instance Z_sgn_complexity : Time.ComplexityBound Z.sgn (fun cz => 10 >|).
+  Proof. cbound. Qed.
+
+  Global Instance Pos_size_nat_complexity : Time.ComplexityBound Pos.size_nat
+    (fun cp => (30 * Pos.size_nat (val cp) + 10) >|).
+  Proof. cbound. Qed.
+
+  (** *** Division *)
+
+  (** The facts on the sizes of the quotient and the remainder of the
+      recursive call ([E : Z.pos_div_eucl a b = (q, r)]). *)
+  Local Ltac div_facts :=
+    repeat match goal with
+    | E : Z.pos_div_eucl ?a ?b = (?q, ?r) |- _ =>
+        let Hq := fresh "Hq" in let Hr := fresh "Hr" in
+        pose proof (pos_div_eucl_size a b) as [Hq Hr]; rewrite E in Hq, Hr; cbn [fst snd] in Hq, Hr;
+        pose proof (zsize_double q); pose proof (zsize_double r);
+        pose proof (zsize_add (Z.double r) 1); pose proof (zsize_add (Z.double q) 1);
+        cbn [zsize Pos.size_nat] in *; unfold Z.double in *; clear E
+    end; size_facts.
+
+  Global Instance Z_pos_div_eucl_complexity : Time.ComplexityBound Z.pos_div_eucl
+    (fun ca => 4 +> fun cb =>
+       (Pos.size_nat (val ca) * (100 * Pos.size_nat (val ca) + 200 * zsize (val cb) + 500) + 100) >|).
+  Proof. cbound. all: div_facts; timeout 5 lia. Qed.
+
+  Global Instance Z_div_eucl_complexity : Time.ComplexityBound Z.div_eucl
+    (fun ca => 4 +> fun cb =>
+       (zsize (val ca) * (100 * zsize (val ca) + 200 * zsize (val cb) + 600)
+          + 100 * zsize (val cb) + 300) >|).
+  Proof. cbound. all: div_facts; timeout 5 lia. Qed.
+
+  Global Instance Z_div_complexity : Time.ComplexityBound Z.div
+    (fun ca => 4 +> fun cb =>
+       (zsize (val ca) * (100 * zsize (val ca) + 200 * zsize (val cb) + 600)
+          + 100 * zsize (val cb) + 400) >|).
+  Proof. cbound. all: div_facts; timeout 5 lia. Qed.
+
+  Global Instance Z_modulo_complexity : Time.ComplexityBound Z.modulo
+    (fun ca => 4 +> fun cb =>
+       (zsize (val ca) * (100 * zsize (val ca) + 200 * zsize (val cb) + 600)
+          + 100 * zsize (val cb) + 400) >|).
+  Proof. cbound. all: div_facts; timeout 5 lia. Qed.
+
+  (** *** Gcd *)
+
+  Global Instance pos_sub_pos_complexity : Time.ComplexityBound pos_sub_pos
+    (fun cx => 10 +> fun cy => (30 * (Pos.size_nat (val cx) + Pos.size_nat (val cy)) + 30) >|).
+  Proof. cbound. all: timeout 5 lia. Qed.
+
+  Global Instance Pos_sub_complexity : Time.ComplexityBound Pos.sub
+    (fun cx => 12 +> fun cy => (30 * (Pos.size_nat (val cx) + Pos.size_nat (val cy)) + 30) >|).
+  Proof.
+    exact (complexity_pw (ar_fun positive positive (ar_val positive)) Pos.sub pos_sub_pos _
+             (fun x y => pos_sub_to_pos x y) pos_sub_pos_complexity).
+  Qed.
+
+  (** The facts on the sizes of the cofactors of the recursive call, and
+      of the difference that it receives. *)
+  Local Ltac ggcd_facts :=
+    repeat match goal with
+    | E : Pos.ggcdn ?n ?a ?b = (?g, (?u, ?v)) |- _ =>
+        let H := fresh "Hs" in pose proof (ggcdn_size n a b) as H; rewrite E in H; cbn [fst snd] in H; clear E
+    | E : Pos.ggcdn ?n ?a ?b = (?g, ?p) |- _ => clear E
+    end;
+    try match goal with |- context [Pos.size_nat (Pos.sub ?x ?y)] => pose proof (size_nat_sub x y) end;
+    cbn [Pos.size_nat] in *.
+
+  (** [Pos.ggcdn n a b] recurses at most [n] times, on arguments whose
+      sizes do not grow. *)
+  Global Instance Pos_ggcdn_complexity : Time.ComplexityBound Pos.ggcdn
+    (fun cn => 10 +> fun ca => 10 +> fun cb =>
+       (val cn * (200 * (Pos.size_nat (val ca) + Pos.size_nat (val cb)) + 300) + 20) >|).
+  Proof. cbound. all: ggcd_facts; timeout 5 nia. Qed.
+
+  Global Instance Pos_ggcd_complexity : Time.ComplexityBound Pos.ggcd
+    (fun ca => 10 +> fun cb =>
+       ((Pos.size_nat (val ca) + Pos.size_nat (val cb)) *
+          (200 * (Pos.size_nat (val ca) + Pos.size_nat (val cb)) + 400) + 100) >|).
+  Proof. cbound. all: timeout 5 nia. Qed.
+
+  Global Instance Z_ggcd_complexity : Time.ComplexityBound Z.ggcd
+    (fun ca => 10 +> fun cb =>
+       ((zsize (val ca) + zsize (val cb)) * (200 * (zsize (val ca) + zsize (val cb)) + 400) + 200) >|).
+  Proof. cbound. all: timeout 5 nia. Qed.
+
+  (** *** Power
+
+      [Z.pow x y] multiplies [y] times by [x] (unary in [y]): its cost is
+      quadratic in [y], and in the size of [x]. *)
+
+  (** The sizes of the accumulators of the recursive calls. *)
+  Local Ltac pow_facts z :=
+    rewrite ?Pos2Nat.inj_xI, ?Pos2Nat.inj_xO in *;
+    repeat match goal with
+    | |- context [zsize (?F ?x ?n)] =>
+        lazymatch goal with H : (zsize (F x n) <= _)%nat |- _ => fail | _ => idtac end;
+        let H := fresh "Hw" in
+        assert (H : (zsize (F x n) <= zsize x + Pos.to_nat n * zsize z)%nat) by exact (iter_mul_size z x n)
+    end;
+    try match goal with |- context [Pos.to_nat ?n] => pose proof (Pos2Nat.is_pos n) end;
+    try pose proof (zsize_pos z).
+
+  Global Instance iter_mul_complexity : Time.ComplexityBound iter_mul
+    (fun cz => 10 +> fun cx => 10 +> fun cn =>
+       (Pos.to_nat (val cn) *
+          (100 * zsize (val cz) * (zsize (val cx) + Pos.to_nat (val cn) * zsize (val cz)) + 100)
+        + 10) >|).
+  Proof. unfold iter_mul, Pos.iter. cbound. all: pow_facts cz; timeout 5 nia. Qed.
+
+  Global Instance Z_pow_pos_complexity : Time.ComplexityBound Z.pow_pos
+    (fun cz => 23 +> fun cn =>
+       (Pos.to_nat (val cn) * (100 * zsize (val cz) * (1 + Pos.to_nat (val cn) * zsize (val cz)) + 100)
+        + 20) >|).
+  Proof. change Z.pow_pos with (fun z => iter_mul z 1). cbound. all: timeout 5 lia. Qed.
+
+  Global Instance Z_pow_complexity : Time.ComplexityBound Z.pow
+    (fun cx => 1 +> fun cy =>
+       (Z.to_nat (val cy) * (100 * zsize (val cx) * (1 + Z.to_nat (val cy) * zsize (val cx)) + 100)
+        + 60) >|).
+  Proof. cbound. all: timeout 5 lia. Qed.
 
   (** ** Bounds in the size of the arguments
 
