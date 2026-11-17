@@ -19,16 +19,16 @@
 
 From Complexity Require Export TimeDatatypes TimeLists TimeFix.
 
-(** The layers common to the two models below: everything but the lists and
-    the options, which are of ground data in [TimeCostModel], and of any data
-    in [HOTimeCostModel]. Sums are of any data in both. *)
+(** The layers common to the two models below: everything but the lists,
+    the options and the pairs, which are of ground data in [TimeCostModel],
+    and of any data in [HOTimeCostModel]. Sums are of any data in both. *)
 Module Type ParamTimeCostModelBase := CostModel.CostModel <+ BasicTimeCostModel
   <+ CombinatorTimeCostModel <+ BoolTimeCostModel <+ NatTimeCostModel
-  <+ ProdTimeCostModel <+ SumTimeCostModel <+ ZTimeCostModel <+ FixTimeCostModel.
+  <+ SumTimeCostModel <+ ZTimeCostModel <+ FixTimeCostModel.
 
 (** The same, with the constants of [TimeCostModel]: the analyses that do not
-    use lists ([BoolComplexity]) are functors over it, and hold in both
-    models. *)
+    use lists, options or pairs ([BoolComplexity]) are functors over it, and
+    hold in both models. *)
 Module Type TimeCostModelBase := ParamTimeCostModelBase
   with Definition c_clo := 1 with Definition c_frame := 0
   with Definition c_ehd := 1 with Definition c_etl := 1 with Definition c_Lam := 1
@@ -36,13 +36,12 @@ Module Type TimeCostModelBase := ParamTimeCostModelBase
   with Definition c_Cc := 1 with Definition c_Sc := 1
   with Definition c_case_bool := 1
   with Definition c_S := 1 with Definition c_case_nat := 1
-  with Definition c_pair := 1 with Definition c_case_prod := 1
   with Definition c_ctor_sum := 1 with Definition c_case_sum := 1
   with Definition c_ctor_Z := 1 with Definition c_case_Z := 1
   with Definition c_fix := 1.
 
 Module Type ParamTimeCostModel := ParamTimeCostModelBase <+ ListTimeCostModel
-  <+ OptionTimeCostModel.
+  <+ OptionTimeCostModel <+ ProdTimeCostModel.
 
 Module Type TimeCostModel := ParamTimeCostModel
   with Definition c_clo := 1 with Definition c_frame := 0

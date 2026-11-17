@@ -17,8 +17,7 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   fixpoints (`TimeFix`). The costs are constants: `ParamTimeCostModel` leaves
   them abstract, `TimeCostModel` sets them all to 1, and `HOTimeCostModel` is
   the same with lists, options and pairs of any data (`TimeDatatypes` has
-  the two models of options; pairs of ground data are in both, ground; sums
-  are of any data in both). The size of a value is
+  the two models of each; sums are of any data in both). The size of a value is
   the length of its binary encoding, its number of constructors (exact
   equations: `size (S n) = 1 + size n`, ...). `TimeArith` defines another
   model, with addition and multiplication as primitives and no case analysis

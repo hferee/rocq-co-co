@@ -265,7 +265,9 @@ Module Type HOptionTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
 (** ** Pairs (of ground data)
 
     [let (x, y) := p in e] and the projections are compiled to
-    [prod_case]. Pairs of any data are below ([HProdTimeCostModel]). *)
+    [prod_case]. Pairs of ground data are in the model with ground lists
+    ([TimeCostModel]); pairs of any data, in the model with lists of any
+    data, are below ([HProdTimeCostModel]). *)
 
 (** Case combinator (see [Combinators]). *)
 
@@ -318,29 +320,44 @@ Module Type ProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
 
 (** ** Pairs of any data
 
-    In the models with lists and options of any data ([HOTimeCostModel]),
+    In the model with lists and options of any data ([HOTimeCostModel]),
     the elements of a pair may also be functions, or other data with
     complexities: a pair of [A] and [B], with complexities [CA] and [CB], has
-    the pair of their complexities as its complexity. A pair of ground data
-    is still ground: [Repr_prod] is tried first, [Repr_hprod] is for the
-    other pairs. The constructor and the case analysis cost as for ground
-    pairs ([c_pair], [c_case_prod]); the case analysis gives the
-    complexities of the elements to its branch. The order compares the
-    elements. *)
-Module Type HProdTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import PT : ProdTimeCostModel CM BT CB).
+    the pair of their complexities as its complexity (a pair of ground data
+    too). As for options, these pairs replace the ground ones in this
+    model. The case analysis gives the complexities of the elements to its
+    branch. The order compares the elements. *)
+Module Type HProdData (Import CM : CostModel).
+  #[global] Declare Instance Repr_prod :
+    forall {A CA B CB}, Repr A CA -> Repr B CB -> Repr (A * B) (CA * CB).
 
-  #[global] Declare Instance Repr_hprod :
-    forall {A CA B CB}, Repr A CA -> Repr B CB -> Repr (A * B) (CA * CB) | 10.
+  #[global] Declare Instance Size_prod : forall {A B}, Size A -> Size B -> Size (A * B).
+  Parameter size_pair : forall {A B} `{Size A} `{Size B} (a : A) (b : B),
+    size (a, b) = 1 + size a + size b.
 
-  Parameter bound_order_hprod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA * CB),
+  Parameter bound_order_prod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA * CB),
     bound_order (fst c) (fst c') -> bound_order (snd c) (snd c') -> bound_order c c'.
+End HProdData.
 
-  #[global] Declare Instance hpair_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
+Module Type HProdCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import PD : HProdData CM).
+
+  Parameter c_pair : nat.
+  #[global] Hint Unfold c_pair : costs.
+
+  #[global] Declare Instance pair_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@pair A B) (fun ca => c_clo +> fun cb => c_pair +> (pot ca, pot cb)).
+End HProdCtorTimeCostModel.
 
-  #[global] Declare Instance hprod_case_complexity :
+Module Type HProdCaseTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
+  (Import CB : CombinatorTimeCostModel CM BT) (Import PD : HProdData CM).
+
+  Parameter c_case_prod : nat.
+  #[global] Hint Unfold c_case_prod : costs.
+
+  (** The branch receives the elements with their complexities. *)
+  #[global] Declare Instance prod_case_complexity :
     forall {X CX Y CY E CE A CA} `{Repr X CX} `{Repr Y CY} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@prod_case X Y E A)
       (fun cf : ℂI (env (env E X) Y -> A) (ℂI (env (env E X) Y) ((CE * CX) * CY) -> ℂO CA) =>
@@ -350,7 +367,11 @@ Module Type HProdTimeCostModel
          let (x, y) := val cp (val ce) in
          let (cx, cy) := res (pot cp ce) in
          pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, cx), cy))).
-End HProdTimeCostModel.
+End HProdCaseTimeCostModel.
+
+Module Type HProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
+  (CB : CombinatorTimeCostModel CM BT) :=
+  HProdData CM <+ HProdCtorTimeCostModel CM BT <+ HProdCaseTimeCostModel CM BT CB.
 
 (** ** Sums (of any data)
 
