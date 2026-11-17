@@ -21,8 +21,12 @@ Module BoolComplexity (Import Time : TimeCostModelBase).
   Global Instance orb_complexity : Time.ComplexityBound orb
     (fun ca => 1 +> fun cb => 4 >|) := _.
 
+  Global Instance Bool_eqb_complexity : Time.ComplexityBound Bool.eqb
+    (fun ca => 1 +> fun cb => 6 >|) := _.
+
   (** ** Bounds in the size of the arguments: constant *)
   Global Instance negb_constant_bound : Time.ConstantBound negb := _.
   Global Instance andb_constant_bound : Time.ConstantBound andb := _.
   Global Instance orb_constant_bound : Time.ConstantBound orb := _.
+  Global Instance Bool_eqb_constant_bound : Time.ConstantBound Bool.eqb := _.
 End BoolComplexity.

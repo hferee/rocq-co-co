@@ -289,10 +289,13 @@ Module CombinatorTactics
     | _ => acc
     end.
 
-  (** Whether the complexity of [c] is found by typeclass search. *)
+  (** Whether the complexity of [c] is found by typeclass search. The
+      search is run once: the failure that undoes it ([Not_found]) must not
+      backtrack into the other solutions of the search. *)
   Ltac2 has_found (c : constr) : bool :=
     match Control.case (fun () =>
-            ltac1:(c |- assert (Found c) by (typeclasses eauto)) (Ltac1.of_constr c);
+            Control.once (fun () =>
+              ltac1:(c |- assert (Found c) by (typeclasses eauto)) (Ltac1.of_constr c));
             Control.zero Not_found) with
     | Err Not_found => true
     | _ => false
@@ -455,10 +458,12 @@ Module CombinatorTactics
     end.
 
   (** [lia] and [nia], with the facts of the tests if needed, or the
-      export (with these facts). *)
+      export (with these facts). The type aliases are unfolded first
+      ([cnorm_types]); [nia] has a timeout, and may run after the analysis
+      ([cnia], [Advice]). *)
   Ltac carith := ltac2:(if Advice.cexport then
                           Control.enter (fun () => ltac1:(cbool_facts); Advice.cexport_goal (); ltac1:(admit))
-                        else ltac1:(try solve [lia | nia | progress cbool_facts; first [lia | nia]])).
+                        else ltac1:(cnorm_types; first [solve [lia | progress cbool_facts; lia] | cbool_facts; cnia])).
 
   Ltac cfinish :=
     csimpl; bo_split; destr_inputs; ccases; cunit; cfold; carith; try ring_simplify.
@@ -511,7 +516,7 @@ Module CombinatorTactics
   Ltac cbound_polynomial :=
     unfold PolynomialBound; eexists;
     cbound_split; ltac2:(polynomial_constants ()); cbn [Poly.peval List.nth Nat.pow];
-    try solve [lia | nia].
+    first [solve [lia] | cnia].
 
   (** [cbound] proves [ComplexityBound f c] ([cbound_start], then
       [cfinish]), and [ConstantBound f], [LinearBound f] and
@@ -576,7 +581,7 @@ Module CombinatorTactics
     | |- PolynomialBound ?f => cbound_sizes f 2
     | |- _ => cbound_core; cadvice
     end.
-  Ltac cbound := let f := ltac2:(t |- ctimed "cbound" t) in f ltac:(cbound_untimed).
+  Ltac cbound := let f := ltac2:(t |- ctimed "cbound" t) in f ltac:(idtac; cbound_untimed).
 
   (** [csize] proves a bound in the sizes of the arguments ([#|x|], [Size])
       from the bound of the function found by typeclass search, which is in
@@ -586,10 +591,10 @@ Module CombinatorTactics
     eapply ComplexityBound_mono; [idtac | tac];
     csimpl; bo_split; destr_inputs; ccases; cunit; add_size_facts;
     carith; cadvice.
-  Ltac csize := let f := ltac2:(t |- ctimed "csize" t) in f ltac:(csize_by ltac:(typeclasses eauto)).
+  Ltac csize := let f := ltac2:(t |- ctimed "csize" t) in f ltac:(idtac; csize_by ltac:(typeclasses eauto)).
 
   (** [csize_using H]: the same, from the bound [H]. *)
-  Ltac csize_using H := let f := ltac2:(t |- ctimed "csize" t) in f ltac:(csize_by ltac:(exact H)).
+  Ltac csize_using H := let f := ltac2:(t |- ctimed "csize" t) in f ltac:(idtac; csize_by ltac:(exact H)).
 
   (** [cproject H v] proves [ComplexityBound f c] from the bound [H] of a
       function [g] such that [g v] is [f], for example the bound of
@@ -599,7 +604,7 @@ Module CombinatorTactics
   Ltac cproject_untimed H v :=
     eapply ComplexityBound_mono; [idtac | exact (apply_complexity (v := v) _ _ H)];
     cfinish; cadvice.
-  Ltac cproject H v := let f := ltac2:(t |- ctimed "cproject" t) in f ltac:(cproject_untimed H v).
+  Ltac cproject H v := let f := ltac2:(t |- ctimed "cproject" t) in f ltac:(idtac; cproject_untimed H v).
 
   (** [cweaken] proves [ComplexityBound f c] from the bound of [f] found by
       typeclass search (an instance), when [c] is larger. *)
@@ -622,7 +627,7 @@ Module CombinatorTactics
       slowly than a [Qed]. The name must not depend on the file only: the
       analyses of several files are included in one module type
       ([TimeStdlib]). *)
-  Ltac cbound_auto := first [solve [once cweaken] | solve [once cbound_core]].
+  Ltac cbound_auto := cundeferred; first [solve [once cweaken] | solve [once cbound_core]].
 
   Ltac2 cbound_lemma_name () : ident option :=
     match Constr.Unsafe.kind (Control.goal ()) with

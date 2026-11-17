@@ -6,9 +6,17 @@
     [ParamArithTimeCostModel] ([TimeArith]), and an analysis over this
     signature holds both in L and in [ArithOpsTimeCostModel]. *)
 
-From Complexity Require Import TimeArith NatComplexity LInstance.
+From Complexity Require Import TimeArith BoolComplexity PairComplexity NatComplexity LInstance.
 
-Module LNC := NatComplexity L.
+(** [L] with the analyses of the booleans and of the pairs, which those of
+    [nat] use. *)
+Module LBP <: TimeBoolPair.
+  Include L.
+  Include BoolComplexity L.
+  Include PairComplexity L.
+End LBP.
+
+Module LNC := NatComplexity LBP.
 
 Module LNA <: NatArithTimeCostModel L L.
   Import L.

@@ -39,7 +39,9 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   (`Lambda`), higher-order polynomials (`HOPoly`), second-order polynomials
   (`SOPoly`), sizes of binary numbers.
 - `stdlib/`: analyses of the standard library, as layers over
-  `TimeCostModel` (`TimeNat`, `TimePos`, `TimeStdlib`), and the
+  `TimeCostModel` (`TimeBoolPair`, `TimeNat`, `TimePos`, `TimeStdlib`;
+  booleans and pairs first, then numbers and lists, with the higher-order
+  functions on lists of ground data), and the
   higher-order functions on lists and options of any data (`map`, `filter`,
   `find`, the folds, `option_map`, ...) over `HOTimeCostModel`
   (`HOListComplexity`), and the usual functions on sums (of any data, in

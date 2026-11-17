@@ -183,22 +183,26 @@ Module Tutorial (Import Time : TimeStdlib).
   Abort.
 
   (** A function of the library that nobody has studied: [TimeStdlib]
-      records no bound for [Nat.max], so [cbound] fails on [max3] with "no
-      complexity bound is known for: Nat.max", whatever the constants.
-      Study [Nat.max] first: write a lemma that states its bound, before
-      [max3_complexity], prove it, and declare it as an instance. [Nat.max n
-      m] recurses on both arguments and stops at the smaller one, so a
-      bound in [n] alone is enough:
+      records no bound for [Nat.compare], so [cbound] fails on [lt3] with
+      "no complexity bound is known for: Nat.compare", whatever the
+      constants. Study [Nat.compare] first: write a lemma that states its
+      bound, before [lt3_complexity], prove it, and declare it as an
+      instance. [Nat.compare n m] recurses on both arguments and stops at
+      the smaller one, so a bound in [n] alone is enough:
 <<
-      Global Instance Nat_max_complexity : Time.ComplexityBound Nat.max
+      Global Instance Nat_compare_complexity : Time.ComplexityBound Nat.compare
         (fun cn => 0 +> fun cm => (0 * val cn + 0) >|).
 >>
-      Then [cbound] proves the bound of [max3]: the cost of the outer call
-      only depends on [a], its first argument, and the cost of the inner one
-      on [b]. *)
-  Definition max3 (a b c : nat) : nat := Nat.max a (Nat.max b c).
+      Then [cbound] proves the bound of [lt3]: the cost of the first
+      comparison only depends on [a], its first argument, and the cost of
+      the second one on [b]. *)
+  Definition lt3 (a b c : nat) : bool :=
+    match Nat.compare a b with
+    | Lt => match Nat.compare b c with Lt => true | _ => false end
+    | _ => false
+    end.
 
-  Lemma max3_complexity : Time.ComplexityBound max3
+  Lemma lt3_complexity : Time.ComplexityBound lt3
     (fun ca => 0 +> fun cb => 0 +> fun cc => (0 * val ca + 0 * val cb + 0) >|).
   Abort.
 

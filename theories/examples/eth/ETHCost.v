@@ -6,7 +6,7 @@
     for the shape of each bound (see [NatComplexity]). This file is the start
     of the analysis; the remarks at the end list what is covered. *)
 
-From Complexity Require Export TimeStdlib ETHAlgorithm.
+From Complexity Require Export TimeStdlib ETHAlgorithm ETHData ETHFacts.
 From Stdlib Require Import List ZArith QArith Qreduction Qround.
 Import ListNotations.
 Local Open Scope nat_scope.
@@ -31,8 +31,7 @@ Module ETHCost (Import Time : TimeStdlib).
   (** `eqbN a b`: recursive on its first argument, matches the second one. *)
   Global Instance eqbN_complexity : Time.ComplexityBound eqbN
     (fun ca => 4 +> fun cb =>
-       (28 * list_sum (val ca) + 67 * length (val ca) + 8) >|).
-  Proof. cbound. all: unfold list_sum in *; lia. Qed.
+       (28 * list_sum (val ca) + 67 * length (val ca) + 8) >|) := _.
 
   (** [insert_uniq x l]: the recursive call only happens in the last
       branch; its other branches return [l] itself. *)
@@ -48,12 +47,183 @@ Module ETHCost (Import Time : TimeStdlib).
       accumulator, so the bound depends on the values. *)
   Global Instance fold_left_add_complexity : Time.ComplexityBound (fold_left Nat.add)
     (fun cl => 4 +> fun ca =>
-       (length (val cl) * (14 * (val ca + list_sum (val cl)) + 42) + 6) >|).
-  Proof. cbound. all: unfold list_sum in *; nia. Qed.
+       (length (val cl) * (14 * (val ca + list_sum (val cl)) + 42) + 6) >|) := _.
 
   Global Instance sumN_complexity : Time.ComplexityBound sumN
     (fun cl =>
        (length (val cl) * (14 * list_sum (val cl) + 42) + 13) >|) := _.
+  (** [indexN x l]: as [memN], it stops at the first occurrence. *)
+  Global Instance indexN_complexity : Time.ComplexityBound indexN
+    (fun cx => 1 +> fun cl => (length (val cl) * (28 * val cx + 41) + 6) >|) := _.
+
+  (** [lexltbN a b]: each step compares the heads twice ([<?], [=?]),
+      whose costs are linear in the head of [a]. *)
+  Global Instance lexltbN_complexity : Time.ComplexityBound lexltbN
+    (fun ca => 4 +> fun cb => (56 * list_sum (val ca) + 132 * length (val ca) + 8) >|) := _.
+
+  (** [fold_left Nat.max]: the cost of [Nat.max acc x] is linear in the
+      accumulator, at most its initial value plus the elements. *)
+  Global Instance fold_left_max_complexity : Time.ComplexityBound (fold_left Nat.max)
+    (fun cl => 4 +> fun ca =>
+       (length (val cl) * (30 * (val ca + list_sum (val cl)) + 41) + 6) >|) := _.
+
+  Global Instance maxN_complexity : Time.ComplexityBound maxN
+    (fun cl => (length (val cl) * (30 * list_sum (val cl) + 41) + 13) >|) := _.
+
+  (** [set_nth] and [remove_nth] recurse on the list and the index, and
+      stop at the index. *)
+  Global Instance set_nth_complexity {A} `{Ground A} : Time.ComplexityBound (@set_nth A)
+    (fun cl => 4 +> fun ci => 2 +> fun cx => (57 * val ci + 25) >|) := _.
+  Global Instance remove_nth_complexity {A} `{Ground A} : Time.ComplexityBound (@remove_nth A)
+    (fun cl => 4 +> fun ci => (41 * val ci + 12) >|) := _.
+
+  (** [chunks size count l]: [count] times [firstn size] and [skipn size]. *)
+  Global Instance chunks_complexity {A} `{Ground A} : Time.ComplexityBound (@chunks A)
+    (fun cs => 1 +> fun cn => 4 +> fun cl => (val cn * (71 * val cs + 67) + 6) >|) := _.
+
+  (** The rounded divisions, logarithms and roots. *)
+  Global Instance ceil_div_complexity : Time.ComplexityBound ceil_div
+    (fun ca => 1 +> fun cb => (100 * val ca + 86 * val cb + 77) >|) := _.
+  Global Instance clog2_complexity : Time.ComplexityBound clog2
+    (fun cn => (116 * val cn + 63) >|) := _.
+  Global Instance csqrt_complexity : Time.ComplexityBound csqrt
+    (fun cn => (136 * val cn + 64) >|).
+  Proof.
+    cbound.
+    all: pose proof (Nat.sqrt_le_lin cn); pose proof (Nat.sqrt_spec cn ltac:(lia)) as [Hs _];
+         try unfold Nat.square in Hs; try rewrite Nat.pow_2_r in Hs; lia.
+  Qed.
+
+  (** [subsetN a b]: [memN x b] for each element [x] of [a] ([forallb], on
+      the closure of [b]). [cbound] leaves the sum of the costs of the
+      elements, distributed by [simpl_list_sum]. *)
+  Global Instance subsetN_complexity : Time.ComplexityBound subsetN
+    (fun ca => 1 +> fun cb =>
+       (length (val cb) * (28 * list_sum (val ca) + 45 * length (val ca)) + 46 * length (val ca) + 12) >|).
+  Proof. cbound. simpl_list_sum. nia. Qed.
+
+  (** Each insertion costs at most the length of the original list
+      ([length_sort_uniq], [ETHFacts]). *)
+  Global Instance fold_right_insert_uniq_complexity : Time.ComplexityBound (fold_right insert_uniq [])
+    (fun cl => (length (val cl) * (56 * list_sum (val cl) + 105 * length (val cl)) + 6) >|).
+  Proof.
+    cbound. match goal with |- context [length (fold_right insert_uniq [] ?l)] => pose proof (length_sort_uniq l) end.
+    nia.
+  Qed.
+
+  Global Instance sort_uniq_complexity : Time.ComplexityBound sort_uniq
+    (fun cl => (length (val cl) * (56 * list_sum (val cl) + 105 * length (val cl)) + 6) >|) := _.
+
+  (** ** Formulas *)
+
+  (** The codes of the literals: [Nat.div2], [Nat.odd]. *)
+  Global Instance code_var_complexity : Time.ComplexityBound code_var
+    (fun cc => (9 * val cc + 9) >|) := _.
+  Global Instance code_pos_complexity : Time.ComplexityBound code_pos
+    (fun cc => (8 * val cc + 15) >|) := _.
+  Global Instance code_neg_complexity : Time.ComplexityBound code_neg
+    (fun cc => (36 * val cc + 33) >|) := _.
+
+  (** [nclause_eval x C]: for each code [c] of [C], [nth (code_var c) x],
+      whose cost is linear in [code_var c <= c / 2]. *)
+  Global Instance nclause_eval_complexity : Time.ComplexityBound nclause_eval
+    (fun cx => 1 +> fun cC => (41 * list_sum (val cC) + 96 * length (val cC) + 12) >|).
+  Proof.
+    cbound. simpl_list_sum.
+    pose proof (list_sum_map_le (fun x => 2 * code_var x) (fun x => x) cC (fun x _ => code_var_le x)).
+    simpl_list_sum. lia.
+  Qed.
+
+  (** [ncnf_eval x F]: the sum over the clauses, in the sums of their codes
+      and in their lengths. *)
+  Global Instance ncnf_eval_complexity : Time.ComplexityBound ncnf_eval
+    (fun cx => 1 +> fun cF =>
+       (41 * list_sum (map list_sum (val cF)) + 96 * list_sum (map (@length nat) (val cF))
+        + 44 * length (val cF) + 14) >|).
+  Proof. cbound. simpl_list_sum. lia. Qed.
+
+  (** [tautological C]: [memN (code_neg c) C] for each code [c] of [C]. *)
+  Global Instance tautological_complexity : Time.ComplexityBound tautological
+    (fun cC => (length (val cC) * (28 * list_sum (val cC) + 73 * length (val cC))
+                + 36 * list_sum (val cC) + 78 * length (val cC) + 11) >|).
+  Proof.
+    cbound. simpl_list_sum.
+    pose proof (list_sum_map_le_affine code_neg 1 1 cC (fun x _ => ltac:(pose proof (code_neg_le x); lia))).
+    nia.
+  Qed.
+
+  (** [insert_clause C F] compares [C] with the clauses of [F]
+      ([lexltbN], [eqbN]); [sort_clauses] inserts each clause, as
+      [sort_uniq]. *)
+  Global Instance insert_clause_complexity : Time.ComplexityBound insert_clause
+    (fun cC => 1 +> fun cF =>
+       (length (val cF) * (84 * list_sum (val cC) + 199 * length (val cC) + 71) + 12) >|) := _.
+
+  (** The products of the length of the sorted clauses by the measures of
+      the clause inserted, which [nia] does not find. *)
+  Global Instance fold_right_insert_clause_complexity : Time.ComplexityBound (fold_right insert_clause [])
+    (fun cF =>
+       (length (val cF) * (84 * list_sum (map list_sum (val cF)) + 199 * list_sum (map (@length nat) (val cF))
+                           + 36 * length (val cF)) + 6) >|).
+  Proof.
+    cbound.
+    match goal with |- context [length (fold_right insert_clause [] ?l)] => pose proof (length_sort_clauses l) as Hl end.
+    match goal with |- context [list_sum ?C] => is_var C;
+      pose proof (Nat.mul_le_mono_r _ _ (list_sum C) Hl); pose proof (Nat.mul_le_mono_r _ _ (length C) Hl) end.
+    cnorm_types. lia.
+  Qed.
+
+  Global Instance sort_clauses_complexity : Time.ComplexityBound sort_clauses
+    (fun cF =>
+       (length (val cF) * (84 * list_sum (map list_sum (val cF)) + 199 * list_sum (map (@length nat) (val cF))
+                           + 36 * length (val cF)) + 6) >|) := _.
+
+  Global Instance strict_subset_complexity : Time.ComplexityBound strict_subset
+    (fun ca => 1 +> fun cb =>
+       (length (val ca) * (28 * list_sum (val cb) + 90 * length (val cb) + 46)
+        + length (val cb) * (28 * list_sum (val ca) + 46) + 46) >|) := _.
+
+  (** [has_empty_clause F]: the test of each clause is a [match] on it,
+      which [cbound] leaves in the sum: its cost is at most [8]. *)
+  Global Instance has_empty_clause_complexity : Time.ComplexityBound has_empty_clause
+    (fun cF => (40 * length (val cF) + 6) >|).
+  Proof.
+    cbound. match goal with |- context [list_sum (map ?f ?l)] =>
+      pose proof (list_sum_map_le_const f 8 l (fun x _ => ltac:(destruct x; cbn; lia))) end.
+    lia.
+  Qed.
+
+  (** [max_width F]: [maxN] on the lengths of the clauses. *)
+  Global Instance max_width_complexity : Time.ComplexityBound max_width
+    (fun cF => (length (val cF) * (30 * list_sum (map (@length nat) (val cF)) + 76)
+                + 16 * list_sum (map (@length nat) (val cF)) + 22) >|).
+  Proof. cbound. simpl_list_sum. cnorm_types. nia. Qed.
+
+  (** The bounds in the sizes of the arguments: polynomial. *)
+  Global Instance indexN_polynomial_bound : Time.PolynomialBound indexN := _.
+  Global Instance lexltbN_polynomial_bound : Time.PolynomialBound lexltbN := _.
+  Global Instance maxN_polynomial_bound : Time.PolynomialBound maxN := _.
+  Global Instance set_nth_linear_bound {A} `{Ground A} `{Size A} : Time.LinearBound (@set_nth A) := _.
+  Global Instance remove_nth_linear_bound {A} `{Ground A} `{Size A} : Time.LinearBound (@remove_nth A) := _.
+  Global Instance chunks_polynomial_bound {A} `{Ground A} `{Size A} : Time.PolynomialBound (@chunks A) := _.
+  Global Instance ceil_div_linear_bound : Time.LinearBound ceil_div := _.
+  Global Instance clog2_linear_bound : Time.LinearBound clog2 := _.
+  Global Instance csqrt_linear_bound : Time.LinearBound csqrt := _.
+  Global Instance subsetN_polynomial_bound : Time.PolynomialBound subsetN := _.
+  Global Instance insert_uniq_polynomial_bound : Time.PolynomialBound insert_uniq := _.
+  Global Instance sort_uniq_polynomial_bound : Time.PolynomialBound sort_uniq := _.
+  Global Instance code_var_linear_bound : Time.LinearBound code_var := _.
+  Global Instance code_pos_linear_bound : Time.LinearBound code_pos := _.
+  Global Instance code_neg_linear_bound : Time.LinearBound code_neg := _.
+  Global Instance nclause_eval_polynomial_bound : Time.PolynomialBound nclause_eval := _.
+  Global Instance ncnf_eval_polynomial_bound : Time.PolynomialBound ncnf_eval := _.
+  Global Instance tautological_polynomial_bound : Time.PolynomialBound tautological := _.
+  Global Instance insert_clause_polynomial_bound : Time.PolynomialBound insert_clause := _.
+  Global Instance sort_clauses_polynomial_bound : Time.PolynomialBound sort_clauses := _.
+  Global Instance strict_subset_polynomial_bound : Time.PolynomialBound strict_subset := _.
+  Global Instance has_empty_clause_linear_bound : Time.LinearBound has_empty_clause := _.
+  Global Instance max_width_polynomial_bound : Time.PolynomialBound max_width := _.
+
   (** ** Bounds in the sizes of the arguments, with their constants
 
       The bounds above are in the values and lengths of the arguments;
@@ -97,6 +267,48 @@ Module ETHCost (Import Time : TimeStdlib).
 
 End ETHCost.
 
+(** ** The functions on the data types of the algorithm
+
+    With the axioms of these types ([ETHData]): for now, the literals. *)
+Module ETHDataCost (Import Time : TimeStdlib) (Import D : ETHData Time).
+  Include ETHCost Time.
+
+  (** *** Sizes: a literal is larger than its variable, a clause than the
+      sum of its variables and its length. *)
+  Lemma lvar_lt_size l : lvar l < size l.
+  Proof. destruct l as [v p]. rewrite size_mkLit. cbn. pose proof (nat_lt_size v). lia. Qed.
+  Global Instance literal_size_fact (l : literal) : SizeFact l (lvar l < size l) := lvar_lt_size l.
+  Lemma clause_lt_size (C : list literal) : list_sum (map lvar C) + length C < size C.
+  Proof.
+    induction C as [|l C IH]; [rewrite size_nil; cbn; lia|].
+    cbn [map length]. change (list_sum (?x :: ?m)) with (x + list_sum m).
+    pose proof (lvar_lt_size l). pose proof (size_cons l C). lia.
+  Qed.
+  Global Instance clause_size_fact (C : list literal) :
+    SizeFact C (list_sum (map lvar C) + length C < size C) | 1 := clause_lt_size C.
+  (** *** Bounds *)
+  Global Instance lvar_complexity : Time.ComplexityBound lvar (fun cl => 5 >|) := _.
+  Global Instance lpos_complexity : Time.ComplexityBound lpos (fun cl => 3 >|) := _.
+  Global Instance lvar_constant_bound : Time.ConstantBound lvar := _.
+  Global Instance lpos_constant_bound : Time.ConstantBound lpos := _.
+  Global Instance lit_code_complexity : Time.ComplexityBound lit_code
+    (fun cl => (56 * lvar (val cl) + 96) >|) := _.
+  Global Instance lit_code_linear_bound : Time.LinearBound lit_code := _.
+  (** [norm_clause C] sorts the codes of the literals of [C], at most
+      [2 * lvar l + 1] each ([lit_code_le]). *)
+  Global Instance norm_clause_complexity : Time.ComplexityBound norm_clause
+    (fun cC => (length (val cC) * (112 * list_sum (map lvar (val cC)) + 161 * length (val cC))
+                + 56 * list_sum (map lvar (val cC)) + 125 * length (val cC) + 15) >|).
+  Proof.
+    cbound. simpl_list_sum.
+    pose proof (list_sum_map_le lit_code (fun l => S (2 * lvar l)) cC
+                  (fun l _ => ltac:(cbv beta; pose proof (lit_code_le l); lia))) as H.
+    simpl_list_sum. pose proof (Nat.mul_le_mono_l _ _ (length cC) H).
+    cnorm_types. lia.
+  Qed.
+  Global Instance norm_clause_polynomial_bound : Time.PolynomialBound norm_clause := _.
+End ETHDataCost.
+
 (** * Coverage of [ETHAlgorithm] by the current models
 
     With the generic fixpoint axiom ([TimeFix]), every structurally
@@ -119,7 +331,8 @@ End ETHCost.
       use ([Examples]).
     - The data types of the algorithm ([params], [design], [literal],
       [pair_eig]) come with their own axioms: representation, sizes,
-      constructors, case analyses ([ETHData] below declares the first two).
+      constructors, case analyses ([ETHData]: all of them for [literal],
+      the first two for the others).
 
     Not a matter of expressiveness, but of proofs about the values computed
     (the paper's appendices): the bit sizes of the rationals manipulated by
@@ -144,53 +357,48 @@ End ETHCost.
       [count_sat]): the shape claimed by the paper,
       [(n+m)^O(1) 2^O(rho n)], with constants depending on the width or the
       sparsity.
-    The bounds of [memN], [countN], [eqbN], [insert_uniq], [range] and
-    [sumN] are proved above ([ETHCost]).
+    The bounds of [memN], [countN], [eqbN], [insert_uniq], [range],
+    [sumN], [indexN], [lexltbN], [maxN], [set_nth], [remove_nth],
+    [chunks], [ceil_div], [clog2], [csqrt], [subsetN], [sort_uniq] and of
+    the functions on formulas [code_var], [code_pos], [code_neg],
+    [nclause_eval], [ncnf_eval], [tautological], [insert_clause],
+    [sort_clauses], [strict_subset], [has_empty_clause] and [max_width]
+    are proved above ([ETHCost]), and those of the functions on literals
+    [lvar], [lpos], [lit_code] and [norm_clause] with the axioms of
+    [literal] ([ETHDataCost]).
 
     Prerequisites (not yet in the library):
     - the axioms of the data types of the algorithm, which come with the
-      algorithm: [literal], [params], [design] (records) and [pair_eig]
-      ([ETHData] below declares their representations and sizes; their
-      constructors, case analyses and projections are still to be
-      axiomatised);
-    - bounds of functions of the standard library (section 0 below);
-    - higher-order functions on ground lists ([map], [filter], ...): their
-      bounds are in [HOListComplexity], in the model with lists of any data,
-      while [ETHCost] is over [TimeStdlib] (ground lists).
+      algorithm ([ETHData]): those of [literal] are there; [params],
+      [design] (records) and [pair_eig] have their representations and
+      sizes, their constructors and case analyses are still to be
+      axiomatised, as for [literal];
+    - bounds of functions of the standard library (section 0 below: the
+      remaining ones);
+    - higher-order functions on ground lists: [map], [filter], [existsb],
+      [forallb] and [flat_map] have bounds in the costs of their function
+      ([ListComplexity]), which [subsetN], [tautological], ... use; the
+      folds with a function that is a closure ([zipWith], [embed], ...)
+      do not ([fold_left_hcomplexity] is not closed, and [fold_right] has
+      no such bound yet: [sort_uniq] and [sort_clauses] analyse it with
+      their function fixed).
     The subexponential bounds of the top layers also need the facts of the
     paper on the parameters: the numerical checks of [choose_params] pass
     for large [n] (otherwise the counts fall back to exhaustive search). *)
-
-(** The data types of the algorithm, with their representations and sizes. *)
-Module Type ETHData (Import Time : TimeStdlib).
-  #[global] Declare Instance Repr_literal : Ground literal.
-  #[global] Declare Instance Size_literal : Size literal.
-  #[global] Declare Instance Repr_params : Ground params.
-  #[global] Declare Instance Size_params : Size params.
-  #[global] Declare Instance Repr_pair_eig : Ground pair_eig.
-  #[global] Declare Instance Size_pair_eig : Size pair_eig.
-  #[global] Declare Instance Repr_design : Ground design.
-  #[global] Declare Instance Size_design : Size design.
-End ETHData.
 
 (** The exponent of the paper: rho(n) = n (log log n)^2 / sqrt (log n). *)
 Definition rho (n : nat) : nat := n * Nat.log2 (Nat.log2 n) ^ 2 / S (Nat.sqrt (Nat.log2 n)).
 
 Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
 
-  (** *** 0. The standard library *)
-  Lemma Nat_div_polynomial : Time.PolynomialBound Nat.div. cbound. Abort.
-  Lemma Nat_modulo_polynomial : Time.PolynomialBound Nat.modulo. Abort.
-  Lemma Nat_div2_polynomial : Time.PolynomialBound Nat.div2. Abort.
-  Lemma Nat_odd_polynomial : Time.PolynomialBound Nat.odd. Abort.
-  Lemma Nat_even_polynomial : Time.PolynomialBound Nat.even. Abort.
-  Lemma Nat_max_polynomial : Time.PolynomialBound Nat.max. Abort.
-  Lemma Nat_min_polynomial : Time.PolynomialBound Nat.min. Abort.
-  Lemma Nat_log2_polynomial : Time.PolynomialBound Nat.log2. Abort.
-  Lemma Nat_sqrt_polynomial : Time.PolynomialBound Nat.sqrt. Abort.
+  (** *** 0. The standard library
+
+      Proved in the library: [Nat.pred], [max], [min], [div2], [even],
+      [odd], [log2], [sqrt], [div], [modulo], [testbit] ([NatComplexity]);
+      [firstn], [skipn], [nth], [repeat], [hd], [rev], [concat] (in the
+      length of the result), [combine] ([ListComplexity]). *)
   Lemma Nat_land_polynomial : Time.PolynomialBound Nat.land. Abort.
   Lemma Nat_lxor_polynomial : Time.PolynomialBound Nat.lxor. Abort.
-  Lemma Nat_testbit_polynomial : Time.PolynomialBound Nat.testbit. Abort.
   (** [Nat.pow] is exponential in its second argument (unary numbers). *)
   Lemma Nat_pow_exponential : exists c, Time.ComplexityBound Nat.pow
     (fun cn => c +> fun cm => (c * S (val cn) ^ (S (val cm))) >|). Abort.
@@ -207,17 +415,13 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma inject_Z_polynomial : Time.PolynomialBound inject_Z. Abort.
   Lemma Qfloor_polynomial : Time.PolynomialBound Qfloor. Abort.
 
+  (** The bounds of [map], [filter], [existsb], [forallb] and [flat_map]
+      in the costs of their function, a closure, are in [ListComplexity];
+      the statements below are their closures under polynomials. *)
   Section Lists.
     Context {A B : Type} `{Ground A} `{Size A} `{Ground B} `{Size B}.
-    Lemma rev_polynomial : Time.PolynomialBound (@rev A). Abort.
-    Lemma nth_polynomial : Time.PolynomialBound (@nth A). Abort.
-    Lemma firstn_polynomial : Time.PolynomialBound (@firstn A). Abort.
-    Lemma skipn_polynomial : Time.PolynomialBound (@skipn A). Abort.
-    Lemma repeat_polynomial : Time.PolynomialBound (@repeat A). Abort.
     Lemma concat_polynomial : Time.PolynomialBound (@concat A). Abort.
-    Lemma combine_polynomial : Time.PolynomialBound (@combine A B). Abort.
     Lemma list_prod_polynomial : Time.PolynomialBound (@list_prod A B). Abort.
-    Lemma hd_polynomial : Time.PolynomialBound (@hd A). Abort.
     Lemma map_polynomial (f : A -> B) : Time.PolynomialBound f -> Time.PolynomialBound (map f). Abort.
     Lemma flat_map_polynomial (f : A -> list B) :
       Time.PolynomialBound f -> Time.PolynomialBound (flat_map f). Abort.
@@ -238,20 +442,9 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
 
   (** *** 1. Generic utilities *)
 
-  Lemma maxN_polynomial : Time.PolynomialBound maxN. Abort.
   Lemma sumZ_polynomial : Time.PolynomialBound sumZ. Abort.
   Lemma zipWith_polynomial {A B C} `{Ground A} `{Size A} `{Ground B} `{Size B} `{Ground C}
     (f : A -> B -> C) : Time.PolynomialBound f -> Time.PolynomialBound (zipWith f). Abort.
-  Lemma indexN_polynomial : Time.PolynomialBound indexN. Abort.
-  Lemma lexltbN_polynomial : Time.PolynomialBound lexltbN. Abort.
-  Lemma subsetN_polynomial : Time.PolynomialBound subsetN. Abort.
-  Lemma sort_uniq_polynomial : Time.PolynomialBound sort_uniq. Abort.
-  Lemma set_nth_polynomial {A} `{Ground A} `{Size A} : Time.PolynomialBound (@set_nth A). Abort.
-  Lemma remove_nth_polynomial {A} `{Ground A} `{Size A} : Time.PolynomialBound (@remove_nth A). Abort.
-  Lemma chunks_polynomial {A} `{Ground A} `{Size A} : Time.PolynomialBound (@chunks A). Abort.
-  Lemma ceil_div_polynomial : Time.PolynomialBound ceil_div. Abort.
-  Lemma clog2_polynomial : Time.PolynomialBound clog2. Abort.
-  Lemma csqrt_polynomial : Time.PolynomialBound csqrt. Abort.
   Lemma zinterval_polynomial : Time.PolynomialBound zinterval. Abort.
 
   (** The enumerations: [|alphabet| ^ len] tuples (and subsets of [l] of
@@ -312,24 +505,11 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
 
   (** *** 2. Formulas *)
 
-  Lemma lit_code_polynomial : Time.PolynomialBound lit_code. Abort.
-  Lemma code_var_polynomial : Time.PolynomialBound code_var. Abort.
-  Lemma code_pos_polynomial : Time.PolynomialBound code_pos. Abort.
-  Lemma code_neg_polynomial : Time.PolynomialBound code_neg. Abort.
-  Lemma nclause_eval_polynomial : Time.PolynomialBound nclause_eval. Abort.
-  Lemma ncnf_eval_polynomial : Time.PolynomialBound ncnf_eval. Abort.
   (** The [2 ^ n] assignments. *)
   Lemma count_bruteforce_complexity : exists c, Time.ComplexityBound count_bruteforce
     (fun (cn : ℂI (nat) unit) => c +> fun (cF : ℂI (ncnf) unit) => (2 ^ val cn * c * S (val cn + #|val cF|) ^ c) >|). Abort.
-  Lemma tautological_polynomial : Time.PolynomialBound tautological. Abort.
-  Lemma norm_clause_polynomial : Time.PolynomialBound norm_clause. Abort.
-  Lemma insert_clause_polynomial : Time.PolynomialBound insert_clause. Abort.
-  Lemma sort_clauses_polynomial : Time.PolynomialBound sort_clauses. Abort.
-  Lemma strict_subset_polynomial : Time.PolynomialBound strict_subset. Abort.
   Lemma antichain_polynomial : Time.PolynomialBound antichain. Abort.
   Lemma normalize_polynomial : Time.PolynomialBound normalize. Abort.
-  Lemma has_empty_clause_polynomial : Time.PolynomialBound has_empty_clause. Abort.
-  Lemma max_width_polynomial : Time.PolynomialBound max_width. Abort.
 
   (** *** 3. Disjoint sparsification *)
 

@@ -19,7 +19,7 @@
     the tactics without advice. *)
 
 From Ltac2 Require Import Ltac2 Message.
-From Stdlib Require Import PArith NArith ZArith.
+From Stdlib Require Import PArith NArith ZArith Lia.
 Import Constr.Unsafe.
 
 Ltac2 mutable cadvice_level : int := 1.
@@ -219,9 +219,7 @@ Ltac2 cexplain_goal () : unit :=
     | None => print (suggestion_message g)
     end).
 
-Ltac cadvice := ltac2:(cadvice_goal ()).
-
-(** ** Timeout
+(** ** Timeouts
 
     The tactics used by hand ([cbound], [clinear], [csize], ...) stop after
     [ctimeout] seconds (2 by default; [0] for no timeout), with a message
@@ -230,8 +228,19 @@ Ltac cadvice := ltac2:(cadvice_goal ()).
       Ltac2 Set ctimeout := 10.
 >>
     ([#[local] Ltac2 Set] for one file). The library turns it off in its
-    files: their proofs are not interactive. *)
+    files: their proofs are not interactive.
+
+    [nia] may search for a long time, or forever, on an inequality that it
+    does not prove: the tactics give it [cnia_timeout] seconds on each
+    inequality (3 by default; [0] for no timeout), and leave the
+    inequality if it does not prove it within this time. It runs after the
+    analysis, out of [ctimeout]: during the analysis ([ctimed]), the
+    inequalities that [lia] does not prove are marked ([cnia_pending]), and
+    so are the goals of the advice; [nia] and the advice come after it.
+    The tactics run by typeclass search call [nia] at once ([cnia_now],
+    [cundeferred]). *)
 Ltac2 mutable ctimeout : int := 2.
+Ltac2 mutable cnia_timeout : int := 3.
 
 Ltac2 is_timeout (e : exn) : bool :=
   let s := Message.to_string (Message.of_exn e) in
@@ -241,17 +250,91 @@ Ltac2 is_timeout (e : exn) : bool :=
     else if String.equal (String.sub s i 6) "imeout" then true else find (Int.add i 1) in
   find 0.
 
-(** [ctimed name t]: the Ltac1 tactic [t] within [ctimeout] seconds. *)
-Ltac2 ctimed (name : string) (t : Ltac1.t) : unit :=
-  if Int.le ctimeout 0 then ltac1:(t |- t) t else
-  match Control.case (fun () => ltac1:(n t |- timeout n t) (Ltac1.of_int ctimeout) t) with
+(** The marks, hypotheses: the goals of the analysis of a timed tactic,
+    the inequalities left to [nia], the goals left to the advice. *)
+Definition cnia_deferring : Prop := True.
+Definition cnia_pending : Prop := True.
+Definition cadvice_pending : Prop := True.
+
+(** Whether the focused goal has a hypothesis [t]; [clear_hyps_of] clears
+    them. *)
+Ltac2 has_hyp_of (t : constr) : bool :=
+  List.exist (fun (_, _, ty) => Constr.equal ty t) (Control.hyps ()).
+
+Ltac2 clear_hyps_of (t : constr) : bool :=
+  let hs := List.filter (fun (_, _, ty) => Constr.equal ty t) (Control.hyps ()) in
+  match hs with
+  | [] => false
+  | _ => Std.clear (List.map (fun (h, _, _) => h) hs); true
+  end.
+
+(** [nia] within [cnia_timeout] seconds on the focused goal, which is left
+    if it fails; the timeouts are counted. *)
+Ltac2 cnia_run (timeouts : int Ref.ref) : unit :=
+  let run () := if Int.le cnia_timeout 0 then ltac1:(nia)
+                else ltac1:(n |- timeout n nia) (Ltac1.of_int cnia_timeout) in
+  match Control.case run with
   | Val _ => ()
+  | Err e => if is_timeout e then Ref.incr timeouts else ()
+  end.
+
+Ltac2 cnia_now () : unit := Control.enter (fun () => cnia_run (Ref.ref 0)).
+
+(** [nia] at once, or the mark during the analysis of a timed tactic. *)
+Ltac2 cnia () : unit :=
+  Control.enter (fun () =>
+    if has_hyp_of 'cnia_deferring
+    then ltac1:(let H := fresh "Hnia" in assert cnia_pending as H by exact I)
+    else cnia_run (Ref.ref 0)).
+
+Ltac cnia := ltac2:(cnia ()).
+Ltac cnia_now := ltac2:(cnia_now ()).
+
+Ltac cadvice := ltac2:(Control.enter (fun () =>
+  if has_hyp_of 'cnia_deferring
+  then ltac1:(let H := fresh "Hadvice" in assert cadvice_pending as H by exact I)
+  else cadvice_goal ())).
+
+(** For the tactics run by typeclass search, from the goals of an analysis:
+    [nia] at once. *)
+Ltac cundeferred := repeat match goal with H : cnia_deferring |- _ => clear H end.
+
+(** [ctimed name t]: the Ltac1 tactic [t] within [ctimeout] seconds, then
+    [nia] on the inequalities it leaves, and the advice. In the analysis of
+    another timed tactic, [t] alone. The callers pass [t] as
+    [ltac:(idtac; t)]: Ltac1 evaluates a tactic argument whose body is a
+    [match goal] ([cbound_untimed]) when it passes it, out of the timeout. *)
+Ltac2 ctimed (name : string) (t : Ltac1.t) : unit :=
+  let nested :=
+    match Control.case (fun () => Control.focus 1 1 (fun () => has_hyp_of 'cnia_deferring)) with
+    | Val (b, _) => b
+    | Err _ => false
+    end in
+  if nested then ltac1:(t |- t) t else
+  let run () :=
+    Control.enter (fun () => ltac1:(let H := fresh "Hdefer" in assert cnia_deferring as H by exact I));
+    if Int.le ctimeout 0 then ltac1:(t |- t) t
+    else ltac1:(n t |- timeout n t) (Ltac1.of_int ctimeout) t in
+  match Control.case run with
+  | Val _ =>
+      let timeouts := Ref.ref 0 in
+      Control.enter (fun () =>
+        let _ := clear_hyps_of 'cnia_deferring in
+        if clear_hyps_of 'cnia_pending then cnia_run timeouts else ());
+      (if Int.lt 0 (Ref.get timeouts) then
+         Message.print (cat
+           [of_string name; of_string ": nia ran out of time ("; of_int cnia_timeout;
+            of_string " s) on "; of_int (Ref.get timeouts); of_string " inequalities, left.";
+            nl (); of_string "They may need facts, or more time (0 for no timeout):";
+            nl (); of_string "  Ltac2 Set cnia_timeout := 10."])
+       else ());
+      Control.enter (fun () => if clear_hyps_of 'cadvice_pending then cadvice_goal () else ())
   | Err e =>
       if is_timeout e then
         Control.zero (Tactic_failure (Some (cat
           [of_string name; of_string ": no result within "; of_int ctimeout;
            of_string " s (the timeout).";
-           nl (); of_string "The analysis may need more time, or lia and nia may be searching in vain on an inequality.";
+           nl (); of_string "The analysis may need more time.";
            nl (); of_string "Increase the timeout, for example to 10 seconds (0 for none):";
            nl (); of_string "  Ltac2 Set ctimeout := 10."])))
       else Control.zero e

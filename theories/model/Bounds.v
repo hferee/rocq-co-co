@@ -35,6 +35,40 @@ Set Default Proof Mode "Classic".
     sizes appear in the goal. *)
 Class SizeFact {A} (x : A) (P : Prop) := size_fact : P.
 
+(** Type aliases ([Definition clause := list nat]) appear in the implicit
+    arguments of the measures and of the sizes, depending on where they come
+    from: the type of the function or of the bound ([@length clause l]), or
+    an instance ([@length (list nat) l]). [lia] and [nia] compare their
+    atoms syntactically: [cnorm_types] unfolds these arguments, in the goal
+    and in the hypotheses, so that the same atoms compare equal. It also
+    folds back the sums of lists that the computation of a bound on [x ::
+    l] unfolds ([fold_right Nat.add 0 l] into [list_sum l]). *)
+Ltac cnorm_type T :=
+  let U := eval cbv in T in
+  tryif constr_eq T U then fail else (progress (change T with U in *)).
+
+(** A size is normalised with its instance, whose arguments may be aliases
+    too ([@Size_list clause _]). *)
+Ltac cnorm_size T S x :=
+  let U := eval cbv in T in
+  let R := eval cbv in S in
+  tryif (constr_eq T U; constr_eq S R) then fail
+  else (progress (change (@size T S x) with (@size U R x) in *)).
+
+Ltac cnorm_types :=
+  repeat match goal with
+  | |- context [@size ?T ?S ?x] => cnorm_size T S x
+  | _ : context [@size ?T ?S ?x] |- _ => cnorm_size T S x
+  | |- context [@length ?T _] => cnorm_type T
+  | |- context [@map ?T _ _ _] => cnorm_type T
+  | |- context [@map _ ?T _ _] => cnorm_type T
+  | _ : context [@length ?T _] |- _ => cnorm_type T
+  | _ : context [@map ?T _ _ _] |- _ => cnorm_type T
+  | _ : context [@map _ ?T _ _] |- _ => cnorm_type T
+  | |- context [fold_right Nat.add 0 ?l] => change (fold_right Nat.add 0 l) with (list_sum l)
+  | H : context [fold_right Nat.add 0 ?l] |- _ => change (fold_right Nat.add 0 l) with (list_sum l) in H
+  end.
+
 Ltac add_size_facts :=
   repeat match goal with
   | |- context [@size _ _ ?x] =>
@@ -42,7 +76,8 @@ Ltac add_size_facts :=
       | _ : context [@size _ _ x] |- _ => fail
       | _ => pose proof (size_fact (x := x))
       end
-  end.
+  end;
+  cnorm_types.
 
 (** ** Choice of the constants
 
@@ -198,7 +233,7 @@ Ltac2 csolve_degree (deg : int) (kind : string) : unit :=
       end in
     match high with
     | Some d => degree_message (Control.goal ()) d deg kind
-    | None => ltac1:(try solve [lia | nia])
+    | None => ltac1:(first [solve [lia] | cnia])
     end).
 
 Ltac2 polynomial_constants () :=
@@ -312,12 +347,12 @@ Module Bounds (Import CM : CostModelCore).
                        ": prove one first (Global Instance ..., or Existing Instance after a Lemma),"
                        "or prove this bound with cbound, which analyses" f "itself"
             end].
-  Ltac cost_bound := cost_split; try solve [lia | nia].
+  Ltac cost_bound := cost_split; first [solve [lia] | cnia].
 
   Ltac clinear_by tac :=
     unfold LinearBound; eexists; split; cycle 1;
     [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; linear_constants ()) in
-      split tac; cbn [peval nth]; try solve [lia | nia]
+      split tac; cbn [peval nth]; first [solve [lia] | cnia_now]
     | cbn; lia ].
   Ltac clinear_core := clinear_by ltac:(typeclasses eauto).
 
@@ -334,7 +369,7 @@ Module Bounds (Import CM : CostModelCore).
   Ltac cconstant_by tac :=
     unfold ConstantBound; eexists; split; cycle 1;
     [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; constant_constants ()) in
-      split tac; cbn [peval nth]; try solve [lia | nia]
+      split tac; cbn [peval nth]; first [solve [lia] | cnia_now]
     | reflexivity ].
   Ltac cconstant_core := cconstant_by ltac:(typeclasses eauto).
   Ltac cconstant_untimed :=
@@ -348,7 +383,7 @@ Module Bounds (Import CM : CostModelCore).
     unfold PolynomialBound; eexists;
     let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; polynomial_constants ()) in
     split tac;
-    cbn [peval nth Nat.pow]; try solve [lia | nia].
+    cbn [peval nth Nat.pow]; first [solve [lia] | cnia_now].
   Ltac cpolynomial_core := cpolynomial_by ltac:(typeclasses eauto).
   Ltac cpolynomial_untimed := cpolynomial_by ltac:(cinstance); cadvice.
   Ltac cpolynomial_using H := cpolynomial_by ltac:(exact H).
@@ -357,9 +392,9 @@ Module Bounds (Import CM : CostModelCore).
       [ComplexityBound] found by typeclass search, when [cconstant],
       [clinear] or [cpolynomial] proves them. *)
   (** The same within the timeout ([ctimeout], [Advice]). *)
-  Ltac clinear := let f := ltac2:(t |- ctimed "clinear" t) in f ltac:(clinear_untimed).
-  Ltac cconstant := let f := ltac2:(t |- ctimed "cconstant" t) in f ltac:(cconstant_untimed).
-  Ltac cpolynomial := let f := ltac2:(t |- ctimed "cpolynomial" t) in f ltac:(cpolynomial_untimed).
+  Ltac clinear := let f := ltac2:(t |- ctimed "clinear" t) in f ltac:(idtac; clinear_untimed).
+  Ltac cconstant := let f := ltac2:(t |- ctimed "cconstant" t) in f ltac:(idtac; cconstant_untimed).
+  Ltac cpolynomial := let f := ltac2:(t |- ctimed "cpolynomial" t) in f ltac:(idtac; cpolynomial_untimed).
 
   Global Hint Extern 10 (ConstantBound _) => solve [cconstant_core] : typeclass_instances.
   Global Hint Extern 10 (LinearBound _) => solve [clinear_core] : typeclass_instances.
