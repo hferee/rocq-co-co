@@ -114,6 +114,39 @@ Module ETHCost (Import Time : TimeStdlib).
   Global Instance sort_uniq_complexity : Time.ComplexityBound sort_uniq
     (fun cl => (length (val cl) * (56 * list_sum (val cl) + 105 * length (val cl)) + 6) >|) := _.
 
+  (** [embed n vars bits]: for each [v < n], [memN v vars] and, if it
+      holds, [indexN v vars] and [nth]; the index is at most the length of
+      [vars] ([indexN_le]). *)
+  Global Instance embed_complexity : Time.ComplexityBound embed
+    (fun cn => 1 +> fun cv => 2 +> fun cb =>
+       (val cn * (length (val cv) * (28 * val cn + 134) + 120) + 19) >|).
+  Proof.
+    cbound. simpl_list_sum.
+    match goal with |- context [list_sum (map ?f (range ?n))] =>
+      pose proof (list_sum_map_le f (fun x => length cv * (28 * x + 41) + 48 * length cv + 41) (range n)
+        (fun x _ => ltac:(cbv beta; pose proof (indexN_le x cv); destruct (memN x cv); cbn; lia))) end.
+    simpl_list_sum. unfold range in *. rewrite length_seq in *. pose proof (list_sum_seq0 cn).
+    nia.
+  Qed.
+  (** The cost is cubic: [nia] does not find the polynomial bound alone.
+      Each measure is at most the sum [X] of the sizes and [1], and the
+      constant of the bound is the sum of the coefficients. *)
+  Global Instance embed_polynomial_bound : Time.PolynomialBound embed.
+  Proof.
+    unfold PolynomialBound; eexists.
+    let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; polynomial_constants ()) in
+    split ltac:(exact embed_complexity).
+    all: cbn [Complexity.math.Poly.peval List.nth Nat.pow].
+    all: try lia.
+    set (X := 1 + (#|ca| + (#|ca0| + (#|ca1| + 0)))).
+    assert (ca <= X /\ length ca0 <= X /\ 1 <= X) as (H2 & H3 & H4) by lia.
+    assert (ca * (length ca0 * (28 * ca + 134) + 120) <= X * (X * (28 * X + 134 * X) + 120 * X)).
+    { apply Nat.mul_le_mono; [lia|]. apply Nat.add_le_mono; [| lia].
+      apply Nat.mul_le_mono; lia. }
+    assert (19 <= 19 * (X * (X * (X * 1)))) by nia.
+    lia.
+  Qed.
+
   (** ** Formulas *)
 
   (** The codes of the literals: [Nat.div2], [Nat.odd]. *)
@@ -193,6 +226,65 @@ Module ETHCost (Import Time : TimeStdlib).
     lia.
   Qed.
 
+  (** [antichain F]: [strict_subset C' C] for each pair of clauses. The
+      sum over [C'] is bounded for each [C], then summed. *)
+  Global Instance antichain_complexity : Time.ComplexityBound antichain
+    (fun cF =>
+       (list_sum (map (@length nat) (val cF))
+          * (56 * list_sum (map list_sum (val cF)) + 90 * list_sum (map (@length nat) (val cF))
+             + 92 * length (val cF))
+        + length (val cF) * (86 * length (val cF) + 49) + 11) >|).
+  Proof.
+    cbound. simpl_list_sum.
+    match goal with |- context [list_sum (map ?f ?l)] =>
+      pose proof (list_sum_map_le f
+        (fun x => 54 * length l + list_sum (map (@length nat) l) * (28 * list_sum x + 90 * length x + 46)
+                  + length x * (28 * list_sum (map list_sum l) + 46 * length l)) l
+        (fun x _ => ltac:(cbv beta; simpl_list_sum; cnorm_types; nia))) end.
+    simpl_list_sum. cnorm_types. nia.
+  Qed.
+  (** [normalize F]: the clauses kept by the filter, then sorted, are at
+      most those of [F] ([ETHFacts]). *)
+  Global Instance normalize_complexity : Time.ComplexityBound normalize
+    (fun cF =>
+       (list_sum (map (@length nat) (val cF))
+          * (84 * list_sum (map list_sum (val cF)) + 163 * list_sum (map (@length nat) (val cF))
+             + 291 * length (val cF) + 78)
+        + length (val cF) * (84 * list_sum (map list_sum (val cF)) + 122 * length (val cF) + 99)
+        + 36 * list_sum (map list_sum (val cF)) + 27) >|).
+  Proof.
+    cbound. simpl_list_sum.
+    (* the tautology tests: the products of the measures of each clause *)
+    pose proof (list_sum_map_le (fun x : list nat => length x * (28 * list_sum x + 73 * length x))
+                  (fun x => 28 * (length x * list_sum x) + 73 * (length x * length x)) cF
+                  (fun x _ => ltac:(cbv beta; nia))).
+    pose proof (list_sum_map_mul_le (@length nat) list_sum cF).
+    pose proof (list_sum_map_mul_le (@length nat) (@length nat) cF).
+    (* the clauses kept, then sorted, are at most those of [cF] *)
+    match goal with |- context [filter ?p cF] =>
+      pose proof (filter_length_le p cF); pose proof (list_sum_map_filter_le (@length nat) p cF);
+      pose proof (list_sum_map_filter_le list_sum p cF); set (G := filter p cF) in * end.
+    pose proof (length_sort_clauses G : @length (list nat) (sort_clauses G) <= @length (list nat) G).
+    pose proof (list_sum_map_sort_clauses (@length nat) G
+      : list_sum (@map (list nat) nat (@length nat) (sort_clauses G)) <= _).
+    pose proof (list_sum_map_sort_clauses list_sum G
+      : list_sum (@map (list nat) nat list_sum (sort_clauses G)) <= _).
+    simpl_list_sum. cnorm_types.
+    set (N := @length (list nat) cF) in *. set (S1 := list_sum (map (@length nat) cF)) in *.
+    set (S2 := list_sum (map list_sum cF)) in *.
+    set (a := @length (list nat) G) in *. set (b := list_sum (map (@length nat) G)) in *.
+    set (c := list_sum (map list_sum G)) in *. set (f := @length (list nat) (sort_clauses G)) in *.
+    set (d := list_sum (map (@length nat) (sort_clauses G))) in *.
+    set (e := list_sum (map list_sum (sort_clauses G))) in *.
+    assert (a * a <= N * N) by (apply Nat.mul_le_mono; lia).
+    assert (a * c <= N * S2) by (apply Nat.mul_le_mono; lia).
+    assert (a * b <= N * S1) by (apply Nat.mul_le_mono; lia).
+    assert (d * d <= S1 * S1) by (apply Nat.mul_le_mono; lia).
+    assert (d * e <= S1 * S2) by (apply Nat.mul_le_mono; lia).
+    assert (d * f <= S1 * N) by (apply Nat.mul_le_mono; lia).
+    assert (f * f <= N * N) by (apply Nat.mul_le_mono; lia).
+    lia.
+  Qed.
   (** [max_width F]: [maxN] on the lengths of the clauses. *)
   Global Instance max_width_complexity : Time.ComplexityBound max_width
     (fun cF => (length (val cF) * (30 * list_sum (map (@length nat) (val cF)) + 76)
@@ -223,6 +315,8 @@ Module ETHCost (Import Time : TimeStdlib).
   Global Instance strict_subset_polynomial_bound : Time.PolynomialBound strict_subset := _.
   Global Instance has_empty_clause_linear_bound : Time.LinearBound has_empty_clause := _.
   Global Instance max_width_polynomial_bound : Time.PolynomialBound max_width := _.
+  Global Instance antichain_polynomial_bound : Time.PolynomialBound antichain := _.
+  Global Instance normalize_polynomial_bound : Time.PolynomialBound normalize := _.
 
   (** ** Bounds in the sizes of the arguments, with their constants
 
@@ -359,11 +453,12 @@ End ETHDataCost.
       sparsity.
     The bounds of [memN], [countN], [eqbN], [insert_uniq], [range],
     [sumN], [indexN], [lexltbN], [maxN], [set_nth], [remove_nth],
-    [chunks], [ceil_div], [clog2], [csqrt], [subsetN], [sort_uniq] and of
+    [chunks], [ceil_div], [clog2], [csqrt], [subsetN], [sort_uniq],
+    [embed] and of
     the functions on formulas [code_var], [code_pos], [code_neg],
     [nclause_eval], [ncnf_eval], [tautological], [insert_clause],
-    [sort_clauses], [strict_subset], [has_empty_clause] and [max_width]
-    are proved above ([ETHCost]), and those of the functions on literals
+    [sort_clauses], [strict_subset], [antichain], [normalize],
+    [has_empty_clause] and [max_width] are proved above ([ETHCost]), and those of the functions on literals
     [lvar], [lpos], [lit_code] and [norm_clause] with the axioms of
     [literal] ([ETHDataCost]).
 
@@ -501,15 +596,12 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
             (g (#|val cacc| + d * 2 ^ length (val cl) + c * S (#|val cl| + #|val cp|) ^ c)
              + c * S (#|val cl| + #|val cp|) ^ c)) >|). Abort.
 
-  Lemma embed_polynomial : Time.PolynomialBound embed. Abort.
 
   (** *** 2. Formulas *)
 
   (** The [2 ^ n] assignments. *)
   Lemma count_bruteforce_complexity : exists c, Time.ComplexityBound count_bruteforce
     (fun (cn : ℂI (nat) unit) => c +> fun (cF : ℂI (ncnf) unit) => (2 ^ val cn * c * S (val cn + #|val cF|) ^ c) >|). Abort.
-  Lemma antichain_polynomial : Time.PolynomialBound antichain. Abort.
-  Lemma normalize_polynomial : Time.PolynomialBound normalize. Abort.
 
   (** *** 3. Disjoint sparsification *)
 

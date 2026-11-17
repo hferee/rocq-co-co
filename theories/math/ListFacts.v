@@ -55,6 +55,25 @@ Proof.
   rewrite list_sum_map_add, list_sum_map_mul_l, list_sum_map_id, list_sum_map_const. reflexivity.
 Qed.
 
+(** The sums over the elements kept by a filter, and over products. *)
+Lemma list_sum_map_filter_le {A} (h : A -> nat) p l :
+  list_sum (map h (filter p l)) <= list_sum (map h l).
+Proof.
+  induction l as [|x l IH]; cbn [filter map]; [lia|].
+  destruct (p x); cbn [map]; change (list_sum (?a :: ?m)) with (a + list_sum m); lia.
+Qed.
+Lemma list_sum_map_mul_le {A} (f g : A -> nat) l :
+  list_sum (map (fun x => f x * g x) l) <= list_sum (map f l) * list_sum (map g l).
+Proof.
+  induction l as [|x l IH]; cbn [map]; [cbn; lia|].
+  change (list_sum (?a :: ?m)) with (a + list_sum m). nia.
+Qed.
+(** The sum of [0, ..., n - 1]. *)
+Lemma list_sum_seq0 n : 2 * list_sum (seq 0 n) + n = n * n.
+Proof.
+  induction n as [|n IH]; [reflexivity|].
+  rewrite seq_S, list_sum_app. cbn [list_sum fold_right]. nia.
+Qed.
 (** [simpl_list_sum] distributes the sums [list_sum (map f l)] of the goal
     and of the hypotheses over the constants, the successors, the sums and
     the products by factors that do not depend on the element, and computes

@@ -650,6 +650,27 @@ Proof.
   - auto.
 Defined.
 
+(** Pairs of any data ([HProdTimeCostModel]): as the ground pairs, with
+    the complexities of their elements. *)
+Definition hprod_rl {A CA B CB} (RA : MRepr A CA) (RB : MRepr B CB) (k : nat) (p : A * B)
+  (c : CA * CB) (v : value) : Prop :=
+  exists r1 r2, v = clos pair_body [r2; r1] /\
+    rl RA k (fst p) (fst c) r1 /\ rl RB k (snd p) (snd c) r2.
+
+Definition hprod_repr {A CA B CB} (RA : MRepr A CA) (RB : MRepr B CB) :
+  MRepr (A * B) (CA * CB).
+Proof.
+  refine {| rl := hprod_rl RA RB;
+            bo := fun c c' => bo RA (fst c) (fst c') /\ bo RB (snd c) (snd c');
+            dflt := (dflt RA, dflt RB) |}.
+  - intros k k' p c v Hk (r1 & r2 & -> & H1 & H2). exists r1, r2.
+    split; [reflexivity | split; [exact (rl_down Hk H1) | exact (rl_down Hk H2)]].
+  - intros k p c c' v [B1 B2] (r1 & r2 & -> & H1 & H2). exists r1, r2.
+    split; [reflexivity | split; [exact (rl_mono B1 H1) | exact (rl_mono B2 H2)]].
+  - intros c. split; apply bo_refl.
+  - intros c1 c2 c3 [B1 B2] [B3 B4]. split; [exact (bo_trans B1 B3) | exact (bo_trans B2 B4)].
+Defined.
+
 Fixpoint pos_enc (p : positive) : value :=
   match p with
   | xI q => clos (lam (lam (app (var 2) (var 3)))) [pos_enc q]
@@ -770,6 +791,57 @@ Module MPM <: ProdTimeCostModel MCM MBT MCB.
     Mcall Ha He b. subst p1 rest. Mstep. Mend R.
   Qed.
 End MPM.
+
+(** Pairs of any data. *)
+Module MHPM <: HProdTimeCostModel MCM MBT MCB MPM.
+  Import MCM MBT MCB MPM.
+  Global Instance Repr_hprod {A CA B CB} (RA : Repr A CA) (RB : Repr B CB) :
+    Repr (A * B) (CA * CB) | 10 := hprod_repr RA RB.
+
+  Lemma bound_order_hprod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA * CB),
+    bound_order (fst c) (fst c') -> bound_order (snd c) (snd c') -> bound_order c c'.
+  Proof. intros A CA B CB RA RB c c' H1 H2. exact (conj H1 H2). Qed.
+
+  Lemma hpair_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@pair A B) (fun ca => 1 +> fun cb => 1 +> (pot ca, pot cb)).
+  Proof.
+    intros A CA B CB RA RB. apply has_complexity_bound. exists (clos (lam (lam pair_body)) []). intro k.
+    Mfun. Mstep. Mfun. Mstep.
+    cbn [rl Repr_hprod hprod_repr hprod_rl fst snd]. exists (clos wu wE), (clos wu0 wE0).
+    split; [reflexivity | split].
+    - eapply rl_down; [| exact Ha]. lia.
+    - eapply rl_down; [| exact Ha0]. lia.
+  Qed.
+
+  Lemma hprod_case_complexity :
+    forall {X CX Y CY E CE A CA} `{Repr X CX} `{Repr Y CY} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@prod_case X Y E A)
+      (fun cf : ℂI (env (env E X) Y -> A) (ℂI (env (env E X) Y) ((CE * CX) * CY) -> ℂO CA) =>
+         1 +>
+       fun cp : ℂI (E -> X * Y) (ℂI E CE -> ℂO (CX * CY)) => 1 +>
+       fun ce : ℂI E CE => 39 ⊕ 2 ⊕ cost (pot cp ce) ⊕
+         let (x, y) := val cp (val ce) in
+         let (cx, cy) := res (pot cp ce) in
+         pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, cx), cy))).
+  Proof.
+    intros X CX Y CY E CE A CA RX RY RE RA. apply has_complexity_bound.
+    exists (clos (case1_body (h2_pair_at 2)) []). unfold case1_body, h2_pair_at. Mcase1_start.
+    Mcall Ha0 Ha1 (j1 - 39 - 2). unfold prod_case.
+    set (b := j1 - 39 - 2 - cost (c0 (a1 ⋊ c1))).
+    destruct (a0 a1) as [x y]; destruct (res (c0 (a1 ⋊ c1))) as [cx cy];
+      cbn [rl Repr_hprod hprod_repr hprod_rl fst snd] in R; cbn [cost res pot val] in *.
+    destruct R as (r1 & r2 & -> & Hr1 & Hr2).
+    set (rest := [clos wu0 wE0; clos wu wE]).
+    set (p1 := clos pair_body (r1 :: clos wu1 wE1 :: rest)).
+    assert (He : rl (env_repr (env_repr RE RX) RY) b (ECons (ECons a1 x) y) ((c1, cx), cy)
+                   (clos pair_body (r2 :: p1 :: r1 :: clos wu1 wE1 :: rest))).
+    { exists p1, r2, (r1 :: clos wu1 wE1 :: rest). split; [reflexivity |].
+      split; [| exact Hr2].
+      exists (clos wu1 wE1), r1, rest. split; [reflexivity |].
+      split; [exact (rl_down_ b Ha1 ltac:(unfold b; lia)) | exact Hr1]. }
+    Mcall Ha He b. subst p1 rest. Mstep. Mend R.
+  Qed.
+End MHPM.
 
 (** Sums (of any data). The case analysis costs as the one of options. *)
 Module MSM <: SumTimeCostModel MCM MBT MCB.
@@ -1335,5 +1407,5 @@ End LM.
 (** With lists and options of any data. *)
 Module LMH <: MachineHOTimeCostModel.
   Include MCM. Include MBT. Include MCB. Include MBO. Include MNT. Include MHLM. Include MHOM.
-  Include MPM. Include MSM. Include MZM. Include MFX.
+  Include MPM. Include MHPM. Include MSM. Include MZM. Include MFX.
 End LMH.

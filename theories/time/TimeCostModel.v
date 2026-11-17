@@ -58,10 +58,11 @@ Module Type TimeCostModel := ParamTimeCostModel
   with Definition c_ctor_Z := 1 with Definition c_case_Z := 1
   with Definition c_fix := 1.
 
-(** The same, with lists and options of any data ([HListTimeCostModel],
-    [HOptionTimeCostModel]): their elements may be functions. *)
+(** The same, with lists, options and pairs of any data
+    ([HListTimeCostModel], [HOptionTimeCostModel], [HProdTimeCostModel]):
+    their elements may be functions. *)
 Module Type ParamHOTimeCostModel := ParamTimeCostModelBase <+ HListTimeCostModel
-  <+ HOptionTimeCostModel.
+  <+ HOptionTimeCostModel <+ HProdTimeCostModel.
 
 Module Type HOTimeCostModel := ParamHOTimeCostModel
   with Definition c_clo := 1 with Definition c_frame := 0

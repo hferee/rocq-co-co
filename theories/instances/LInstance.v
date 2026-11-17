@@ -484,6 +484,30 @@ Proof.
   - intros c1 c2 c3 [B1 B2] [B3 B4]. split; [exact (bo_trans B1 B3) | exact (bo_trans B2 B4)].
 Defined.
 
+(** Pairs of any data ([HProdTimeCostModel]): realised as the ground
+    pairs, by the realisers of their elements, here with their
+    complexities, as the environments. *)
+Definition hprod_rl {A CA B CB} (RA : LRepr A CA) (RB : LRepr B CB) (k : nat) (p : A * B)
+  (c : CA * CB) (s : term) : Prop :=
+  exists r1 r2, s = lam (app (app (var 0) r1) r2) /\
+    rl RA k (fst p) (fst c) r1 /\ rl RB k (snd p) (snd c) r2.
+
+Definition hprod_repr {A CA B CB} (RA : LRepr A CA) (RB : LRepr B CB) :
+  LRepr (A * B) (CA * CB).
+Proof.
+  refine {| rl := hprod_rl RA RB;
+            bo := fun c c' => bo RA (fst c) (fst c') /\ bo RB (snd c) (snd c');
+            dflt := (dflt RA, dflt RB) |}.
+  - intros k p c s (r1 & r2 & -> & H1 & H2).
+    pose proof (rl_proc H1). pose proof (rl_proc H2). Lproc.
+  - intros k k' p c s Hk (r1 & r2 & -> & H1 & H2). exists r1, r2.
+    split; [reflexivity | split; [exact (rl_down Hk H1) | exact (rl_down Hk H2)]].
+  - intros k p c c' s [B1 B2] (r1 & r2 & -> & H1 & H2). exists r1, r2.
+    split; [reflexivity | split; [exact (rl_mono B1 H1) | exact (rl_mono B2 H2)]].
+  - intros c. split; apply bo_refl.
+  - intros c1 c2 c3 [B1 B2] [B3 B4]. split; [exact (bo_trans B1 B3) | exact (bo_trans B2 B4)].
+Defined.
+
 (** ** Tactics *)
 
 Ltac Llia := unfold K in *; cbn [cost res pot val] in *; lia.
@@ -1167,6 +1191,54 @@ Module LPM <: ProdTimeCostModel LCM LBT LCB.
 
 End LPM.
 
+(** Pairs of any data. *)
+Module LHPM <: HProdTimeCostModel LCM LBT LCB LPM.
+  Import LCM LBT LCB LPM.
+  Global Instance Repr_hprod {A CA B CB} (RA : Repr A CA) (RB : Repr B CB) :
+    Repr (A * B) (CA * CB) | 10 := hprod_repr RA RB.
+
+  Lemma bound_order_hprod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA * CB),
+    bound_order (fst c) (fst c') -> bound_order (snd c) (snd c') -> bound_order c c'.
+  Proof. intros A CA B CB RA RB c c' H1 H2. exact (conj H1 H2). Qed.
+
+  Lemma hpair_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@pair A B) (fun ca => 1 +> fun cb => 1 +> (pot ca, pot cb)).
+  Proof.
+    intros A CA B CB RA RB. apply has_complexity_bound.
+    exists (lam (lam (lam (app (app (var 0) (var 2)) (var 1))))). intro k.
+    Lfun. Lstep. Lfun. Lstep.
+    cbn [rl Repr_hprod hprod_repr hprod_rl fst snd]. exists s, s0. split; [reflexivity | split].
+    - eapply rl_down; [| exact Ha]. lia.
+    - eapply rl_down; [| exact Ha0]. lia.
+  Qed.
+
+  Lemma hprod_case_complexity :
+    forall {X CX Y CY E CE A CA} `{Repr X CX} `{Repr Y CY} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@prod_case X Y E A)
+      (fun cf : ℂI (env (env E X) Y -> A) (ℂI (env (env E X) Y) ((CE * CX) * CY) -> ℂO CA) =>
+         1 +>
+       fun cp : ℂI (E -> X * Y) (ℂI E CE -> ℂO (CX * CY)) => 1 +>
+       fun ce : ℂI E CE => 1 ⊕ cost (pot cp ce) ⊕
+         let (x, y) := val cp (val ce) in
+         let (cx, cy) := res (pot cp ce) in
+         pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, cx), cy))).
+  Proof.
+    intros X CX Y CY E CE A CA RX RY RE RA. apply has_complexity_bound. exists (caseE1 (hE2 2)).
+    LcaseE1_start. Lcall Ha0 Ha1 (j1 - 1). unfold prod_case.
+    set (b := j1 - 1 - cost (c0 (a1 ⋊ c1))).
+    destruct (a0 a1) as [x y]; destruct (res (c0 (a1 ⋊ c1))) as [cx cy];
+      cbn [rl Repr_hprod hprod_repr hprod_rl fst snd] in R; cbn [cost res pot val] in *.
+    destruct R as (r1 & r2 & -> & Hr1 & Hr2).
+    pose proof (rl_proc Hr1). pose proof (rl_proc Hr2).
+    assert (He : rl (env_repr (env_repr RE RX) RY) b (ECons (ECons a1 x) y) ((c1, cx), cy)
+                   (lam (app (app (var 0) (lam (app (app (var 0) s1) r1))) r2))).
+    { exists (lam (app (app (var 0) s1) r1)), r2. split; [reflexivity|]. split; [| exact Hr2].
+      exists s1, r1. split; [reflexivity|].
+      split; [exact (rl_down_ b Ha1 ltac:(unfold b; lia)) | exact Hr1]. }
+    Lcall Ha He b. Lstep. Lend R.
+  Qed.
+End LHPM.
+
 (** Sums (of any data). *)
 Module LSM <: SumTimeCostModel LCM LBT LCB.
   Import LCM LBT LCB.
@@ -1566,9 +1638,9 @@ Module L <: TimeCostModel.
   Include LPM. Include LSM. Include LZM. Include LFX.
 End L.
 
-(** The same, with lists and options of any data ([HOTimeCostModel]). *)
+(** The same, with lists, options and pairs of any data ([HOTimeCostModel]). *)
 Module LH <: HOTimeCostModel.
   Include LCM. Include LBT. Include LCB. Include LBO. Include LNT. Include LHLM. Include LHOM.
-  Include LPM. Include LSM. Include LZM. Include LFX.
+  Include LPM. Include LHPM. Include LSM. Include LZM. Include LFX.
 End LH.
 

@@ -16,8 +16,9 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   complexity is the list of the complexities of their elements) and of
   fixpoints (`TimeFix`). The costs are constants: `ParamTimeCostModel` leaves
   them abstract, `TimeCostModel` sets them all to 1, and `HOTimeCostModel` is
-  the same with lists and options of any data (`TimeDatatypes` has the two
-  models of options; sums are of any data in both). The size of a value is
+  the same with lists, options and pairs of any data (`TimeDatatypes` has
+  the two models of options; pairs of ground data are in both, ground; sums
+  are of any data in both). The size of a value is
   the length of its binary encoding, its number of constructors (exact
   equations: `size (S n) = 1 + size n`, ...). `TimeArith` defines another
   model, with addition and multiplication as primitives and no case analysis
@@ -54,7 +55,7 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   frames for the evaluations in non-tail position, so that tail calls are
   cheaper), and running times on it (`MachineExamples`). The machine is an
   instance of the whole time model, with ground lists and options and with
-  lists and options of any data (`instances/LMachine`: `LM`, `LMH`).
+  lists, options and pairs of any data (`instances/LMachine`: `LM`, `LMH`).
 - `lower/`: lower bounds. A cost model with elements compared at cost 1,
   and the axiom that lower bounds need: a function with a bound is a
   comparison tree (`ComparisonModel`); the counting argument

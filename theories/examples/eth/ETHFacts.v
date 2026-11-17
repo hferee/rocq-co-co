@@ -1,8 +1,8 @@
 (** * Facts on the values computed by the ETH algorithm
 
     The facts on the values of the functions of [ETHAlgorithm] that the
-    cost analysis uses ([ETHCost]): the lengths of the sorted lists, and
-    the codes of the literals. They do not depend on the cost model. *)
+    cost analysis uses ([ETHCost]): the lengths and measures of the sorted
+    lists, and the codes of the literals. They do not depend on the cost model. *)
 
 From Complexity Require Import ETHAlgorithm.
 From Stdlib Require Import Arith List Lia.
@@ -37,6 +37,29 @@ Proof.
   induction F as [|C F IH]; cbn [fold_right length]; [lia|].
   pose proof (length_insert_clause C (fold_right insert_clause [] F)). lia.
 Qed.
+
+(** The measures of the clauses sorted ([sort_clauses]): at most those of
+    the clauses inserted, the duplicates being dropped. *)
+Lemma list_sum_map_insert_clause (h : nclause -> nat) C F :
+  list_sum (map h (insert_clause C F)) <= h C + list_sum (map h F).
+Proof.
+  induction F as [|D F IH]; cbn [insert_clause map]; [cbn; lia|].
+  unfold list_sum in *.
+  repeat match goal with |- context [if ?b then _ else _] => destruct b end;
+    cbn [map fold_right] in *; lia.
+Qed.
+Lemma list_sum_map_sort_clauses (h : nclause -> nat) F :
+  list_sum (map h (fold_right insert_clause [] F)) <= list_sum (map h F).
+Proof.
+  induction F as [|C F IH]; cbn [fold_right map]; [lia|].
+  pose proof (list_sum_map_insert_clause h C (fold_right insert_clause [] F)).
+  change (list_sum (?a :: ?m)) with (a + list_sum m). lia.
+Qed.
+
+(** ** Lists of numbers *)
+
+Lemma indexN_le x l : indexN x l <= length l.
+Proof. induction l as [|y l IH]; cbn; [lia|]. destruct (x =? y); lia. Qed.
 
 (** ** Codes of the literals *)
 

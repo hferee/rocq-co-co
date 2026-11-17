@@ -264,8 +264,8 @@ Module Type HOptionTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
 
 (** ** Pairs (of ground data)
 
-    Pairs were missing from the higher-order models: [let (x, y) := p in e]
-    and the projections are compiled to [prod_case]. *)
+    [let (x, y) := p in e] and the projections are compiled to
+    [prod_case]. Pairs of any data are below ([HProdTimeCostModel]). *)
 
 (** Case combinator (see [Combinators]). *)
 
@@ -315,6 +315,42 @@ End ProdCaseTimeCostModel.
 Module Type ProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
   (CB : CombinatorTimeCostModel CM BT) :=
   ProdData CM <+ ProdCtorTimeCostModel CM BT <+ ProdCaseTimeCostModel CM BT CB.
+
+(** ** Pairs of any data
+
+    In the models with lists and options of any data ([HOTimeCostModel]),
+    the elements of a pair may also be functions, or other data with
+    complexities: a pair of [A] and [B], with complexities [CA] and [CB], has
+    the pair of their complexities as its complexity. A pair of ground data
+    is still ground: [Repr_prod] is tried first, [Repr_hprod] is for the
+    other pairs. The constructor and the case analysis cost as for ground
+    pairs ([c_pair], [c_case_prod]); the case analysis gives the
+    complexities of the elements to its branch. The order compares the
+    elements. *)
+Module Type HProdTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
+  (Import CB : CombinatorTimeCostModel CM BT) (Import PT : ProdTimeCostModel CM BT CB).
+
+  #[global] Declare Instance Repr_hprod :
+    forall {A CA B CB}, Repr A CA -> Repr B CB -> Repr (A * B) (CA * CB) | 10.
+
+  Parameter bound_order_hprod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA * CB),
+    bound_order (fst c) (fst c') -> bound_order (snd c) (snd c') -> bound_order c c'.
+
+  #[global] Declare Instance hpair_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@pair A B) (fun ca => c_clo +> fun cb => c_pair +> (pot ca, pot cb)).
+
+  #[global] Declare Instance hprod_case_complexity :
+    forall {X CX Y CY E CE A CA} `{Repr X CX} `{Repr Y CY} `{Repr E CE} `{Repr A CA},
+    ComplexityBound (@prod_case X Y E A)
+      (fun cf : ℂI (env (env E X) Y -> A) (ℂI (env (env E X) Y) ((CE * CX) * CY) -> ℂO CA) =>
+         c_clo +>
+       fun cp : ℂI (E -> X * Y) (ℂI E CE -> ℂO (CX * CY)) => c_clo +>
+       fun ce : ℂI E CE => c_case_prod ⊕ c_frame ⊕ cost (pot cp ce) ⊕
+         let (x, y) := val cp (val ce) in
+         let (cx, cy) := res (pot cp ce) in
+         pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, cx), cy))).
+End HProdTimeCostModel.
 
 (** ** Sums (of any data)
 

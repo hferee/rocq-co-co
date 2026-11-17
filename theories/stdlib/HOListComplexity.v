@@ -26,8 +26,8 @@
     (below). As in [ListComplexity], [cbound] proves the bounds, with the
     smallest constants.
 
-    Not covered: [partition], whose result is a pair of lists (pairs are
-    modelled for ground data only). *)
+    Not covered yet: [partition], whose result is a pair of lists, of any
+    data ([HProdTimeCostModel]). *)
 
 From Complexity Require Export TimeCostModel BoolComplexity.
 From Stdlib Require Import List.
