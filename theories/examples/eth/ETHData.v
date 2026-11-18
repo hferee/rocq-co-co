@@ -31,7 +31,7 @@ Module Type ParamETHData (Import Time : TimeStdlib).
 
   (** ** Literals: a variable and a sign *)
 
-  #[global] Declare Instance Repr_literal : Ground literal.
+  #[global] Declare Instance Repr_literal : Repr literal unit.
   #[global] Declare Instance Size_literal : Size literal.
   Parameter size_mkLit : forall (v : nat) (p : bool), size (mkLit v p) = 1 + size v + size p.
 
@@ -57,11 +57,11 @@ Module Type ParamETHData (Import Time : TimeStdlib).
 
   (** ** The other types: representations and sizes *)
 
-  #[global] Declare Instance Repr_params : Ground params.
+  #[global] Declare Instance Repr_params : Repr params unit.
   #[global] Declare Instance Size_params : Size params.
-  #[global] Declare Instance Repr_pair_eig : Ground pair_eig.
+  #[global] Declare Instance Repr_pair_eig : Repr pair_eig unit.
   #[global] Declare Instance Size_pair_eig : Size pair_eig.
-  #[global] Declare Instance Repr_design : Ground design.
+  #[global] Declare Instance Repr_design : Repr design unit.
   #[global] Declare Instance Size_design : Size design.
 End ParamETHData.
 

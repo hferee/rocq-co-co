@@ -5,7 +5,7 @@
     [TimePos]); an application that uses them is a functor over
     [TimeStdlib], which finds their bounds by typeclass search. *)
 
-From Complexity Require Export ListComplexity HOListComplexity ZComplexity SumComplexity.
+From Complexity Require Export HOListComplexity ListComplexity ZComplexity SumComplexity.
 
-Module Type TimeStdlib := TimePos <+ ListComplexity <+ HOListComplexity <+ ZComplexity
+Module Type TimeStdlib := TimePos <+ HOListComplexity <+ ListComplexity <+ ZComplexity
   <+ SumComplexity.

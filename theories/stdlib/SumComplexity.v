@@ -99,7 +99,7 @@ End SumComplexity.
 
 (** ** Options and lists of sums *)
 
-Module HSumComplexity (Import Time : HOTimeCostModel).
+Module HSumComplexity (Import Time : TimeCostModel).
 
   Global Instance get_inl_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@get_inl A B)

@@ -41,7 +41,7 @@ Definition bool_case {E A : Type} (t f : E -> A) (b : E -> bool) (e : E) : A :=
 
 (** Booleans are ground data. *)
 Module Type BoolData (Import CM : CostModel).
-  #[global] Declare Instance Repr_bool : Ground bool.
+  #[global] Declare Instance Repr_bool : Repr bool unit.
 
   #[global] Declare Instance Size_bool : Size bool.
   Parameter size_bool : forall b : bool, size b = 1.
@@ -89,7 +89,7 @@ Coercion ℂI_nat_inj : nat >-> ℂI.
 
 (** Natural numbers are ground data. *)
 Module Type NatData (Import CM : CostModel).
-  #[global] Declare Instance Repr_nat : Ground nat.
+  #[global] Declare Instance Repr_nat : Repr nat unit.
 
   #[global] Declare Instance Size_nat : Size nat.
   Parameter size_O : size 0 = 1.
@@ -411,11 +411,11 @@ Definition Q_case {E A : Type} (f : env (env E Z) positive -> A) (q : E -> Q) (e
 (** ** Values, constructors, case analysis *)
 
 Module Type ZData (Import CM : CostModel).
-  #[global] Declare Instance Repr_positive : Ground positive.
-  #[global] Declare Instance Repr_N : Ground N.
-  #[global] Declare Instance Repr_Z : Ground Z.
-  #[global] Declare Instance Repr_Q : Ground Q.
-  #[global] Declare Instance Repr_comparison : Ground comparison.
+  #[global] Declare Instance Repr_positive : Repr positive unit.
+  #[global] Declare Instance Repr_N : Repr N unit.
+  #[global] Declare Instance Repr_Z : Repr Z unit.
+  #[global] Declare Instance Repr_Q : Repr Q unit.
+  #[global] Declare Instance Repr_comparison : Repr comparison unit.
 
   #[global] Declare Instance Size_positive : Size positive.
   #[global] Declare Instance Size_N : Size N.

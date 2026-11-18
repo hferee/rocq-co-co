@@ -58,7 +58,7 @@ Module BFFFeasibility (Import Time : TimeCostModel).
       is [N], whose size is the length [N.size_nat]. *)
   Fixpoint bits (σ : ty) : HigherOrder σ (den σ) (cty σ) :=
     match σ return HigherOrder σ (den σ) (cty σ) with
-    | tN => ho_ground Repr_N N.size_nat
+    | tN => ho_ground Repr_N (unit_ground _) N.size_nat
     | σ ⇒ τ => ho_arr (bits σ) (bits τ)
     end.
 

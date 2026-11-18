@@ -50,7 +50,7 @@ Module BracketComparison (Import Time : TimeCostModel).
     (fun ca => 1 +> fun cb => 9 >|).
   Proof. cbound. Qed.
 
-  Lemma length_complexity {A} `{Ground A} : Time.ComplexityBound (@length A)
+  Lemma length_complexity {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@length A)
     (fun cl => (23 * length (val cl) + 17) >|).
   Proof. cbound. Qed.
 

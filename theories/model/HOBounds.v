@@ -6,7 +6,8 @@
     and the bounds are higher-order polynomials ([HOPoly]).
 
     [HigherOrder σ A CA]: [A] is a type of functionals of shape [σ], built
-    from ground types with a representation ([Ground]) and a size ([Size]),
+    from ground types with a representation ([IsGround]) and a size
+    ([Size]),
     and [CA] is the type of their complexities. Everything below is defined
     over such a description, whatever the ground types and their sizes.
 
@@ -42,13 +43,13 @@ Module HOBounds (Import CM : CostModelCore).
   (** ** Higher-order types *)
 
   Inductive HigherOrder : ty -> Type -> Type -> Type :=
-  | ho_ground {A} : Ground A -> Size A -> HigherOrder tN A unit
+  | ho_ground {A CA} (RA : Repr A CA) : IsGround RA -> Size A -> HigherOrder tN A CA
   | ho_arr {σ τ A CA B CB} : HigherOrder σ A CA -> HigherOrder τ B CB ->
       HigherOrder (σ ⇒ τ) (A -> B) (ℂI A CA -> ℂO CB).
 
   Fixpoint ho_repr {σ A CA} (h : HigherOrder σ A CA) : Repr A CA :=
     match h in HigherOrder σ A CA return Repr A CA with
-    | ho_ground RA _ => RA
+    | ho_ground RA _ _ => RA
     | ho_arr h1 h2 => Repr_arr (ho_repr h1) (ho_repr h2)
     end.
 
@@ -60,7 +61,7 @@ Module HOBounds (Import CM : CostModelCore).
 
   Fixpoint maj {σ A CA} (h : HigherOrder σ A CA) : A -> CA -> M σ -> Prop :=
     match h in HigherOrder σ A CA return A -> CA -> M σ -> Prop with
-    | ho_ground _ s => fun x _ m => s x <= m
+    | ho_ground _ _ s => fun x _ m => s x <= m
     | @ho_arr σ τ _ _ _ _ h1 h2 => fun f c m => forall x cx a, monotone σ a -> maj h1 x cx a ->
         cost (c (x ⋊ cx)) <= baseM τ (m a) /\ maj h2 (f x) (res (c (x ⋊ cx))) (m a)
     end.
@@ -68,7 +69,7 @@ Module HOBounds (Import CM : CostModelCore).
   Lemma maj_mle {σ A CA} (h : HigherOrder σ A CA) f c m m' :
     maj h f c m -> mle σ m m' -> maj h f c m'.
   Proof.
-    induction h as [A RA s|σ τ A CA B CB h1 _ h2 IH]; intros Hf Hm; cbn in *; [lia|].
+    induction h as [A CA0 RA GA s|σ τ A CA B CB h1 _ h2 IH]; intros Hf Hm; cbn in *; [lia|].
     intros x cx a Ha Hx. destruct (Hf x cx a Ha Hx) as [Hc Hv].
     pose proof (Hm a a Ha). split; [pose proof (baseM_mono τ _ _ H); lia | exact (IH _ _ _ _ Hv H)].
   Qed.
@@ -76,7 +77,7 @@ Module HOBounds (Import CM : CostModelCore).
   Lemma maj_plus {σ A CA} (h : HigherOrder σ A CA) Γ (e : envT nat Γ) y cy k m :
     maj h y cy m -> maj h y cy (interp (plus_t σ) e k m).
   Proof.
-    revert Γ e y cy m; induction h as [A RA s|σ τ A CA B CB h1 _ h2 IH]; intros Γ e y cy m H.
+    revert Γ e y cy m; induction h as [A CA0 RA GA s|σ τ A CA B CB h1 _ h2 IH]; intros Γ e y cy m H.
     - rewrite interp_plus_tN. cbn in *. lia.
     - intros x cx a Ha Hx. destruct (H x cx a Ha Hx) as [Hc Hm]. rewrite interp_plus_arr.
       split; [rewrite baseM_plus_t; lia | apply IH, Hm].
@@ -112,40 +113,40 @@ Module HOBounds (Import CM : CostModelCore).
       ground value is asked with no argument, for the weight [1]. So the
       size counts the number of questions, and their sizes through the
       sizes of the arguments (Férée, definition 13). Ground data carry no
-      size bound (their complexity is [unit]): a ground value is its own
-      size. *)
+      size bound (their complexities carry no information): a ground value
+      is its own size. *)
 
   (** *** Dialogues *)
 
   (** The ground type of the answers, and its size. *)
   Fixpoint gty {σ A CA} (h : HigherOrder σ A CA) : Type :=
-    match h with @ho_ground A _ _ => A | ho_arr _ h2 => gty h2 end.
+    match h with @ho_ground A _ _ _ _ => A | ho_arr _ h2 => gty h2 end.
 
   Fixpoint gsize {σ A CA} (h : HigherOrder σ A CA) : gty h -> nat :=
-    match h as h0 return gty h0 -> nat with ho_ground _ s => s | ho_arr _ h2 => gsize h2 end.
+    match h as h0 return gty h0 -> nat with ho_ground _ _ s => s | ho_arr _ h2 => gsize h2 end.
 
   (** The arguments of a functional, each with its size. *)
   Fixpoint spine {σ A CA} (h : HigherOrder σ A CA) : Type :=
-    match h with ho_ground _ _ => unit | @ho_arr _ _ A CA _ _ _ h2 => ℂI A CA * spine h2 end.
+    match h with ho_ground _ _ _ => unit | @ho_arr _ _ A CA _ _ _ h2 => ℂI A CA * spine h2 end.
 
   (** The answer of [f] to the arguments [xs]. *)
   Fixpoint answer {σ A CA} (h : HigherOrder σ A CA) : A -> spine h -> gty h :=
     match h as h0 in HigherOrder σ A CA return A -> spine h0 -> gty h0 with
-    | ho_ground _ _ => fun y _ => y
+    | ho_ground _ _ _ => fun y _ => y
     | ho_arr _ h2 => fun f xs => answer h2 (f (val (fst xs))) (snd xs)
     end.
 
   (** The total cost of the complexity [s] on the arguments [xs]. *)
   Fixpoint dcost {σ A CA} (h : HigherOrder σ A CA) : CA -> spine h -> nat :=
     match h as h0 in HigherOrder σ A CA return CA -> spine h0 -> nat with
-    | ho_ground _ _ => fun _ _ => 0
+    | ho_ground _ _ _ => fun _ _ => 0
     | ho_arr _ h2 => fun s xs => cost (s (fst xs)) + dcost h2 (res (s (fst xs))) (snd xs)
     end.
 
   (** A certificate: questions to each argument, each question being the
       arguments of the argument asked. *)
   Fixpoint cert {σ A CA} (h : HigherOrder σ A CA) : Type :=
-    match h with ho_ground _ _ => unit | ho_arr h1 h2 => list (spine h1) * cert h2 end.
+    match h with ho_ground _ _ _ => unit | ho_arr h1 h2 => list (spine h1) * cert h2 end.
 
   (** The weight of the question [zs] to the argument [x]: the
       sub-dialogue it triggers. *)
@@ -154,7 +155,7 @@ Module HOBounds (Import CM : CostModelCore).
 
   Fixpoint cweight {σ A CA} (h : HigherOrder σ A CA) : spine h -> cert h -> nat :=
     match h as h0 return spine h0 -> cert h0 -> nat with
-    | ho_ground _ _ => fun _ _ => 0
+    | ho_ground _ _ _ => fun _ _ => 0
     | ho_arr h1 h2 => fun xs q =>
         list_sum (map (qweight h1 (fst xs)) (fst q)) + cweight h2 (snd xs) (snd q)
     end.
@@ -162,7 +163,7 @@ Module HOBounds (Import CM : CostModelCore).
   (** The largest answer received, to the questions of [q]. *)
   Fixpoint recv {σ A CA} (h : HigherOrder σ A CA) : spine h -> cert h -> nat :=
     match h as h0 return spine h0 -> cert h0 -> nat with
-    | ho_ground _ _ => fun _ _ => 0
+    | ho_ground _ _ _ => fun _ _ => 0
     | ho_arr h1 h2 => fun xs q =>
         Nat.max (list_max (map (fun zs => gsize h1 (answer h1 (val (fst xs)) zs)) (fst q)))
           (recv h2 (snd xs) (snd q))
@@ -172,7 +173,7 @@ Module HOBounds (Import CM : CostModelCore).
       [q]. *)
   Fixpoint agree_on {σ A CA} (h : HigherOrder σ A CA) : cert h -> spine h -> spine h -> Prop :=
     match h as h0 return cert h0 -> spine h0 -> spine h0 -> Prop with
-    | ho_ground _ _ => fun _ _ _ => True
+    | ho_ground _ _ _ => fun _ _ _ => True
     | ho_arr h1 h2 => fun q xs xs' =>
         pot (fst xs') = pot (fst xs) /\
         Forall (fun zs => answer h1 (val (fst xs')) zs = answer h1 (val (fst xs)) zs) (fst q) /\
@@ -193,7 +194,7 @@ Module HOBounds (Import CM : CostModelCore).
 
   Fixpoint lev {σ A CA} (h : HigherOrder σ A CA) : level h :=
     match h as h0 return level h0 with
-    | ho_ground _ _ =>
+    | ho_ground _ _ _ =>
         {| lsized := fun _ _ => True; lspine := fun _ => True; lcert := fun _ => True |}
     | ho_arr h1 h2 =>
         let sp xs := lsized (lev h1) (val (fst xs)) (pot (fst xs)) /\ lspine (lev h2) (snd xs) in
@@ -213,7 +214,8 @@ Module HOBounds (Import CM : CostModelCore).
   (** The arguments [xs] are sized by their potentials. *)
   Definition Sized_args {σ A CA} (h : HigherOrder σ A CA) : spine h -> Prop := lspine (lev h).
 
-  Lemma CSized_ground {A} (RA : Ground A) (sA : Size A) x c : CSized (ho_ground RA sA) x c.
+  Lemma CSized_ground {A CA} (RA : Repr A CA) (GA : IsGround RA) (sA : Size A) x c :
+    CSized (ho_ground RA GA sA) x c.
   Proof. exact I. Qed.
 
   (** *** Monotonicity
@@ -224,19 +226,19 @@ Module HOBounds (Import CM : CostModelCore).
       the costs, in one direction: [cle] is the pointwise order.) *)
   Fixpoint cle {σ A CA} (h : HigherOrder σ A CA) : CA -> CA -> Prop :=
     match h in HigherOrder σ A CA return CA -> CA -> Prop with
-    | ho_ground _ _ => fun _ _ => True
+    | ho_ground _ _ _ => fun _ _ => True
     | ho_arr _ h2 => fun c c' => forall x, cost (c x) <= cost (c' x) /\ cle h2 (res (c x)) (res (c' x))
     end.
 
   Lemma dcost_mono {σ A CA} (h : HigherOrder σ A CA) c c' xs : cle h c c' -> dcost h c xs <= dcost h c' xs.
   Proof.
-    revert c c' xs; induction h as [A RA s|σ τ A CA B CB h1 _ h2 IH]; intros c c' xs H; [apply le_n|].
+    revert c c' xs; induction h as [A CA0 RA GA s|σ τ A CA B CB h1 _ h2 IH]; intros c c' xs H; [apply le_n|].
     destruct (H (fst xs)) as [H1 H2]. cbn. pose proof (IH _ _ (snd xs) H2). lia.
   Qed.
 
   Lemma CSized_mono {σ A CA} (h : HigherOrder σ A CA) f c c' : cle h c c' -> CSized h f c -> CSized h f c'.
   Proof.
-    destruct h as [A RA s|σ τ A CA B CB h1 h2]; intros Hc Hf; [exact I|].
+    destruct h as [A CA0 RA GA s|σ τ A CA B CB h1 h2]; intros Hc Hf; [exact I|].
     intros xs Hxs. destruct (Hf xs Hxs) as (q & Hq & Hw & Hm). exists q. split; [exact Hq|].
     split; [pose proof (dcost_mono (ho_arr h1 h2) c c' xs Hc); lia | exact Hm].
   Qed.
@@ -244,19 +246,19 @@ Module HOBounds (Import CM : CostModelCore).
   (** [cplus h k c]: [c] with [k] added to the cost of every application. *)
   Fixpoint cplus {σ A CA} (h : HigherOrder σ A CA) (k : nat) : CA -> CA :=
     match h in HigherOrder σ A CA return CA -> CA with
-    | ho_ground _ _ => fun c => c
+    | ho_ground _ _ _ => fun c => c
     | ho_arr _ h2 => fun c x => (k + cost (c x)) +> cplus h2 k (res (c x))
     end.
 
   Lemma cle_refl {σ A CA} (h : HigherOrder σ A CA) c : cle h c c.
   Proof.
-    revert c; induction h as [A RA s|σ τ A CA B CB h1 _ h2 IH]; intros c; [exact I|].
+    revert c; induction h as [A CA0 RA GA s|σ τ A CA B CB h1 _ h2 IH]; intros c; [exact I|].
     intros x. split; [apply le_n | apply IH].
   Qed.
 
   Lemma cle_cplus {σ A CA} (h : HigherOrder σ A CA) k c : cle h c (cplus h k c).
   Proof.
-    revert c; induction h as [A RA s|σ τ A CA B CB h1 _ h2 IH]; intros c; [exact I|].
+    revert c; induction h as [A CA0 RA GA s|σ τ A CA B CB h1 _ h2 IH]; intros c; [exact I|].
     intros x. cbn. split; [lia | apply IH].
   Qed.
 
@@ -277,27 +279,27 @@ Module HOBounds (Import CM : CostModelCore).
   (** *** Low types *)
 
   Section LowTypes.
-    Context {A B D : Type} (RA : Ground A) (sA : Size A) (RB : Ground B) (sB : Size B)
-      (RD : Ground D) (sD : Size D).
+    Context {A CA B CB D CD : Type} (RA : Repr A CA) (GA : IsGround RA) (sA : Size A)
+      (RB : Repr B CB) (GB : IsGround RB) (sB : Size B) (RD : Repr D CD) (GD : IsGround RD) (sD : Size D).
 
     (** A first-order function [f] of size [s]: on each argument [y], the
         size of [f y] plus the question [1] (if [f] reads [y]) is at most
         the cost plus the size of [y], which [f] receives. *)
-    Lemma CSized_1 (f : A -> B) (s : ℂI A unit -> ℂO unit) :
-      (forall y : ℂI A unit, 1 + sB (f (val y)) <= cost (s y) + sA (val y)) ->
-      CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) f s.
+    Lemma CSized_1 (f : A -> B) (s : ℂI A CA -> ℂO CB) :
+      (forall y : ℂI A CA, 1 + sB (f (val y)) <= cost (s y) + sA (val y)) ->
+      CSized (ho_arr (ho_ground RA GA sA) (ho_ground RB GB sB)) f s.
     Proof.
-      intros H [y []] _. exists ([tt], tt). split; [split; [constructor; [exact I | constructor] | exact I]|].
+      intros H [y cy] _. exists ([tt], tt). split; [split; [constructor; [exact I | constructor] | exact I]|].
       cbn. split; [specialize (H y); lia|].
-      intros [y' []] _ (_ & Hq & _). inversion_clear Hq as [|? ? Hy _]. cbn in *. now rewrite Hy.
+      intros [y' cy'] _ (_ & Hq & _). inversion_clear Hq as [|? ? Hy _]. cbn in *. now rewrite Hy.
     Qed.
 
     (** A constant function needs no question. *)
-    Lemma CSized_const (n : B) (s : ℂI A unit -> ℂO unit) :
-      (forall y : ℂI A unit, sB n <= cost (s y)) ->
-      CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (fun _ => n) s.
+    Lemma CSized_const (n : B) (s : ℂI A CA -> ℂO CB) :
+      (forall y : ℂI A CA, sB n <= cost (s y)) ->
+      CSized (ho_arr (ho_ground RA GA sA) (ho_ground RB GB sB)) (fun _ => n) s.
     Proof.
-      intros H [y []] _. exists ([], tt). split; [split; [constructor | exact I]|].
+      intros H [y cy] _. exists ([], tt). split; [split; [constructor | exact I]|].
       cbn. split; [specialize (H y); lia | reflexivity].
     Qed.
 
@@ -307,29 +309,29 @@ Module HOBounds (Import CM : CostModelCore).
         [f y] are free, and the questions determine [F f] among the
         functions of size [cf]. *)
     Lemma CSized_2 (F : (A -> B) -> D) cF (f : A -> B) cf :
-      CSized (ho_arr (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (ho_ground RD sD)) F cF ->
-      CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) f cf ->
-      exists ys : list A,
-        sD (F f) + list_sum (map (fun y => S (cost (cf (y ⋊ tt)))) ys)
-          <= cost (cF (f ⋊ cf)) + list_max (map (fun y => sB (f y)) ys) /\
-        forall g, CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) g cf ->
-          (forall y, In y ys -> g y = f y) -> F g = F f.
+      CSized (ho_arr (ho_arr (ho_ground RA GA sA) (ho_ground RB GB sB)) (ho_ground RD GD sD)) F cF ->
+      CSized (ho_arr (ho_ground RA GA sA) (ho_ground RB GB sB)) f cf ->
+      exists ys : list (ℂI A CA),
+        sD (F f) + list_sum (map (fun y => S (cost (cf y))) ys)
+          <= cost (cF (f ⋊ cf)) + list_max (map (fun y => sB (f (val y))) ys) /\
+        forall g, CSized (ho_arr (ho_ground RA GA sA) (ho_ground RB GB sB)) g cf ->
+          (forall y, In y ys -> g (val y) = f (val y)) -> F g = F f.
     Proof.
       intros HF Hf.
       destruct (HF (f ⋊ cf, tt) (conj Hf I)) as ([qs []] & _ & Hw & Hm).
-      exists (map (fun zs => val (fst zs)) qs). split.
+      exists (map (fun zs => fst zs) qs). split.
       - cbn [answer gsize cweight recv dcost fst snd val pot] in Hw. rewrite !map_map.
         match goal with |- context [list_sum (map ?w qs)] =>
-          replace (map w qs) with (map (qweight (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (f ⋊ cf)) qs)
+          replace (map w qs) with (map (qweight (ho_arr (ho_ground RA GA sA) (ho_ground RB GB sB)) (f ⋊ cf)) qs)
         end.
         + match type of Hw with context [list_max ?l] =>
           match goal with |- context [list_max ?l'] => change l' with l end end.
           lia.
-        + apply map_ext. intros [[y []] []]. unfold qweight. cbn. lia.
+        + apply map_ext. intros [[y cy] []]. unfold qweight. cbn. lia.
       - intros g Hg Hgf. apply (Hm (g ⋊ cf, tt) (conj Hg I)).
         split; [reflexivity|]. split; [|exact I].
         apply Forall_forall. intros zs Hin. cbn [answer val fst].
-        apply Hgf, (in_map (fun zs : ℂI A unit * unit => val (fst zs))), Hin.
+        apply Hgf, (in_map (fun zs : ℂI A CA * unit => fst zs)), Hin.
     Qed.
 
     (** The restriction to sized arguments is not vacuous: evaluation at a
@@ -337,24 +339,43 @@ Module HOBounds (Import CM : CostModelCore).
         cost of its question. *)
     Definition eval_at (a0 : A) (f : A -> B) : B := f a0.
 
-    Definition eval_at_size (a0 : A) (cf : ℂI (A -> B) (ℂI A unit -> ℂO unit)) : ℂO unit :=
-      (1 + cost (pot cf (a0 ⋊ tt))) >|.
+    Definition eval_at_size (a0 : A) (cf : ℂI (A -> B) (ℂI A CA -> ℂO CB)) : ℂO CB :=
+      (1 + cost (pot cf (a0 ⋊ inhabitant))) >|.
 
     Lemma eval_at_sized a0 :
-      CSized (ho_arr (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (ho_ground RB sB))
+      CSized (ho_arr (ho_arr (ho_ground RA GA sA) (ho_ground RB GB sB)) (ho_ground RB GB sB))
         (eval_at a0) (eval_at_size a0).
     Proof.
-      intros [f []] [Hf _]. exists ([(a0 ⋊ tt, tt)], tt).
+      intros [f cf'] [Hf _]. exists ([(a0 ⋊ inhabitant, tt)], tt).
       split; [split; [constructor; [split; exact I | constructor] | exact I]|].
       unfold eval_at. cbn. split; [lia|].
-      intros [f' []] _ (_ & Hq & _). inversion_clear Hq as [|? ? H _]. exact H.
+      intros [f' cf''] _ (_ & Hq & _). inversion_clear Hq as [|? ? H _]. exact H.
     Qed.
   End LowTypes.
 
+  (** [CSized_2] for an argument of complexity [unit]: the questions are
+      values. *)
+  Lemma CSized_2_unit {A B CB D CD} (RA : Repr A unit) (sA : Size A)
+      (RB : Repr B CB) (GB : IsGround RB) (sB : Size B) (RD : Repr D CD) (GD : IsGround RD) (sD : Size D)
+      (F : (A -> B) -> D) cF (f : A -> B) cf :
+    CSized (ho_arr (ho_arr (ho_ground RA (unit_ground RA) sA) (ho_ground RB GB sB)) (ho_ground RD GD sD)) F cF ->
+    CSized (ho_arr (ho_ground RA (unit_ground RA) sA) (ho_ground RB GB sB)) f cf ->
+    exists ys : list A,
+      sD (F f) + list_sum (map (fun y => S (cost (cf (y ⋊ tt)))) ys)
+        <= cost (cF (f ⋊ cf)) + list_max (map (fun y => sB (f y)) ys) /\
+      forall g, CSized (ho_arr (ho_ground RA (unit_ground RA) sA) (ho_ground RB GB sB)) g cf ->
+        (forall y, In y ys -> g y = f y) -> F g = F f.
+  Proof.
+    intros HF Hf. destruct (CSized_2 RA (unit_ground RA) sA RB GB sB RD GD sD F cF f cf HF Hf) as (ys & Hw & Hm).
+    exists (map val ys). rewrite !map_map. split.
+    - erewrite (map_ext _ (fun y => S (cost (cf y)))); [exact Hw | intros [y []]; reflexivity].
+    - intros g Hg Hgf. apply (Hm g Hg). intros y Hy. apply Hgf, (in_map val), Hy.
+  Qed.
+
   (** The identity reads its argument, and answers it: at a constant cost. *)
-  Lemma id_sized {A} (RA : Ground A) (sA : Size A) (s : ℂI A unit -> ℂO unit) :
-    (forall y, 1 <= cost (s y)) -> CSized (ho_arr (ho_ground RA sA) (ho_ground RA sA)) (fun x => x) s.
-  Proof. intros H. apply (CSized_1 RA sA RA sA). intros y. specialize (H y). lia. Qed.
+  Lemma id_sized {A CA} (RA : Repr A CA) (GA : IsGround RA) (sA : Size A) (s : ℂI A CA -> ℂO CA) :
+    (forall y, 1 <= cost (s y)) -> CSized (ho_arr (ho_ground RA GA sA) (ho_ground RA GA sA)) (fun x => x) s.
+  Proof. intros H. apply (CSized_1 RA GA sA RA GA sA). intros y. specialize (H y). lia. Qed.
 
   (** ** Sized arguments
 
@@ -368,7 +389,7 @@ Module HOBounds (Import CM : CostModelCore).
 
   Fixpoint smaj {σ A CA} (h : HigherOrder σ A CA) : A -> CA -> M (dbl σ) -> Prop :=
     match h in HigherOrder σ A CA return A -> CA -> M (dbl σ) -> Prop with
-    | ho_ground _ s => fun x _ m => s x <= m
+    | ho_ground _ _ s => fun x _ m => s x <= m
     | @ho_arr σ τ _ _ _ _ h1 h2 => fun f c m =>
         forall x cx a sx b, monotone σ a -> monotone σ b ->
         maj h1 x cx a -> CSized h1 x sx -> maj h1 x sx b ->
@@ -378,7 +399,7 @@ Module HOBounds (Import CM : CostModelCore).
   Lemma smaj_mle {σ A CA} (h : HigherOrder σ A CA) f c m m' :
     smaj h f c m -> mle (dbl σ) m m' -> smaj h f c m'.
   Proof.
-    revert f c m m'; induction h as [A RA s|σ τ A CA B CB h1 _ h2 IH]; intros f c m m' Hf Hm;
+    revert f c m m'; induction h as [A CA0 RA GA s|σ τ A CA B CB h1 _ h2 IH]; intros f c m m' Hf Hm;
       cbn in *; [lia|].
     intros x cx a sx b Ha Hb Hx Hs Hsb. destruct (Hf x cx a sx b Ha Hb Hx Hs Hsb) as [Hc Hv].
     pose proof (Hm a a Ha b b Hb) as H. split; [pose proof (baseM_mono _ _ _ H); lia | exact (IH _ _ _ _ Hv H)].
@@ -424,7 +445,7 @@ Module HOBounds (Import CM : CostModelCore).
 
   Lemma maj_smaj {σ A CA} (h : HigherOrder σ A CA) f c m : maj h f c m -> smaj h f c (dropM σ m).
   Proof.
-    revert f c m; induction h as [A RA s|σ τ A CA B CB h1 _ h2 IH]; intros f c m H; [exact H|].
+    revert f c m; induction h as [A CA0 RA GA s|σ τ A CA B CB h1 _ h2 IH]; intros f c m H; [exact H|].
     intros x cx a sx b Ha _ Hx _ _. destruct (H x cx a Ha Hx) as [H1 H2]. cbn [dropM].
     split; [rewrite baseM_drop; exact H1 | exact (IH _ _ _ H2)].
   Qed.
@@ -446,7 +467,7 @@ Module HOBounds (Import CM : CostModelCore).
   Lemma maj_cplus_env {σ A CA} (h : HigherOrder σ A CA) Γ (e : envT nat Γ) k y cy m :
     maj h y cy m -> maj h y (cplus h k cy) (interp (plus_t σ) e k m).
   Proof.
-    revert Γ e y cy m; induction h as [A RA s|σ τ A CA B CB h1 _ h2 IH]; intros Γ e y cy m H.
+    revert Γ e y cy m; induction h as [A CA0 RA GA s|σ τ A CA B CB h1 _ h2 IH]; intros Γ e y cy m H.
     - rewrite interp_plus_tN. cbn in *. lia.
     - intros x cx a Ha Hx. destruct (H x cx a Ha Hx) as [Hc Hm]. rewrite interp_plus_arr.
       cbn [cplus cost res]. split; [rewrite baseM_plus_t; lia | apply IH, Hm].

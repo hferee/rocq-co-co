@@ -18,12 +18,12 @@ From Complexity Require Export SpaceCostModel.
 Module Type SizedAllocCostModel (Import CM : CostModel).
 
   (** The footprint of the ground values: the memory that represents them. *)
-  Parameter footprint : forall {A}, Ground A -> Size A.
+  Parameter footprint : forall {A CA} (R : Repr A CA), IsGround R -> Size A.
 
   (** The ground types of [h] are measured at most by their footprint. *)
   Fixpoint Footprinted {σ A CA} (h : HigherOrder σ A CA) : Prop :=
     match h with
-    | @ho_ground A RA sA => forall x : A, sA x <= footprint RA x
+    | @ho_ground A _ RA GA sA => forall x : A, sA x <= footprint RA GA x
     | ho_arr h1 h2 => Footprinted h1 /\ Footprinted h2
     end.
 

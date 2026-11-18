@@ -178,7 +178,7 @@ Module Type QMatTimeCostModel
   (Import Time : CostModel) (Import BT : BasicTimeCostModel Time)
   (Import CB : CombinatorTimeCostModel Time BT) (Import ZD : ZData Time).
 
-  #[global] Declare Instance Repr_qmat : Ground qmat.
+  #[global] Declare Instance Repr_qmat : Repr qmat unit.
   #[global] Declare Instance qmat_complexity : forall q : qmat, Time.ComplexityBound q tt.
 
   Parameter c_qmat c_case_qmat : nat.

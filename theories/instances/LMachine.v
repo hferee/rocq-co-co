@@ -20,8 +20,7 @@
     costs the steps of its realiser, from [c_Ic = 1] to [c_etl = 16], the
     projections of the environments being the dearest (environments are
     Scott-encoded pairs); a non-tail evaluation [c_frame = 2]. [LM] gathers
-    the layers ([LMH] is its former name, for lists and options of any
-    data). *)
+    the layers. *)
 
 From Stdlib Require Import List Lia PeanoNat PArith NArith ZArith QArith.
 From Complexity Require Export MachineCostModel.
@@ -193,9 +192,8 @@ Defined.
 Module MCM <: CostModel.
   Definition Repr := MRepr.
   Existing Class Repr.
-  Abbreviation Ground A := (Repr A unit).
 
-  Global Instance Repr_unit : Ground unit := ground_repr (fun _ => unit_enc).
+  Global Instance Repr_unit : Repr unit unit := ground_repr (fun _ => unit_enc).
   Global Instance Size_unit : Size unit := fun _ => 1.
   Lemma size_tt : CostModelCore.size tt = 1.
   Proof. reflexivity. Qed.
@@ -446,7 +444,7 @@ Ltac Mcase3_start := intro k; Mfun; Mstep; Mfun; Mstep; Mfun; Mstep; Mfun; Mstep
 Module MBO <: BoolTimeCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_case_bool := 25.
-  Global Instance Repr_bool : Ground bool := ground_repr bool_enc.
+  Global Instance Repr_bool : Repr bool unit := ground_repr bool_enc.
   Global Instance Size_bool : Size bool := fun _ => 1.
   Lemma size_bool : forall b : bool, CostModelCore.size b = 1.
   Proof. reflexivity. Qed.
@@ -476,7 +474,7 @@ Module MNT <: NatTimeCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_S := 1.
   Definition c_case_nat := 33.
-  Global Instance Repr_nat : Ground nat := ground_repr nat_enc.
+  Global Instance Repr_nat : Repr nat unit := ground_repr nat_enc.
   Global Instance Size_nat : Size nat := fun n => S n.
   Lemma size_O : CostModelCore.size 0 = 1.
   Proof. reflexivity. Qed.
@@ -739,11 +737,11 @@ Module MZM <: ZTimeCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_ctor_Z := 1.
   Definition c_case_Z := 43.
-  Global Instance Repr_positive : Ground positive := ground_repr pos_enc.
-  Global Instance Repr_N : Ground N := ground_repr N_enc.
-  Global Instance Repr_Z : Ground Z := ground_repr Z_enc.
-  Global Instance Repr_Q : Ground Q := ground_repr Q_enc.
-  Global Instance Repr_comparison : Ground comparison := ground_repr comp_enc.
+  Global Instance Repr_positive : Repr positive unit := ground_repr pos_enc.
+  Global Instance Repr_N : Repr N unit := ground_repr N_enc.
+  Global Instance Repr_Z : Repr Z unit := ground_repr Z_enc.
+  Global Instance Repr_Q : Repr Q unit := ground_repr Q_enc.
+  Global Instance Repr_comparison : Repr comparison unit := ground_repr comp_enc.
 
   Global Instance Size_positive : Size positive := fun p => Pos.size_nat p.
   Global Instance Size_N : Size N := fun n => match n with N0 => 1 | Npos p => S (Pos.size_nat p) end.
@@ -1231,6 +1229,3 @@ Module LM <: MachineTimeCostModel.
   Include MZM. Include MFX.
 End LM.
 
-(** The former name of the instance with lists, options and pairs of any
-    data: it is [LM] itself. *)
-Module LMH <: MachineHOTimeCostModel := LM.

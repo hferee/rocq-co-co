@@ -54,32 +54,32 @@ Module SpaceExamples (Import Space : SpaceCostModel).
 
   (** ** Lists *)
 
-  Global Instance length_space {A} `{Ground A} : Space.ComplexityBound (@length A)
+  Global Instance length_space {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Space.ComplexityBound (@length A)
     (fun cl => (3 * length (val cl) + 2) >|).
   Proof. cbound. Qed.
 
   (** [app l m] copies [l] and shares [m]. *)
-  Global Instance app_space {A} `{Ground A} : Space.ComplexityBound (@app A)
+  Global Instance app_space {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Space.ComplexityBound (@app A)
     (fun cl => 1 +> fun cm => (4 * length (val cl) + 3) >|).
   Proof. cbound. Qed.
 
-  Global Instance repeat_space {A} `{Ground A} : Space.ComplexityBound (@repeat A)
+  Global Instance repeat_space {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Space.ComplexityBound (@repeat A)
     (fun cx => 1 +> fun cn => (4 * val cn + 2) >|).
   Proof. cbound. Qed.
 
   (** Naive reversal: quadratic. *)
-  Global Instance rev_space {A} `{Ground A} : Space.ComplexityBound (@rev A)
+  Global Instance rev_space {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Space.ComplexityBound (@rev A)
     (fun cl => (length (val cl) * (2 * length (val cl) + 6) + 2) >|).
   Proof. cbound. all: rewrite ?length_rev; nia. Qed.
 
   (** Reversal with an accumulator: linear. *)
-  Global Instance rev_append_space {A} `{Ground A} : Space.ComplexityBound (@rev_append A)
+  Global Instance rev_append_space {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Space.ComplexityBound (@rev_append A)
     (fun cl => 3 +> fun cm => (5 * length (val cl)) >|).
   Proof. cbound. Qed.
 
   (** [map f l] allocates [|l|] cells, and [f] on each element. *)
-  Lemma map_space {A B} `{Ground A} `{Ground B} (f : A -> B) (c : nat) :
-    Space.ComplexityBound f (fun _ => c >|) ->
+  Lemma map_space {A B} {CA} {RA : Repr A CA} {GA : IsGround RA} {CB} {RB : Repr B CB} {GB : IsGround RB} (f : A -> B) (c : nat) :
+    Space.ComplexityBound f (fun _ : ℂI A CA => c >|) ->
     Space.ComplexityBound (map f) (fun cl => ((c + 4) * length (val cl) + 2) >|).
   Proof. intros Hf. cbound. Qed.
 
@@ -111,7 +111,7 @@ Module SpaceExamples (Import Space : SpaceCostModel).
       (fun (cn : ℂI nat _) => 1 +> fun (cm : ℂI nat _) => (#|val cn| * (3 * #|val cm| + 3)) >|).
   Proof. csize_using Nat_mul_space. Qed.
 
-  Lemma repeat_space_size_complexity {A} `{Ground A} :
+  Lemma repeat_space_size_complexity {A} {CA} {RA : Repr A CA} {GA : IsGround RA} :
     Space.ComplexityBound (@repeat A)
       (fun cx => 1 +> fun (cn : ℂI nat _) => (4 * #|val cn|) >|).
   Proof. csize_using repeat_space. Qed.

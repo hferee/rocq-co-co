@@ -39,18 +39,3 @@ Module Type MachineTimeCostModel := ParamTimeCostModel
   with Definition c_ctor_Z := 1 with Definition c_case_Z := 43
   with Definition c_fix := 36.
 
-(** The former name of the model with lists, options and pairs of any
-    data: it is the same model. *)
-Module Type MachineHOTimeCostModel := ParamHOTimeCostModel
-  with Definition c_clo := 1 with Definition c_frame := 2
-  with Definition c_ehd := 15 with Definition c_etl := 16 with Definition c_Lam := 5
-  with Definition c_Kc := 2 with Definition c_Ic := 1 with Definition c_compose := 8
-  with Definition c_Cc := 8 with Definition c_Sc := 10
-  with Definition c_case_bool := 25
-  with Definition c_S := 1 with Definition c_case_nat := 33
-  with Definition c_cons := 1 with Definition c_case_list := 46
-  with Definition c_Some := 1 with Definition c_case_option := 35
-  with Definition c_pair := 1 with Definition c_case_prod := 39
-  with Definition c_ctor_sum := 1 with Definition c_case_sum := 35
-  with Definition c_ctor_Z := 1 with Definition c_case_Z := 43
-  with Definition c_fix := 36.

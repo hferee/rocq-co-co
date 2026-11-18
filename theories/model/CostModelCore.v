@@ -176,12 +176,9 @@ Module Type CostModelAxioms.
   Parameter Repr : Type -> Type -> Type.
   Existing Class Repr.
 
-  (** [Ground A]: [A] is a ground type, whose values have complexity [unit]
-      (all the information is in the value). It is the class [Repr A unit]
-      itself, so goals display it. *)
-  Abbreviation Ground A := (Repr A unit).
-
-  #[global] Declare Instance Repr_unit : Ground unit.
+  (** The values of numbers, booleans, ... have complexity [unit]: all the
+      information is in the value (they are ground, [IsGround]). *)
+  #[global] Declare Instance Repr_unit : Repr unit unit.
 
   #[global] Declare Instance Size_unit : Size unit.
   Parameter size_tt : size tt = 1.
@@ -228,7 +225,7 @@ Module Complexities (Import CM : CostModelAxioms).
       related, by reflexivity. The lemma applies to any terms of type
       [unit], such as [res (c ca)], which [reflexivity] does not relate to
       [tt] (there is no eta-rule for [unit]). *)
-  Lemma bound_order_ground {A} `{Ground A} (c c' : unit) : bound_order c c'.
+  Lemma bound_order_ground {A} `{Repr A unit} (c c' : unit) : bound_order c c'.
   Proof. destruct c, c'. reflexivity. Qed.
 
   (** Ground data, in general: their complexities carry no information. Their
@@ -244,7 +241,7 @@ Module Complexities (Import CM : CostModelAxioms).
   Definition ground_order {A CA} {R : Repr A CA} {G : IsGround R} (c c' : CA) : bound_order c c' :=
     indiscrete c c'.
 
-  Global Instance unit_ground {A} (R : Ground A) : IsGround R :=
+  Global Instance unit_ground {A} (R : Repr A unit) : IsGround R :=
     {| ground_inhabited := unit_inhabited; ground_indiscrete := @bound_order_ground A R |}.
 
   (** Decompose [bound_order] goals into inequalities between costs. The

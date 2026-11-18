@@ -566,9 +566,8 @@ Qed.
 Module LCM <: CostModel.
   Definition Repr := LRepr.
   Existing Class Repr.
-  Abbreviation Ground A := (Repr A unit).
 
-  Global Instance Repr_unit : Ground unit :=
+  Global Instance Repr_unit : Repr unit unit :=
     ground_repr (fun _ => unit_enc) (fun _ => unit_enc_proc).
 
   (** The size of a value is its number of constructors, the length of its
@@ -773,7 +772,7 @@ Module LNT <: NatTimeCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_S := 1.
   Definition c_case_nat := 1.
-  Global Instance Repr_nat : Ground nat := ground_repr nat_enc' nat_enc_proc.
+  Global Instance Repr_nat : Repr nat unit := ground_repr nat_enc' nat_enc_proc.
 
   Global Instance Size_nat : Size nat := fun n => S n.
   Lemma size_O : CostModelCore.size 0 = 1.
@@ -821,7 +820,7 @@ End LNT.
 Module LBO <: BoolTimeCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_case_bool := 1.
-  Global Instance Repr_bool : Ground bool := ground_repr bool_enc bool_enc_proc.
+  Global Instance Repr_bool : Repr bool unit := ground_repr bool_enc bool_enc_proc.
 
   Global Instance Size_bool : Size bool := fun _ => 1.
   Lemma size_bool : forall b : bool, CostModelCore.size b = 1.
@@ -1121,15 +1120,15 @@ Module LZM <: ZTimeCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_ctor_Z := 1.
   Definition c_case_Z := 1.
-  Global Instance Repr_positive : Ground positive := ground_repr pos_enc pos_enc_proc.
+  Global Instance Repr_positive : Repr positive unit := ground_repr pos_enc pos_enc_proc.
 
-  Global Instance Repr_N : Ground N := ground_repr N_enc N_enc_proc.
+  Global Instance Repr_N : Repr N unit := ground_repr N_enc N_enc_proc.
 
-  Global Instance Repr_Z : Ground Z := ground_repr Z_enc Z_enc_proc.
+  Global Instance Repr_Z : Repr Z unit := ground_repr Z_enc Z_enc_proc.
 
-  Global Instance Repr_Q : Ground Q := ground_repr Q_enc Q_enc_proc.
+  Global Instance Repr_Q : Repr Q unit := ground_repr Q_enc Q_enc_proc.
 
-  Global Instance Repr_comparison : Ground comparison := ground_repr comp_enc comp_enc_proc.
+  Global Instance Repr_comparison : Repr comparison unit := ground_repr comp_enc comp_enc_proc.
 
   Global Instance Size_positive : Size positive := fun p => Pos.size_nat p.
   Global Instance Size_N : Size N := fun n => match n with N0 => 1 | Npos p => S (Pos.size_nat p) end.
@@ -1444,7 +1443,4 @@ Module L <: TimeCostModel.
   Include LZM. Include LFX.
 End L.
 
-(** The former name of the instance with lists, options and pairs of any
-    data: it is [L] itself. *)
-Module LH <: HOTimeCostModel := L.
 

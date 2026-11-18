@@ -315,7 +315,7 @@ Module Type3Complexity (Import Time : TimePos).
     F (C x) <> F zero ->
     N.to_nat x < cost (cF (C x ⋊ C_pot x)).
   Proof.
-    intros HF Hd. destruct (CSized_2 _ _ _ _ _ _ F cF (C x) (C_pot x) HF (C_sized x)) as (ys & Hw & Hm).
+    intros HF Hd. destruct (CSized_2_unit _ _ _ _ _ _ _ _ F cF (C x) (C_pot x) HF (C_sized x)) as (ys & Hw & Hm).
     destruct (List.in_dec N.eq_dec (2 ^ x)%N ys) as [Hin | Hout].
     - (* [F] asks [2^x], which costs more than [x + 1] to [C x], whose
          answers are free but at most [1] *)

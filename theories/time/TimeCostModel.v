@@ -56,7 +56,3 @@ Module Type TimeCostModel := ParamTimeCostModel
   with Definition c_ctor_Z := 1 with Definition c_case_Z := 1
   with Definition c_fix := 1.
 
-(** The names of the former model with lists, options and pairs of any
-    data: it is now [TimeCostModel] itself. *)
-Module Type ParamHOTimeCostModel := ParamTimeCostModel.
-Module Type HOTimeCostModel := TimeCostModel.

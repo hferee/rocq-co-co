@@ -18,8 +18,7 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   (numbers, lists of numbers, ...) are those whose complexities carry no
   information (`IsGround`), and a bound with a ground result ends with `>|`.
   The costs are constants: `ParamTimeCostModel` leaves them abstract,
-  `TimeCostModel` sets them all to 1 (`HOTimeCostModel` is its former name,
-  for the model with lists of any data). The size of a value is
+  `TimeCostModel` sets them all to 1. The size of a value is
   the length of its binary encoding, its number of constructors (exact
   equations: `size (S n) = 1 + size n`, ...). `TimeArith` defines another
   model, with addition and multiplication as primitives and no case analysis
@@ -62,9 +61,9 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   (`DecisionTrees`); the `log2 (n!)` and `n log n` lower bounds for sorting
   (`SortingLowerBound`).
 - `instances/`: the call-by-value λ-calculus L as an instance of
-  `TimeCostModel` and of `HOTimeCostModel` (`LInstance`), with the bounds of
-  the higher-order functions on lists (`LHOLists`), and of the arithmetic
-  signature (`LArith`).
+  `TimeCostModel` (`LInstance`), with the bounds of the higher-order
+  functions on lists (`LHOLists`), and of the arithmetic signature
+  (`LArith`).
 - `examples/`: examples, the analysis of an ETH algorithm, operation counts
   in the arithmetic model (`HornerCount`, and Strassen's matrix product in
   `StrassenCount`), and why unfoldings of fixpoints must not be free

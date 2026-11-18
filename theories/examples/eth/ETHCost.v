@@ -72,13 +72,13 @@ Module ETHCost (Import Time : TimeStdlib).
 
   (** [set_nth] and [remove_nth] recurse on the list and the index, and
       stop at the index. *)
-  Global Instance set_nth_complexity {A} `{Ground A} : Time.ComplexityBound (@set_nth A)
+  Global Instance set_nth_complexity {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@set_nth A)
     (fun cl => 4 +> fun ci => 2 +> fun cx => (57 * val ci + 25) >|) := _.
-  Global Instance remove_nth_complexity {A} `{Ground A} : Time.ComplexityBound (@remove_nth A)
+  Global Instance remove_nth_complexity {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@remove_nth A)
     (fun cl => 4 +> fun ci => (41 * val ci + 12) >|) := _.
 
   (** [chunks size count l]: [count] times [firstn size] and [skipn size]. *)
-  Global Instance chunks_complexity {A} `{Ground A} : Time.ComplexityBound (@chunks A)
+  Global Instance chunks_complexity {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@chunks A)
     (fun cs => 1 +> fun cn => 4 +> fun cl => (val cn * (71 * val cs + 67) + 6) >|) := _.
 
   (** The rounded divisions, logarithms and roots. *)
@@ -296,9 +296,9 @@ Module ETHCost (Import Time : TimeStdlib).
   Global Instance indexN_polynomial_bound : Time.PolynomialBound indexN := _.
   Global Instance lexltbN_polynomial_bound : Time.PolynomialBound lexltbN := _.
   Global Instance maxN_polynomial_bound : Time.PolynomialBound maxN := _.
-  Global Instance set_nth_linear_bound {A} `{Ground A} `{Size A} : Time.LinearBound (@set_nth A) := _.
-  Global Instance remove_nth_linear_bound {A} `{Ground A} `{Size A} : Time.LinearBound (@remove_nth A) := _.
-  Global Instance chunks_polynomial_bound {A} `{Ground A} `{Size A} : Time.PolynomialBound (@chunks A) := _.
+  Global Instance set_nth_linear_bound {A} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.LinearBound (@set_nth A) := _.
+  Global Instance remove_nth_linear_bound {A} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.LinearBound (@remove_nth A) := _.
+  Global Instance chunks_polynomial_bound {A} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.PolynomialBound (@chunks A) := _.
   Global Instance ceil_div_linear_bound : Time.LinearBound ceil_div := _.
   Global Instance clog2_linear_bound : Time.LinearBound clog2 := _.
   Global Instance csqrt_linear_bound : Time.LinearBound csqrt := _.
@@ -471,13 +471,13 @@ End ETHDataCost.
       axiomatised, as for [literal];
     - bounds of functions of the standard library (section 0 below: the
       remaining ones);
-    - higher-order functions on ground lists: [map], [filter], [existsb],
-      [forallb] and [flat_map] have bounds in the costs of their function
-      ([ListComplexity]), which [subsetN], [tautological], ... use; the
-      folds with a function that is a closure ([zipWith], [embed], ...)
-      do not ([fold_left_ground_hcomplexity] is not closed, and [fold_right] has
-      no such bound yet: [sort_uniq] and [sort_clauses] analyse it with
-      their function fixed).
+    - higher-order functions on lists: [map], [filter], [existsb],
+      [forallb], [flat_map] and the folds have bounds in the costs of their
+      function ([HOListComplexity]), which [subsetN], [tautological], ...
+      use ([simpl_czip]); [fold_right] has a closed bound in the sizes
+      ([fold_right_size_complexity]), [fold_left] not yet ([zipWith],
+      ...); [sort_uniq] and [sort_clauses] analyse [fold_right] with their
+      function fixed.
     The subexponential bounds of the top layers also need the facts of the
     paper on the parameters: the numerical checks of [choose_params] pass
     for large [n] (otherwise the counts fall back to exhaustive search). *)
@@ -515,7 +515,8 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
       in the costs of their function, a closure, are in [ListComplexity];
       the statements below are their closures under polynomials. *)
   Section Lists.
-    Context {A B : Type} `{Ground A} `{Size A} `{Ground B} `{Size B}.
+    Context {A B : Type} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A}
+      {CB} {RB : Repr B CB} {GB : IsGround RB} `{Size B}.
     Lemma concat_polynomial : Time.PolynomialBound (@concat A). Abort.
     Lemma list_prod_polynomial : Time.PolynomialBound (@list_prod A B). Abort.
     Lemma map_polynomial (f : A -> B) : Time.PolynomialBound f -> Time.PolynomialBound (map f). Abort.
@@ -539,34 +540,34 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   (** *** 1. Generic utilities *)
 
   Lemma sumZ_polynomial : Time.PolynomialBound sumZ. Abort.
-  Lemma zipWith_polynomial {A B C} `{Ground A} `{Size A} `{Ground B} `{Size B} `{Ground C}
+  Lemma zipWith_polynomial {A B C} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} {CB} {RB : Repr B CB} {GB : IsGround RB} `{Size B} {CC} {RC : Repr C CC} {GC : IsGround RC}
     (f : A -> B -> C) : Time.PolynomialBound f -> Time.PolynomialBound (zipWith f). Abort.
   Lemma zinterval_polynomial : Time.PolynomialBound zinterval. Abort.
 
   (** The enumerations: [|alphabet| ^ len] tuples (and subsets of [l] of
       size [k], all subsets of [l]), each with one application of [f]; the
       accumulator grows by at most [d] at each one. *)
-  Lemma fold_tuples_complexity {A B} `{Ground A} `{Size A} `{Ground B} `{Size B}
-    (f : B -> list A -> B) (cf : ℂI B unit -> ℂO (ℂI (list A) (list unit) -> ℂO unit)) (g : nat -> nat) (d : nat) :
+  Lemma fold_tuples_complexity {A B} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} {CB} {RB : Repr B CB} {GB : IsGround RB} `{Size B}
+    (f : B -> list A -> B) (cf : ℂI B CB -> ℂO (ℂI (list A) (list CA) -> ℂO CB)) (g : nat -> nat) (d : nat) :
     Time.ComplexityBound f cf ->
     (forall a t, cost (cf (a ⋊ inhabitant)) + cost (res (cf (a ⋊ inhabitant)) (t ⋊ inhabitant)) <= g (#|a| + #|t|)) ->
     (forall a t, #|f a t| <= #|a| + d) -> (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun len alphabet acc prefix => fold_tuples len alphabet f acc prefix)
-      (fun (cn : ℂI nat unit) => c +> fun (ca : ℂI (list A) (list unit)) => c +> fun (cacc : ℂI B unit) => c +>
-       fun (cp : ℂI (list A) (list unit)) =>
+      (fun (cn : ℂI nat unit) => c +> fun (ca : ℂI (list A) (list CA)) => c +> fun (cacc : ℂI B CB) => c +>
+       fun (cp : ℂI (list A) (list CA)) =>
          (S (length (val ca)) ^ val cn *
             (g (#|val cacc| + d * S (length (val ca)) ^ val cn + c * S (val cn + #|val ca| + #|val cp|) ^ c)
              + c * S (val cn + #|val ca| + #|val cp|) ^ c)) >|). Abort.
 
-  Lemma find_first_polynomial {A B} `{Ground A} `{Size A} `{Ground B} (f : A -> option B) :
+  Lemma find_first_polynomial {A B} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} {CB} {RB : Repr B CB} {GB : IsGround RB} (f : A -> option B) :
     Time.PolynomialBound f -> Time.PolynomialBound (find_first f). Abort.
 
-  Lemma find_tuple_complexity {A} `{Ground A} `{Size A}
-    (p : list A -> bool) (cp : ℂI (list A) (list unit) -> ℂO unit) (g : nat -> nat) :
+  Lemma find_tuple_complexity {A} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A}
+    (p : list A -> bool) (cp : ℂI (list A) (list CA) -> ℂO unit) (g : nat -> nat) :
     Time.ComplexityBound p cp -> (forall t, cost (cp (t ⋊ inhabitant)) <= g #|t|) ->
     (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun len alphabet prefix => find_tuple len alphabet p prefix)
-      (fun (cn : ℂI nat unit) => c +> fun (ca : ℂI (list A) (list unit)) => c +> fun (cpr : ℂI (list A) (list unit)) =>
+      (fun (cn : ℂI nat unit) => c +> fun (ca : ℂI (list A) (list CA)) => c +> fun (cpr : ℂI (list A) (list CA)) =>
          (S (length (val ca)) ^ val cn *
             (g (c * S (val cn + #|val ca| + #|val cpr|) ^ c) + c * S (val cn + #|val ca| + #|val cpr|) ^ c)) >|).
   Abort.
@@ -574,25 +575,25 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma combinations_complexity : exists c, Time.ComplexityBound combinations
     (fun (cl : ℂI (list nat) (list unit)) => c +> fun (ck : ℂI (nat) unit) => (S (length (val cl)) ^ val ck * c * S (#|val cl| + val ck) ^ c) >|). Abort.
 
-  Lemma fold_combinations_complexity {B} `{Ground B} `{Size B}
-    (f : B -> list nat -> B) (cf : ℂI B unit -> ℂO (ℂI (list nat) (list unit) -> ℂO unit)) (g : nat -> nat) (d : nat) :
+  Lemma fold_combinations_complexity {B} {CB} {RB : Repr B CB} {GB : IsGround RB} `{Size B}
+    (f : B -> list nat -> B) (cf : ℂI B CB -> ℂO (ℂI (list nat) (list unit) -> ℂO CB)) (g : nat -> nat) (d : nat) :
     Time.ComplexityBound f cf ->
     (forall a t, cost (cf (a ⋊ inhabitant)) + cost (res (cf (a ⋊ inhabitant)) (t ⋊ inhabitant)) <= g (#|a| + #|t|)) ->
     (forall a t, #|f a t| <= #|a| + d) -> (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun l k acc prefix => fold_combinations l k f acc prefix)
-      (fun (cl : ℂI (list nat) (list unit)) => c +> fun (ck : ℂI nat unit) => c +> fun (cacc : ℂI B unit) => c +>
+      (fun (cl : ℂI (list nat) (list unit)) => c +> fun (ck : ℂI nat unit) => c +> fun (cacc : ℂI B CB) => c +>
        fun (cp : ℂI (list nat) (list unit)) =>
          (S (length (val cl)) ^ val ck *
             (g (#|val cacc| + d * S (length (val cl)) ^ val ck + c * S (#|val cl| + val ck + #|val cp|) ^ c)
              + c * S (#|val cl| + val ck + #|val cp|) ^ c)) >|). Abort.
 
-  Lemma fold_sublists_complexity {B} `{Ground B} `{Size B}
-    (f : B -> list nat -> B) (cf : ℂI B unit -> ℂO (ℂI (list nat) (list unit) -> ℂO unit)) (g : nat -> nat) (d : nat) :
+  Lemma fold_sublists_complexity {B} {CB} {RB : Repr B CB} {GB : IsGround RB} `{Size B}
+    (f : B -> list nat -> B) (cf : ℂI B CB -> ℂO (ℂI (list nat) (list unit) -> ℂO CB)) (g : nat -> nat) (d : nat) :
     Time.ComplexityBound f cf ->
     (forall a t, cost (cf (a ⋊ inhabitant)) + cost (res (cf (a ⋊ inhabitant)) (t ⋊ inhabitant)) <= g (#|a| + #|t|)) ->
     (forall a t, #|f a t| <= #|a| + d) -> (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun l acc prefix => fold_sublists l f acc prefix)
-      (fun (cl : ℂI (list nat) (list unit)) => c +> fun (cacc : ℂI B unit) => c +> fun (cp : ℂI (list nat) (list unit)) =>
+      (fun (cl : ℂI (list nat) (list unit)) => c +> fun (cacc : ℂI B CB) => c +> fun (cp : ℂI (list nat) (list unit)) =>
          (2 ^ length (val cl) *
             (g (#|val cacc| + d * 2 ^ length (val cl) + c * S (#|val cl| + #|val cp|) ^ c)
              + c * S (#|val cl| + #|val cp|) ^ c)) >|). Abort.
