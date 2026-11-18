@@ -28,7 +28,7 @@
     smallest constants.
 
     Not covered yet: [partition], whose result is a pair of lists, of any
-    data ([HProdTimeCostModel]). *)
+    data ([ProdTimeCostModel]). *)
 
 From Complexity Require Export TimeCostModel BoolComplexity ListFacts.
 From Stdlib Require Import List.
@@ -140,6 +140,14 @@ Section Folds.
     end.
 
 End Folds.
+
+(** The facts on the values of [filter] ([ValueFact]): the elements kept
+    are at most those of the list, and their measures at most theirs. *)
+#[global] Instance filter_value_fact {A} (p : A -> bool) (l : list A) :
+  ValueFact (filter p l) (fun y => length y <= length l) := filter_length_le p l.
+#[global] Instance map_filter_value_fact {A} (h : A -> nat) (p : A -> bool) (l : list A) :
+  ValueFact (map h (filter p l)) (fun y => list_sum y <= list_sum (map h l)) :=
+  list_sum_map_filter_le h p l.
 
 (** The model, with the bounds of the boolean operations ([existsb] and
     [forallb] use [orb] and [andb]). *)

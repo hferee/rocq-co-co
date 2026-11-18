@@ -50,8 +50,9 @@
          ...). With 0s, the inequalities show the cost found in each case:
          choose the constants from them.
        - Without a message, the inequality may be true but need facts that
-         [lia] and [nia] do not know. [cexplain] suggests some. Then prove
-         it: with [lia] or [nia] after the facts, or by hand.
+         [lia] and [nia] do not know (see the facts below). [cexplain]
+         suggests some. Then register them, or prove the inequality: with
+         [lia] or [nia] after the facts, or by hand.
     4. If [cbound] fails with "no complexity bound is known for g", your
        function calls a function [g] whose bound is unknown: one of yours
        that you have not proved yet, or one of the library that nobody has
@@ -63,6 +64,34 @@
        Time.ComplexityBound (fix ...) ...) by cbound]) or an instance, and
        [cbound] reads it from the context (see the local fixpoints of
        [Examples]).
+
+    ** The facts
+
+    [lia] and [nia] only know arithmetic: the values of the functions, the
+    sizes, and the booleans are unknowns for them. Before [lia] and [nia],
+    [cbound] adds to each inequality the facts that it knows on what the
+    inequality mentions:
+    - the tests of its case: in the branch where [n <? 10] is [true], the
+      fact [n < 10]; where [10 <? n] is [false], [n <= 10] ([cbool_facts]).
+      A cost in [n] may then be bounded by a constant (section 2, [small]);
+    - the facts on the values of functions ([ValueFact]): a lemma on the
+      value [f x] of a function, declared as an instance, is added to every
+      inequality that mentions a value of [f]. For [double] (section 2):
+<<
+      Instance double_value_fact n : ValueFact (double n) (fun y => y = 2 * n) := double_spec n.
+>>
+      The fact is a predicate on the value ([fun y => ...]), applied to the
+      value as the inequality writes it. The library registers some
+      ([length (filter p l) <= length l], [HOListComplexity]); register
+      those of your functions where they are defined. One instance per
+      value: a conjunction for several facts;
+    - the facts on the sizes ([SizeFact]), for the bounds in the sizes of
+      the arguments (section 4): [n < #|n|] for a number, [length l < #|l|]
+      for a list. The model registers them with its data types
+      ([NatComplexity], [ListComplexity]); a new data type registers its own
+      ([literal_size_fact], in [ETHCost]).
+    A fact that is not registered can be added by hand, with [pose proof],
+    before [lia] or [nia]: for an inequality that [cbound] leaves.
 
     ** Finding the constants
 
@@ -173,13 +202,37 @@ Module Tutorial (Import Time : TimeStdlib).
       [Qed]), and add [Existing Instance double_complexity.] after it.
 
       The second call of [double] is on [double n], so its cost depends on
-      the value of [double n]: the inequality left mentions it. Prove
-      [double n = 2 * n] first (by induction), and rewrite with it before
-      [lia]. *)
+      the value of [double n]: the inequality left mentions it, and [lia]
+      knows nothing about it. Prove [double n = 2 * n] first (by
+      induction), and register it as a fact on the values of [double]
+      (see the facts, at the top):
+<<
+      Lemma double_spec n : double n = 2 * n.
+      Instance double_value_fact n : ValueFact (double n) (fun y => y = 2 * n) := double_spec n.
+>>
+      Then [cbound] adds [double n = 2 * n] to the inequalities that mention
+      [double n], and proves the bound. *)
   Definition quad (n : nat) : nat := double (double n).
 
   Lemma quad_complexity : Time.ComplexityBound quad
     (fun cn => (0 * val cn + 0) >|).
+  Abort.
+
+  (** A test of the argument is a fact too: in the branch where [10 <? n]
+      is [false], [cbound] knows that [n <= 10], so the cost of [double n]
+      is at most a constant, and so is the cost of [small]. (The cost of
+      [10 <? n] is constant: [Nat.ltb] recurses on its first argument.) *)
+  Definition small (n : nat) : nat := if 10 <? n then 0 else double n.
+
+  Lemma small_complexity : Time.ComplexityBound small (fun cn => 0 >|).
+  Abort.
+
+  (** The constant of a [ConstantBound] is found from the shape of the cost
+      (its degree), which does not see the tests: from the definition of
+      [small], [cbound] leaves the case [n <= 10], and says why. Declare
+      [small_complexity] as an instance: [cbound] then proves this one from
+      it. *)
+  Lemma small_constant : Time.ConstantBound small.
   Abort.
 
   (** A function of the library that nobody has studied: [TimeStdlib]
@@ -208,10 +261,8 @@ Module Tutorial (Import Time : TimeStdlib).
 
   (** A recursion on a list. The cost of a step depends on the head of the
       list (the cost of [Nat.add] depends on its first argument), so the
-      bound is in the sum of the elements, [list_sum]. The inequality left
-      writes the sum of the tail as [fold_right Nat.add 0 cl], which is the
-      definition of [list_sum cl]: [lia] proves it after
-      [unfold list_sum in *]. *)
+      bound is in the sum of the elements, [list_sum], and in the length
+      of the list. *)
   Fixpoint sum (l : list nat) : nat := match l with [] => 0 | x :: t => x + sum t end.
 
   Lemma sum_complexity : Time.ComplexityBound sum
@@ -255,6 +306,9 @@ Module Tutorial (Import Time : TimeStdlib).
       The bounds above are in the values of the arguments ([val cn]). In
       the model, each value has a size, [#|x|] (class [Size]), at least its
       value for a natural number ([n < #|n|]) and its length for a list.
+      These are the facts on the sizes ([SizeFact], see the facts, at the
+      top): [cbound] and [csize] add them to the inequalities that mention
+      the sizes.
 
       [LinearBound f] says that the cost of [f] is at most a linear function
       of the sizes of its arguments. [cbound] proves it from a
@@ -287,10 +341,11 @@ Module Tutorial (Import Time : TimeStdlib).
 
       [cbound] does not prove it: [double] is recursive, and the recurrence
       in the sizes would need [#|n| + 1 <= #|S n|], which the model does
-      not give (it only gives [n < #|n|]). It follows from the bound in the
-      values instead: with [double_complexity] proved and declared as an
-      instance, [csize] proves it. It takes that bound, [a * n + b], and
-      checks that [a * n + b <= 20 * #|n| + 10] with [n < #|n|]. *)
+      not give (it only gives [n < #|n|], its fact on the sizes). It follows
+      from the bound in the values instead: with [double_complexity] proved
+      and declared as an instance, [csize] proves it. It takes that bound,
+      [a * n + b], and checks that [a * n + b <= 20 * #|n| + 10] with the
+      fact [n < #|n|]. *)
   Lemma double_size : Time.ComplexityBound double
     (fun (cn : ℂI nat _) => (20 * #|val cn| + 10) >|).
   Abort.

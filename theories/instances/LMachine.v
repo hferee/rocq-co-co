@@ -522,16 +522,16 @@ End MNT.
 
 (** Sums: realised by the realiser of their element, with
     its complexity, as in [LInstance]. *)
-Definition hsum_rl {A CA B CB} (dA : CA) (dB : CB) (P : A -> CA -> value -> Prop)
+Definition sum_rl {A CA B CB} (dA : CA) (dB : CB) (P : A -> CA -> value -> Prop)
   (Q : B -> CB -> value -> Prop) (x : A + B) (c : CA + CB) (v : value) : Prop :=
   match x with
   | inl a => exists r, v = clos (lam (app (var 1) (var 2))) [r] /\ P a (sum_left dA c) r
   | inr b => exists r, v = clos (lam (app (var 0) (var 2))) [r] /\ Q b (sum_right dB c) r
   end.
 
-Definition hsum_repr {A CA B CB} (RA : MRepr A CA) (RB : MRepr B CB) : MRepr (A + B) (CA + CB).
+Definition sum_repr {A CA B CB} (RA : MRepr A CA) (RB : MRepr B CB) : MRepr (A + B) (CA + CB).
 Proof.
-  refine {| rl := fun k x c v => hsum_rl (dflt RA) (dflt RB) (rl RA k) (rl RB k) x c v;
+  refine {| rl := fun k x c v => sum_rl (dflt RA) (dflt RB) (rl RA k) (rl RB k) x c v;
             bo := fun c c' => bo RA (sum_left (dflt RA) c) (sum_left (dflt RA) c') /\
                               bo RB (sum_right (dflt RB) c) (sum_right (dflt RB) c');
             dflt := inl (dflt RA) |}.
@@ -544,17 +544,17 @@ Proof.
 Defined.
 
 
-(** Pairs of any data ([HProdTimeCostModel]): as the ground pairs, with
+(** Pairs of any data ([ProdTimeCostModel]): as the ground pairs, with
     the complexities of their elements. *)
-Definition hprod_rl {A CA B CB} (RA : MRepr A CA) (RB : MRepr B CB) (k : nat) (p : A * B)
+Definition prod_rl {A CA B CB} (RA : MRepr A CA) (RB : MRepr B CB) (k : nat) (p : A * B)
   (c : CA * CB) (v : value) : Prop :=
   exists r1 r2, v = clos pair_body [r2; r1] /\
     rl RA k (fst p) (fst c) r1 /\ rl RB k (snd p) (snd c) r2.
 
-Definition hprod_repr {A CA B CB} (RA : MRepr A CA) (RB : MRepr B CB) :
+Definition prod_repr {A CA B CB} (RA : MRepr A CA) (RB : MRepr B CB) :
   MRepr (A * B) (CA * CB).
 Proof.
-  refine {| rl := hprod_rl RA RB;
+  refine {| rl := prod_rl RA RB;
             bo := fun c c' => bo RA (fst c) (fst c') /\ bo RB (snd c) (snd c');
             dflt := (dflt RA, dflt RB) |}.
   - intros k k' p c v Hk (r1 & r2 & -> & H1 & H2). exists r1, r2.
@@ -590,12 +590,12 @@ Definition Q_enc (q : Q) : value := clos pair_body [pos_enc (Qden q); Z_enc (Qnu
 
 
 (** Pairs. *)
-Module MHPM <: HProdTimeCostModel MCM MBT MCB.
+Module MPM <: ProdTimeCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_pair := 1.
   Definition c_case_prod := 39.
   Global Instance Repr_prod {A CA B CB} (RA : Repr A CA) (RB : Repr B CB) :
-    Repr (A * B) (CA * CB) := hprod_repr RA RB.
+    Repr (A * B) (CA * CB) := prod_repr RA RB.
   Global Instance Size_prod {A B} (SA : Size A) (SB : Size B) : Size (A * B) :=
     fun p => 1 + SA (fst p) + SB (snd p).
   Lemma size_pair : forall {A B} `{Size A} `{Size B} (a : A) (b : B),
@@ -611,7 +611,7 @@ Module MHPM <: HProdTimeCostModel MCM MBT MCB.
   Proof.
     intros A CA B CB RA RB. apply has_complexity_bound. exists (clos (lam (lam pair_body)) []). intro k.
     Mfun. Mstep. Mfun. Mstep.
-    cbn [rl Repr_prod hprod_repr hprod_rl fst snd]. exists (clos wu wE), (clos wu0 wE0).
+    cbn [rl Repr_prod prod_repr prod_rl fst snd]. exists (clos wu wE), (clos wu0 wE0).
     split; [reflexivity | split].
     - eapply rl_down; [| exact Ha]. lia.
     - eapply rl_down; [| exact Ha0]. lia.
@@ -633,7 +633,7 @@ Module MHPM <: HProdTimeCostModel MCM MBT MCB.
     Mcall Ha0 Ha1 (j1 - 39 - 2). unfold prod_case.
     set (b := j1 - 39 - 2 - cost (c0 (a1 ⋊ c1))).
     destruct (a0 a1) as [x y]; destruct (res (c0 (a1 ⋊ c1))) as [cx cy];
-      cbn [rl Repr_prod hprod_repr hprod_rl fst snd] in R; cbn [cost res pot val] in *.
+      cbn [rl Repr_prod prod_repr prod_rl fst snd] in R; cbn [cost res pot val] in *.
     destruct R as (r1 & r2 & -> & Hr1 & Hr2).
     set (rest := [clos wu0 wE0; clos wu wE]).
     set (p1 := clos pair_body (r1 :: clos wu1 wE1 :: rest)).
@@ -645,7 +645,7 @@ Module MHPM <: HProdTimeCostModel MCM MBT MCB.
       split; [exact (rl_down_ b Ha1 ltac:(unfold b; lia)) | exact Hr1]. }
     Mcall Ha He b. subst p1 rest. Mstep. Mend R.
   Qed.
-End MHPM.
+End MPM.
 
 (** Sums. The case analysis costs as the one of options. *)
 Module MSM <: SumTimeCostModel MCM MBT MCB.
@@ -653,7 +653,7 @@ Module MSM <: SumTimeCostModel MCM MBT MCB.
   Definition c_ctor_sum := 1.
   Definition c_case_sum := 35.
   Global Instance Repr_sum {A CA B CB} (RA : Repr A CA) (RB : Repr B CB) :
-    Repr (A + B) (CA + CB) := hsum_repr RA RB.
+    Repr (A + B) (CA + CB) := sum_repr RA RB.
 
   Global Instance Size_sum {A B} (SA : Size A) (SB : Size B) : Size (A + B) :=
     fun x => match x with inl a => 1 + SA a | inr b => 1 + SB b end.
@@ -675,7 +675,7 @@ Module MSM <: SumTimeCostModel MCM MBT MCB.
   Proof.
     intros A CA B CB RA RB. apply has_complexity_bound.
     exists (clos (lam (lam (app (var 1) (var 2)))) []).
-    intro k. Mfun. Mstep. cbn [rl Repr_sum hsum_repr hsum_rl].
+    intro k. Mfun. Mstep. cbn [rl Repr_sum sum_repr sum_rl].
     exists (clos wu wE). split; [reflexivity | eapply rl_down; [| exact Ha]; lia].
   Qed.
 
@@ -684,7 +684,7 @@ Module MSM <: SumTimeCostModel MCM MBT MCB.
   Proof.
     intros A CA B CB RA RB. apply has_complexity_bound.
     exists (clos (lam (lam (app (var 0) (var 2)))) []).
-    intro k. Mfun. Mstep. cbn [rl Repr_sum hsum_repr hsum_rl].
+    intro k. Mfun. Mstep. cbn [rl Repr_sum sum_repr sum_rl].
     exists (clos wu wE). split; [reflexivity | eapply rl_down; [| exact Ha]; lia].
   Qed.
 
@@ -943,12 +943,12 @@ End MZM.
     gives the shape, the missing complexities being the default one
     ([LInstance]). *)
 
-Fixpoint hlist_rl {A CA} (d : CA) (P : A -> CA -> value -> Prop) (l : list A) (c : list CA)
+Fixpoint list_rl {A CA} (d : CA) (P : A -> CA -> value -> Prop) (l : list A) (c : list CA)
   (v : value) : Prop :=
   match l with
   | nil => v = clos (lam (var 1)) []
   | cons x l => exists r t, v = clos list_cons_body [t; r] /\
-      P x (hd d c) r /\ hlist_rl d P l (tl c) t
+      P x (hd d c) r /\ list_rl d P l (tl c) t
   end.
 
 Lemma nth_tl {CA} (c : list CA) (d : CA) i : nth i (tl c) d = nth (S i) c d.
@@ -957,9 +957,9 @@ Proof. destruct c; destruct i; reflexivity. Qed.
 Lemma hd_nth0 {CA} (c : list CA) (d : CA) : hd d c = nth 0 c d.
 Proof. destruct c; reflexivity. Qed.
 
-Definition hlist_repr {A CA} (RA : MRepr A CA) : MRepr (list A) (list CA).
+Definition list_repr {A CA} (RA : MRepr A CA) : MRepr (list A) (list CA).
 Proof.
-  refine {| rl := fun k l c v => hlist_rl (dflt RA) (rl RA k) l c v;
+  refine {| rl := fun k l c v => list_rl (dflt RA) (rl RA k) l c v;
             bo := fun c c' => forall i, bo RA (nth i c (dflt RA)) (nth i c' (dflt RA));
             dflt := nil |}.
   - intros k k' l c v Hk; revert c v; induction l as [| x l IH]; intros c v; cbn; [auto |].
@@ -973,16 +973,16 @@ Proof.
   - intros c1 c2 c3 H12 H23 i. eapply bo_trans; [apply H12 | apply H23].
 Defined.
 
-Definition hoption_rl {A CA} (d : CA) (P : A -> CA -> value -> Prop) (o : option A)
+Definition option_rl {A CA} (d : CA) (P : A -> CA -> value -> Prop) (o : option A)
   (c : option CA) (v : value) : Prop :=
   match o with
   | Some x => exists r, v = clos (lam (app (var 1) (var 2))) [r] /\ P x (option_dflt d c) r
   | None => v = clos (lam (var 0)) []
   end.
 
-Definition hoption_repr {A CA} (RA : MRepr A CA) : MRepr (option A) (option CA).
+Definition option_repr {A CA} (RA : MRepr A CA) : MRepr (option A) (option CA).
 Proof.
-  refine {| rl := fun k o c v => hoption_rl (dflt RA) (rl RA k) o c v;
+  refine {| rl := fun k o c v => option_rl (dflt RA) (rl RA k) o c v;
             bo := fun c c' => bo RA (option_dflt (dflt RA) c) (option_dflt (dflt RA) c');
             dflt := None |}.
   - intros k k' [x |] c v Hk H; cbn in *; [| exact H].
@@ -993,11 +993,11 @@ Proof.
   - intros c1 c2 c3 H12 H23. exact (bo_trans H12 H23).
 Defined.
 
-Module MHLM <: HListTimeCostModel MCM MBT MCB.
+Module MLM <: ListTimeCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_cons := 1.
   Definition c_case_list := 46.
-  Global Instance Repr_list {A CA} (RA : Repr A CA) : Repr (list A) (list CA) := hlist_repr RA.
+  Global Instance Repr_list {A CA} (RA : Repr A CA) : Repr (list A) (list CA) := list_repr RA.
   Global Instance Size_list {A} (SA : Size A) : Size (list A) :=
     fix size_list l := match l with nil => 1 | a :: l => 1 + SA a + size_list l end.
   Lemma size_nil : forall {A} `{Size A}, CostModelCore.size (@nil A) = 1.
@@ -1017,7 +1017,7 @@ Module MHLM <: HListTimeCostModel MCM MBT MCB.
     ComplexityBound (@cons A) (fun ch => 1 +> fun ct => 1 +> (pot ch :: pot ct)).
   Proof.
     intros A CA RA. apply has_complexity_bound. exists (clos (lam (lam list_cons_body)) []). intro k.
-    Mfun. Mstep. Mfun. Mstep. cbn [rl Repr_list hlist_repr hlist_rl hd tl].
+    Mfun. Mstep. Mfun. Mstep. cbn [rl Repr_list list_repr list_rl hd tl].
     exists (clos wu wE), (clos wu0 wE0). split; [reflexivity | split].
     - eapply rl_down; [| exact Ha]. lia.
     - exact (rl_down_ (j0 - 1) Ha0 ltac:(lia)).
@@ -1057,13 +1057,13 @@ Module MHLM <: HListTimeCostModel MCM MBT MCB.
         split; [exact (rl_down_ b Ha2 ltac:(unfold b; lia)) | exact Hr]. }
       Mcall Ha0 He b. subst p1 rest. Mstep. Mend R.
   Qed.
-End MHLM.
+End MLM.
 
-Module MHOM <: HOptionTimeCostModel MCM MBT MCB.
+Module MOM <: OptionTimeCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_Some := 1.
   Definition c_case_option := 35.
-  Global Instance Repr_option {A CA} (RA : Repr A CA) : Repr (option A) (option CA) := hoption_repr RA.
+  Global Instance Repr_option {A CA} (RA : Repr A CA) : Repr (option A) (option CA) := option_repr RA.
   Global Instance Size_option {A} (SA : Size A) : Size (option A) :=
     fun o => match o with None => 1 | Some a => 1 + SA a end.
   Lemma size_None : forall {A} `{Size A}, CostModelCore.size (@None A) = 1.
@@ -1082,7 +1082,7 @@ Module MHOM <: HOptionTimeCostModel MCM MBT MCB.
     ComplexityBound (@Some A) (fun ca => 1 +> Some (pot ca)).
   Proof.
     intros A CA RA. apply has_complexity_bound. exists (clos (lam (lam (app (var 1) (var 2)))) []).
-    intro k. Mfun. Mstep. cbn [rl Repr_option hoption_repr hoption_rl].
+    intro k. Mfun. Mstep. cbn [rl Repr_option option_repr option_rl].
     exists (clos wu wE). split; [reflexivity | eapply rl_down; [| exact Ha]; lia].
   Qed.
 
@@ -1112,7 +1112,7 @@ Module MHOM <: HOptionTimeCostModel MCM MBT MCB.
       Mcall Ha He b. Mstep. Mend R.
     - subst r. Mcall Ha0 Ha2 b. Mstep. Mend R.
   Qed.
-End MHOM.
+End MOM.
 
 (** ** Fixpoints
 
@@ -1224,8 +1224,8 @@ End MFX.
 (** ** The instance *)
 Module LM <: MachineTimeCostModel.
   Include MCM. Include MBT. Include MCB. Include MBO. Include MNT.
-  Include MHLM. Include HListGround MCM MHLM. Include MHOM. Include HOptionGround MCM MHOM.
-  Include MHPM. Include HProdGround MCM MHPM. Include MSM. Include SumGround MCM MSM.
+  Include MLM. Include ListGround MCM MLM. Include MOM. Include OptionGround MCM MOM.
+  Include MPM. Include ProdGround MCM MPM. Include MSM. Include SumGround MCM MSM.
   Include MZM. Include MFX.
 End LM.
 

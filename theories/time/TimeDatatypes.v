@@ -157,12 +157,12 @@ Definition option_case {X E A : Type} (s : env E X -> A) (z : E -> A) (o : E -> 
     shape: [Some] without a complexity has the default one ([cdefault]).
     The order compares the complexities of the elements, the missing one
     being the default one; an option of ground data is ground
-    ([HOptionGround]). *)
+    ([OptionGround]). *)
 
 (** The complexity of the element of an option, or a default one. *)
 Definition option_dflt {C} (d : C) (o : option C) : C := match o with Some x => x | None => d end.
 
-Module Type HOptionData (Import CM : CostModel).
+Module Type OptionData (Import CM : CostModel).
   #[global] Declare Instance Repr_option : forall {A CA}, Repr A CA -> Repr (option A) (option CA).
 
   #[global] Declare Instance Size_option : forall {A}, Size A -> Size (option A).
@@ -174,28 +174,28 @@ Module Type HOptionData (Import CM : CostModel).
 
   #[global] Declare Instance None_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@None A) (@None CA).
-End HOptionData.
+End OptionData.
 
 (** Options of ground data are ground. *)
-Module HOptionGround (Import CM : CostModel) (Import OD : HOptionData CM).
+Module OptionGround (Import CM : CostModel) (Import OD : OptionData CM).
   Global Instance option_ground {A CA} {R : Repr A CA} {G : IsGround R} :
     IsGround (Repr_option R) :=
     {| ground_indiscrete := fun c c' => bound_order_option c c' (ground_order _ _) |}.
-End HOptionGround.
+End OptionGround.
 
-Module Type HOptionCtorTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import OD : HOptionData CM).
+Module Type OptionCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import OD : OptionData CM).
 
   Parameter c_Some : nat.
   #[global] Hint Unfold c_Some : costs.
 
   #[global] Declare Instance Some_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@Some A) (fun ca => c_Some +> Some (pot ca)).
-End HOptionCtorTimeCostModel.
+End OptionCtorTimeCostModel.
 
-Module Type HOptionCaseTimeCostModel
+Module Type OptionCaseTimeCostModel
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import OD : HOptionData CM).
+  (Import CB : CombinatorTimeCostModel CM BT) (Import OD : OptionData CM).
 
   Parameter c_case_option : nat.
   #[global] Hint Unfold c_case_option : costs.
@@ -213,11 +213,11 @@ Module Type HOptionCaseTimeCostModel
          | Some x => pot cs (ECons (val ce) x ⋊ (pot ce, option_dflt cdefault (res (pot co ce))))
          | None => pot cz ce
          end).
-End HOptionCaseTimeCostModel.
+End OptionCaseTimeCostModel.
 
-Module Type HOptionTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
+Module Type OptionTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
   (CB : CombinatorTimeCostModel CM BT) :=
-  HOptionData CM <+ HOptionCtorTimeCostModel CM BT <+ HOptionCaseTimeCostModel CM BT CB.
+  OptionData CM <+ OptionCtorTimeCostModel CM BT <+ OptionCaseTimeCostModel CM BT CB.
 
 (** ** Pairs
 
@@ -239,8 +239,8 @@ Definition prod_case {X Y E A : Type} (f : env (env E X) Y -> A) (p : E -> X * Y
     complexities: a pair of [A] and [B], with complexities [CA] and [CB], has
     the pair of their complexities as its complexity. The case analysis
     gives the complexities of the elements to its branch. The order compares
-    the elements; a pair of ground data is ground ([HProdGround]). *)
-Module Type HProdData (Import CM : CostModel).
+    the elements; a pair of ground data is ground ([ProdGround]). *)
+Module Type ProdData (Import CM : CostModel).
   #[global] Declare Instance Repr_prod :
     forall {A CA B CB}, Repr A CA -> Repr B CB -> Repr (A * B) (CA * CB).
 
@@ -250,28 +250,28 @@ Module Type HProdData (Import CM : CostModel).
 
   Parameter bound_order_prod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA * CB),
     bound_order (fst c) (fst c') -> bound_order (snd c) (snd c') -> bound_order c c'.
-End HProdData.
+End ProdData.
 
 (** Pairs of ground data are ground. *)
-Module HProdGround (Import CM : CostModel) (Import PD : HProdData CM).
+Module ProdGround (Import CM : CostModel) (Import PD : ProdData CM).
   Global Instance prod_ground {A CA B CB} {RA : Repr A CA} {RB : Repr B CB}
     {GA : IsGround RA} {GB : IsGround RB} : IsGround (Repr_prod RA RB) :=
     {| ground_indiscrete := fun c c' => bound_order_prod c c' (ground_order _ _) (ground_order _ _) |}.
-End HProdGround.
+End ProdGround.
 
-Module Type HProdCtorTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import PD : HProdData CM).
+Module Type ProdCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import PD : ProdData CM).
 
   Parameter c_pair : nat.
   #[global] Hint Unfold c_pair : costs.
 
   #[global] Declare Instance pair_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@pair A B) (fun ca => c_clo +> fun cb => c_pair +> (pot ca, pot cb)).
-End HProdCtorTimeCostModel.
+End ProdCtorTimeCostModel.
 
-Module Type HProdCaseTimeCostModel
+Module Type ProdCaseTimeCostModel
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import PD : HProdData CM).
+  (Import CB : CombinatorTimeCostModel CM BT) (Import PD : ProdData CM).
 
   Parameter c_case_prod : nat.
   #[global] Hint Unfold c_case_prod : costs.
@@ -287,11 +287,11 @@ Module Type HProdCaseTimeCostModel
          let (x, y) := val cp (val ce) in
          let (cx, cy) := res (pot cp ce) in
          pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, cx), cy))).
-End HProdCaseTimeCostModel.
+End ProdCaseTimeCostModel.
 
-Module Type HProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
+Module Type ProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
   (CB : CombinatorTimeCostModel CM BT) :=
-  HProdData CM <+ HProdCtorTimeCostModel CM BT <+ HProdCaseTimeCostModel CM BT CB.
+  ProdData CM <+ ProdCtorTimeCostModel CM BT <+ ProdCaseTimeCostModel CM BT CB.
 
 (** ** Sums (of any data)
 
@@ -300,7 +300,7 @@ Module Type HProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
     argument of its constructor, in its environment, as the branch of
     [Some] does.
 
-    As for options ([HOptionTimeCostModel]), the elements may
+    As for options ([OptionTimeCostModel]), the elements may
     be functions, or other data with complexities: a sum of [A] and [B],
     with complexities [CA] and [CB], has a sum of [CA] and [CB] as its
     complexity, that of its element, both [inl] or both [inr] (in L, the

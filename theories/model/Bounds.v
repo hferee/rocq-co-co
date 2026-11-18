@@ -42,7 +42,10 @@ Class SizeFact {A} (x : A) (P : Prop) := size_fact : P.
     atoms syntactically: [cnorm_types] unfolds these arguments, in the goal
     and in the hypotheses, so that the same atoms compare equal. It also
     folds back the sums of lists that the computation of a bound on [x ::
-    l] unfolds ([fold_right Nat.add 0 l] into [list_sum l]). *)
+    l] unfolds ([fold_right Nat.add 0 l] into [list_sum l]), and unfolds
+    the projections [val] and [pot]: they are primitive, with two forms
+    that print the same ([val x] as computed or as written), which [lia]
+    would take for distinct atoms. *)
 Ltac cnorm_type T :=
   let U := eval cbv in T in
   tryif constr_eq T U then fail else (progress (change T with U in *)).
@@ -56,6 +59,7 @@ Ltac cnorm_size T S x :=
   else (progress (change (@size T S x) with (@size U R x) in *)).
 
 Ltac cnorm_types :=
+  try unfold val in *; try unfold pot in *;
   repeat match goal with
   | |- context [@size ?T ?S ?x] => cnorm_size T S x
   | _ : context [@size ?T ?S ?x] |- _ => cnorm_size T S x
@@ -78,6 +82,38 @@ Ltac add_size_facts :=
       | _ : context [@size _ _ x] |- _ => fail
       | _ => pose proof (size_fact (x := x))
       end
+  end;
+  cnorm_types.
+
+(** ** Facts on values
+
+    [ValueFact x P]: [P x] is a fact on the value [x] of a function that a
+    cost mentions, typically a bound of a measure of [x] by the measures of
+    the arguments ([length (filter p l) <= length l]), which [lia] and
+    [nia] cannot derive. The facts are lemmas on the functions, registered
+    where the functions are (the library, or the application);
+    [add_value_facts] adds the facts on the values in the goal, the
+    conjunctions split. The fact is stated on [x] as it appears in the goal
+    (the predicate [P] applied to it): [lia] compares the atoms
+    syntactically. A value has one fact (a conjunction for more). *)
+Class ValueFact {A} (x : A) (P : A -> Prop) := value_fact : P x.
+#[global] Hint Mode ValueFact - ! - : typeclass_instances.
+
+(** A fact is known if it, or its first part, is a hypothesis. *)
+Ltac value_fact_known T :=
+  lazymatch T with
+  | ?A /\ _ => value_fact_known A
+  | _ => lazymatch goal with _ : T |- _ => idtac end
+  end.
+
+Ltac add_value_facts :=
+  repeat match goal with
+  | |- context [?x] =>
+      let H := constr:(value_fact (x := x)) in
+      let T := type of H in
+      let T := eval cbv beta in T in
+      tryif value_fact_known T then fail
+      else (let F := fresh "Hv" in pose proof (H : T) as F; decompose [and] F)
   end;
   cnorm_types.
 
@@ -208,19 +244,92 @@ Ltac2 linear_constants_any () :=
 Ltac2 constant_constants_any () :=
   instantiate_poly (fun k _ _ => let k := nat_constr k in constr:(pconst $k)).
 
+(** ** Polynomial bounds by monotonicity *)
+
+(** [cmono_le X]: [t <= ?u], with [?u] the term [t] in which each measure
+    (an atom) is replaced by [X], by monotonicity. *)
+Ltac cmono_le X :=
+  lazymatch goal with
+  | |- ?a + ?b <= _ => eapply Nat.add_le_mono; [cmono_le X | cmono_le X]
+  | |- ?a * ?b <= _ => eapply Nat.mul_le_mono; [cmono_le X | cmono_le X]
+  | |- ?a - ?b <= _ => eapply Nat.le_trans; [apply Nat.le_sub_l | cmono_le X]
+  | |- S ?a <= _ => eapply le_n_S; cmono_le X
+  | |- 0 <= _ => apply le_n
+  | |- ?m <= _ => let H := fresh in assert (H : m <= X) by lia; exact H
+  end.
+
+Ltac2 rec prodX (x : constr) (i : int) : constr :=
+  if Int.equal i 0 then constr:(1) else let p := prodX x (Int.sub i 1) in constr:($x * $p).
+
+(** The degree [d] of [X * (X * ... 1)]. *)
+Ltac2 rec xdeg (x : constr) (t : constr) : int :=
+  lazy_match! t with
+  | ?a * ?b => if Constr.equal a x then Int.add 1 (xdeg x b) else 0
+  | _ => 0
+  end.
+
+Ltac2 cpow_chain (x : constr) (hx : constr) (d : int) : unit :=
+  let rec go i :=
+    if Int.lt i d then
+      (let p := prodX x i in
+       ltac1:(x p hx |- pose proof (Nat.mul_le_mono_r 1 x p hx))
+         (Ltac1.of_constr x) (Ltac1.of_constr p) (Ltac1.of_constr hx);
+       go (Int.add i 1))
+    else () in
+  go 0.
+
+(** [cmono_poly]: [cost <= k * (X * (... * 1))], the goal of a polynomial
+    bound ([polynomial_constants]), where [X] is [1] plus the sizes and [k]
+    the sum of the coefficients of the cost: each measure of the cost is at
+    most [X] (by [lia], from the facts on the sizes), and each power of [X]
+    at most [X ^ d]. [nia] may not find these products, for a degree [d]
+    above [2]. *)
+Ltac2 cmono_poly () :=
+  lazy_match! goal with
+  | [ |- _ <= _ * (?x * ?r) ] =>
+      let d := Int.add 1 (xdeg x r) in
+      ltac1:(x |- assert (1 <= x) by lia) (Ltac1.of_constr x);
+      let hx := Control.hyp (match List.last_opt (Control.hyps ()) with Some (h, _, _) => h | None => Control.throw Not_found end) in
+      ltac1:(x |- eapply Nat.le_trans; [cmono_le x |]) (Ltac1.of_constr x);
+      cpow_chain x hx d;
+      ltac1:(lia)
+  end.
+Ltac cmono_poly := ltac2:(cmono_poly ()).
+
 (** For each goal [cost <= bound]: if the degree of its cost is larger
     than [deg], the degree of the bound, it cannot hold for large values of
     the arguments, whatever the constants: it is left, and explained (and
     not given to [nia], which would search for a proof forever); otherwise
     [lia] or [nia] try to prove it. *)
+(** The hypotheses of a case (a test [(10 <? n) = false], or [n <= 10])
+    may bound the arguments: the inequality may then hold, with constants
+    that the degree does not give. *)
+Ltac2 bounded_case () : bool :=
+  List.exist (fun (_, body, ty) =>
+    match body with
+    | Some _ => false
+    | None => lazy_match! ty with
+              | _ = true => true | _ = false => true
+              | _ <= ?k => Option.is_some (nat_value k)
+              | _ < ?k => Option.is_some (nat_value k)
+              | _ => false end
+    end) (Control.hyps ()).
+
 Ltac2 degree_message (g : constr) (d : int) (deg : int) (kind : string) : unit :=
-  Message.print (Advice.cat
-    [Message.of_string "The inequality "; Message.of_constr g; Message.of_string " cannot hold:";
+  let tail :=
+    if bounded_case () then
+      [Message.of_string "For large arguments the left side is the larger, unless the hypotheses of the case bound them (a test, say):";
+       Advice.nl (); Message.of_string "then prove a bound in their values first (ComplexityBound, as an instance), from which this one follows."]
+    else
+      [Message.of_string "For large arguments the left side is the larger, whatever the constants: the function has no ";
+       Message.of_string kind; Message.of_string " bound. Try a bound of a higher degree (PolynomialBound)."] in
+  Message.print (Advice.cat (List.append
+    [Message.of_string "The inequality "; Message.of_constr g;
+     Message.of_string (if bounded_case () then " may not hold:" else " cannot hold:");
      Advice.nl (); Message.of_string "its left side, the cost found, has degree "; Message.of_int d;
      Message.of_string " in the arguments, and its right side, a "; Message.of_string kind;
      Message.of_string " bound, has degree "; Message.of_int deg; Message.of_string ".";
-     Advice.nl (); Message.of_string "For large arguments the left side is the larger, whatever the constants: the function has no ";
-     Message.of_string kind; Message.of_string " bound. Try a bound of a higher degree (PolynomialBound)."]).
+     Advice.nl ()] tail)).
 
 Ltac2 csolve_degree (deg : int) (kind : string) : unit :=
   Control.enter (fun () =>
@@ -235,7 +344,7 @@ Ltac2 csolve_degree (deg : int) (kind : string) : unit :=
       end in
     match high with
     | Some d => degree_message (Control.goal ()) d deg kind
-    | None => ltac1:(first [solve [lia] | cnia])
+    | None => ltac1:(first [solve [lia] | solve [cmono_poly] | cnia])
     end).
 
 Ltac2 polynomial_constants () :=
@@ -244,6 +353,7 @@ Ltac2 polynomial_constants () :=
     let d := nat_constr d in
     let s := psum 0 n in
     constr:(pmul (pconst $k) (ppow (padd (pconst 1) $s) $d))).
+
 
 Module Bounds (Import CM : CostModelCore).
 
@@ -385,7 +495,7 @@ Module Bounds (Import CM : CostModelCore).
     unfold PolynomialBound; eexists;
     let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; polynomial_constants ()) in
     split tac;
-    cbn [peval nth Nat.pow]; first [solve [lia] | cnia_now].
+    cbn [peval nth Nat.pow]; first [solve [lia] | solve [cmono_poly] | cnia_now].
   Ltac cpolynomial_core := cpolynomial_by ltac:(typeclasses eauto).
   Ltac cpolynomial_untimed := cpolynomial_by ltac:(cinstance); cadvice.
   Ltac cpolynomial_using H := cpolynomial_by ltac:(exact H).

@@ -5,7 +5,8 @@
     missing. They are the bounds of [Bounds] (in the sizes of the arguments
     of a function), and they are higher-order polynomials ([HOPoly]). *)
 
-From Stdlib Require Import List PeanoNat.
+From Stdlib Require Import List PeanoNat Lia.
+Import ListNotations.
 
 Inductive poly : Type :=
 | pconst (k : nat)
@@ -31,3 +32,38 @@ Fixpoint pdeg (p : poly) : nat :=
   | pmul p q => pdeg p + pdeg q
   | ppow p d => pdeg p * d
   end.
+
+(** ** Degrees
+
+    A polynomial of degree [0] is a constant, and one of degree at most
+    [1] in one variable is bounded by a linear function of it. *)
+
+Lemma peval_deg0 p ss ss' : pdeg p = 0 -> peval p ss = peval p ss'.
+Proof.
+  induction p as [k|i|p IHp q IHq|p IHp q IHq|p IHp d]; cbn; intro H.
+  - reflexivity.
+  - discriminate H.
+  - rewrite IHp, IHq; [reflexivity | ..]; lia.
+  - rewrite IHp, IHq; [reflexivity | ..]; lia.
+  - destruct d as [|d]; [reflexivity|]. rewrite IHp; [reflexivity|]. nia.
+Qed.
+
+Lemma peval_deg1 p : pdeg p <= 1 -> exists k, forall x, peval p [x] <= k * (1 + x).
+Proof.
+  induction p as [k|i|p IHp q IHq|p IHp q IHq|p IHp d]; cbn; intro H.
+  - exists k. intro x. nia.
+  - exists 1. intro x. destruct i as [|[|i]]; cbn; lia.
+  - destruct IHp as [a Ha]; [lia|]. destruct IHq as [b Hb]; [lia|].
+    exists (a + b). intro x. specialize (Ha x). specialize (Hb x). nia.
+  - assert (pdeg p = 0 \/ pdeg q = 0) as [Hp|Hq] by lia.
+    + destruct IHq as [b Hb]; [lia|]. exists (peval p [0] * b). intro x.
+      rewrite (peval_deg0 p [x] [0] Hp). rewrite <- Nat.mul_assoc.
+      apply Nat.mul_le_mono_l, Hb.
+    + destruct IHp as [a Ha]; [lia|]. exists (a * peval q [0]). intro x.
+      rewrite (peval_deg0 q [x] [0] Hq). specialize (Ha x). nia.
+  - destruct d as [|[|d]].
+    + exists 1. intro x. cbn. lia.
+    + destruct IHp as [a Ha]; [lia|]. exists a. intro x. rewrite Nat.pow_1_r. apply Ha.
+    + assert (Hp : pdeg p = 0) by nia.
+      exists (peval p [0] ^ S (S d)). intro x. rewrite (peval_deg0 p [x] [0] Hp). nia.
+Qed.

@@ -9,7 +9,7 @@
     complexity of a sum is the sum of the complexities, and a bound reads
     the element with its complexity ([czip_sum]). The functions on sums
     alone are proved over the model without lists ([SumComplexity], over
-    [TimeCostModelBase]); those on lists of sums ([HSumComplexity]) read
+    [TimeCostModelBase]); those on lists of sums ([SumListComplexity]) read
     the lists with their complexities ([czip]), as for lists of any data. *)
 
 From Complexity Require Export TimeCostModel HOListComplexity.
@@ -99,7 +99,7 @@ End SumComplexity.
 
 (** ** Options and lists of sums *)
 
-Module HSumComplexity (Import Time : TimeCostModel).
+Module SumListComplexity (Import Time : TimeCostModel).
 
   Global Instance get_inl_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@get_inl A B)
@@ -129,4 +129,4 @@ Module HSumComplexity (Import Time : TimeCostModel).
                  +> map (@pot B CB) (rights (map (czip_sum cdefault cdefault) (czip cdefault cl)))).
   Proof. cbound. Qed.
 
-End HSumComplexity.
+End SumListComplexity.

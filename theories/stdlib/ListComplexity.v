@@ -18,6 +18,13 @@ Import ListNotations.
 (** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
+(** The facts on the values of [firstn] and [skipn] ([ValueFact]): their
+    lengths. *)
+#[global] Instance firstn_value_fact {A} n (l : list A) :
+  ValueFact (firstn n l) (fun y => length y = Nat.min n (length l)) := length_firstn n l.
+#[global] Instance skipn_value_fact {A} n (l : list A) :
+  ValueFact (skipn n l) (fun y => length y = length l - n) := length_skipn n l.
+
 (** The model with the analyses of [nat] and the bounds of the functions on
     lists of any data ([app], used by [rev] and [concat]). *)
 Module Type TimeNatLists := TimeNat <+ HOListComplexity.

@@ -458,15 +458,17 @@ Module CombinatorTactics
     end.
 
   (** [lia] and [nia], with the facts of the tests if needed, or the
-      export (with these facts). The type aliases are unfolded first
-      ([cnorm_types]); [nia] has a timeout, and may run after the analysis
-      ([cnia], [Advice]). *)
+      export (with these facts). The facts on the values are added first
+      ([add_value_facts]) and the type aliases unfolded ([cnorm_types]);
+      [nia] has a timeout, and may run after the analysis ([cnia],
+      [Advice]). *)
   Ltac carith := ltac2:(if Advice.cexport then
                           Control.enter (fun () => ltac1:(cbool_facts); Advice.cexport_goal (); ltac1:(admit))
-                        else ltac1:(cnorm_types; first [solve [lia | progress cbool_facts; lia] | cbool_facts; cnia])).
+                        else ltac1:(add_value_facts; first [solve [lia | progress cbool_facts; lia] | cbool_facts; cnia])).
 
   Ltac cfinish :=
-    csimpl; bo_split; destr_inputs; ccases; cunit; cfold; carith; try ring_simplify.
+    csimpl; bo_split; destr_inputs; ccases; cunit; cfold; carith;
+    ltac2:(if Advice.csimplify then ltac1:(try ring_simplify) else ()).
 
   (** From a goal [ComplexityBound f c] to [bound_order c_found c]. *)
   Ltac cstart := eapply ComplexityBound_mono; [idtac | unfold_fun; cbc_found].
@@ -516,7 +518,7 @@ Module CombinatorTactics
   Ltac cbound_polynomial :=
     unfold PolynomialBound; eexists;
     cbound_split; ltac2:(polynomial_constants ()); cbn [Poly.peval List.nth Nat.pow];
-    first [solve [lia] | cnia].
+    first [solve [lia] | solve [cmono_poly] | cnia].
 
   (** [cbound] proves [ComplexityBound f c] ([cbound_start], then
       [cfinish]), and [ConstantBound f], [LinearBound f] and

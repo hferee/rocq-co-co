@@ -35,10 +35,10 @@ Definition list_case {X E A : Type} (z : E -> A) (c : env (env E X) (list X) -> 
     instance, a list is realised by the realisers of its elements, with
     these complexities). The order on the complexities of lists compares
     them index by index, the missing ones being the default one. A list of
-    ground data is therefore ground ([HListGround]): its complexities carry
+    ground data is therefore ground ([ListGround]): its complexities carry
     no information. *)
 
-Module Type HListData (Import CM : CostModel).
+Module Type ListData (Import CM : CostModel).
   #[global] Declare Instance Repr_list : forall {A CA}, Repr A CA -> Repr (list A) (list CA).
 
   #[global] Declare Instance Size_list : forall {A}, Size A -> Size (list A).
@@ -52,28 +52,28 @@ Module Type HListData (Import CM : CostModel).
 
   #[global] Declare Instance nil_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@nil A) (@nil CA).
-End HListData.
+End ListData.
 
 (** Lists of ground data are ground: their complexities are related index
     by index. *)
-Module HListGround (Import CM : CostModel) (Import LD : HListData CM).
+Module ListGround (Import CM : CostModel) (Import LD : ListData CM).
   Global Instance list_ground {A CA} {R : Repr A CA} {G : IsGround R} : IsGround (Repr_list R) :=
     {| ground_indiscrete := fun c c' => bound_order_list c c' (fun i => ground_order _ _) |}.
-End HListGround.
+End ListGround.
 
-Module Type HListCtorTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import LD : HListData CM).
+Module Type ListCtorTimeCostModel
+  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import LD : ListData CM).
 
   Parameter c_cons : nat.
   #[global] Hint Unfold c_cons : costs.
 
   #[global] Declare Instance cons_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@cons A) (fun ch => c_clo +> fun ct => c_cons +> (pot ch :: pot ct)).
-End HListCtorTimeCostModel.
+End ListCtorTimeCostModel.
 
-Module Type HListCaseTimeCostModel
+Module Type ListCaseTimeCostModel
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import LD : HListData CM).
+  (Import CB : CombinatorTimeCostModel CM BT) (Import LD : ListData CM).
 
   Parameter c_case_list : nat.
   #[global] Hint Unfold c_case_list : costs.
@@ -94,8 +94,8 @@ Module Type HListCaseTimeCostModel
                        ⋊ ((pot ce, hd cdefault (res (pot cl ce))), tl (res (pot cl ce))))
          | nil => pot cz ce
          end).
-End HListCaseTimeCostModel.
+End ListCaseTimeCostModel.
 
-Module Type HListTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
+Module Type ListTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
   (CB : CombinatorTimeCostModel CM BT) :=
-  HListData CM <+ HListCtorTimeCostModel CM BT <+ HListCaseTimeCostModel CM BT CB.
+  ListData CM <+ ListCtorTimeCostModel CM BT <+ ListCaseTimeCostModel CM BT CB.

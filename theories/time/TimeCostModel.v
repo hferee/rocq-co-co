@@ -39,8 +39,8 @@ Module Type TimeCostModelBase := ParamTimeCostModelBase
   with Definition c_fix := 1.
 
 Module Type ParamTimeCostModel := ParamTimeCostModelBase
-  <+ HListTimeCostModel <+ HListGround <+ HOptionTimeCostModel <+ HOptionGround
-  <+ HProdTimeCostModel <+ HProdGround.
+  <+ ListTimeCostModel <+ ListGround <+ OptionTimeCostModel <+ OptionGround
+  <+ ProdTimeCostModel <+ ProdGround.
 
 Module Type TimeCostModel := ParamTimeCostModel
   with Definition c_clo := 1 with Definition c_frame := 0

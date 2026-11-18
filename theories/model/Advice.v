@@ -11,7 +11,8 @@
 
     The inequalities without a small counterexample may hold, but need facts
     that [lia] and [nia] do not know. [cexplain] suggests some, from the
-    shape of the inequality (sizes, powers, costs of functional arguments).
+    shape of the inequality (sizes, powers, values of functions, costs of
+    functional arguments).
 
     [cadvice_level] is [0] for no advice, [1] (the default) for the
     counterexamples, and [2] for the suggestions of [cexplain] too. The
@@ -99,6 +100,31 @@ Ltac2 rec occurs_const (name : string) (t : constr) : bool :=
   | _ => false
   end.
 
+(** A value of a function in [t] ([f x], [fold_right g [] l]): an
+    application of a constant that is not an operation on numbers nor a
+    measure, with no bound variable. *)
+Ltac2 measures () : string list :=
+  ["add"; "mul"; "sub"; "pow"; "min"; "max"; "pred"; "length"; "list_sum"; "map"; "size"; "size_nat";
+   "zsize"; "cost"; "val"; "pot"; "le"; "lt"; "ge"; "gt"; "eq"].
+
+Ltac2 rec value_atom (t : constr) : constr option :=
+  let first (ts : constr array) :=
+    Array.fold_left (fun acc u => match acc with Some _ => acc | None => value_atom u end) None ts in
+  match kind t with
+  | App f args =>
+      match kind f with
+      | Constant c _ =>
+          let known :=
+            match List.last_opt (Env.path (Std.ConstRef c)) with
+            | Some id => List.exist (fun n => String.equal (Ident.to_string id) n) (measures ())
+            | None => true
+            end in
+          if Bool.and (Bool.neg known) (is_closed t) then Some t else first args
+      | _ => first args
+      end
+  | _ => None
+  end.
+
 (** A counterexample to the goal [a <= b]: the values of the variables, and
     those of [a] and [b]. *)
 Ltac2 counterexample () : ((ident * constr) list * constr * constr) option :=
@@ -167,10 +193,17 @@ Ltac2 suggestions (g : constr) : message list :=
        [s "It has products: nia may need facts on them, e.g. pose proof (Nat.mul_le_mono_l _ _ k H) for H : a <= b."]
      else [])
   (List.append
+    (match value_atom g with
+     | Some v =>
+         [s (String.app "It mentions the value " (String.app (to_string (of_constr v))
+              " of a function: facts on such values may be missing (bounds of their measures). Register them as ValueFact instances, which cbound uses, or pose proof them."))]
+     | None => []
+     end)
+  (List.append
     (if occurs_const "cost" g then
        [s "It depends on the costs of a functional argument: it needs a hypothesis bounding them."]
      else [])
-    [s "If it is false, the claimed bound is too small: compare the two sides, the left one is the cost found."])))
+    [s "If it is false, the claimed bound is too small: compare the two sides, the left one is the cost found."]))))
 .
 
 (** ** Messages *)
@@ -241,6 +274,16 @@ Ltac2 cexplain_goal () : unit :=
     [cundeferred]). *)
 Ltac2 mutable ctimeout : int := 2.
 Ltac2 mutable cnia_timeout : int := 3.
+
+(** The inequalities that the tactics leave are simplified by
+    [ring_simplify], for reading. Its results are unary numbers: with
+    large constants ([100 * 500]) it may take seconds on each inequality.
+    [csimplify := false] leaves them as found, for the proofs that only
+    give them to [lia] or [nia]:
+<<
+      #[local] Ltac2 Set csimplify := false.
+>> *)
+Ltac2 mutable csimplify : bool := true.
 
 Ltac2 is_timeout (e : exn) : bool :=
   let s := Message.to_string (Message.of_exn e) in

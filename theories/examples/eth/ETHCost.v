@@ -14,6 +14,24 @@ Local Open Scope nat_scope.
 (** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
+(** ** Facts on the values ([ETHFacts])
+
+    Registered for the analyses ([ValueFact], [Bounds]): the sorted lists
+    are at most as long as the original ones, with at most their measures;
+    the index of an element is at most the length of the list; the codes of
+    the literals are bounded by the codes. *)
+#[global] Instance sort_uniq_value_fact l :
+  ValueFact (fold_right insert_uniq [] l) (fun y => length y <= length l) := length_sort_uniq l.
+#[global] Instance sort_clauses_value_fact F :
+  ValueFact (fold_right insert_clause [] F) (fun y => length y <= length F) := length_sort_clauses F.
+#[global] Instance map_sort_clauses_value_fact (h : nclause -> nat) F :
+  ValueFact (map h (fold_right insert_clause [] F)) (fun y => list_sum y <= list_sum (map h F)) :=
+  list_sum_map_sort_clauses h F.
+#[global] Instance indexN_value_fact x l : ValueFact (indexN x l) (fun y => y <= length l) := indexN_le x l.
+#[global] Instance lit_code_value_fact l : ValueFact (lit_code l) (fun y => y <= 2 * lvar l + 1) := lit_code_le l.
+#[global] Instance code_var_value_fact c : ValueFact (code_var c) (fun y => 2 * y <= c) := code_var_le c.
+#[global] Instance code_neg_value_fact c : ValueFact (code_neg c) (fun y => y <= S c) := code_neg_le c.
+
 Module ETHCost (Import Time : TimeStdlib).
 
 
@@ -103,13 +121,9 @@ Module ETHCost (Import Time : TimeStdlib).
   Proof. cbound. simpl_czip. nia. Qed.
 
   (** Each insertion costs at most the length of the original list
-      ([length_sort_uniq], [ETHFacts]). *)
+      ([length_sort_uniq], [ETHFacts], registered above). *)
   Global Instance fold_right_insert_uniq_complexity : Time.ComplexityBound (fold_right insert_uniq [])
-    (fun cl => (length (val cl) * (56 * list_sum (val cl) + 105 * length (val cl)) + 6) >|).
-  Proof.
-    cbound. match goal with |- context [length (fold_right insert_uniq [] ?l)] => pose proof (length_sort_uniq l) end.
-    nia.
-  Qed.
+    (fun cl => (length (val cl) * (56 * list_sum (val cl) + 105 * length (val cl)) + 6) >|) := _.
 
   Global Instance sort_uniq_complexity : Time.ComplexityBound sort_uniq
     (fun cl => (length (val cl) * (56 * list_sum (val cl) + 105 * length (val cl)) + 6) >|) := _.
@@ -124,28 +138,13 @@ Module ETHCost (Import Time : TimeStdlib).
     cbound. simpl_czip.
     match goal with |- context [list_sum (map ?f (range ?n))] =>
       pose proof (list_sum_map_le f (fun x => length cv * (28 * x + 41) + 48 * length cv + 41) (range n)
-        (fun x _ => ltac:(cbv beta; pose proof (indexN_le x cv); destruct (memN x cv); cbn; lia))) end.
+        (fun x _ => ltac:(cbv beta; add_value_facts; destruct (memN x cv); cbn; lia))) end.
     simpl_czip. unfold range in *. rewrite length_seq in *. pose proof (list_sum_seq0 cn).
     nia.
   Qed.
-  (** The cost is cubic: [nia] does not find the polynomial bound alone.
-      Each measure is at most the sum [X] of the sizes and [1], and the
-      constant of the bound is the sum of the coefficients. *)
-  Global Instance embed_polynomial_bound : Time.PolynomialBound embed.
-  Proof.
-    unfold PolynomialBound; eexists.
-    let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; polynomial_constants ()) in
-    split ltac:(exact embed_complexity).
-    all: cbn [Complexity.math.Poly.peval List.nth Nat.pow].
-    all: try lia.
-    set (X := 1 + (#|ca| + (#|ca0| + (#|ca1| + 0)))).
-    assert (ca <= X /\ length ca0 <= X /\ 1 <= X) as (H2 & H3 & H4) by lia.
-    assert (ca * (length ca0 * (28 * ca + 134) + 120) <= X * (X * (28 * X + 134 * X) + 120 * X)).
-    { apply Nat.mul_le_mono; [lia|]. apply Nat.add_le_mono; [| lia].
-      apply Nat.mul_le_mono; lia. }
-    assert (19 <= 19 * (X * (X * (X * 1)))) by nia.
-    lia.
-  Qed.
+  (** The cost is cubic: [nia] does not find the polynomial bound alone,
+      [cmono_poly] does ([Bounds]). *)
+  Global Instance embed_polynomial_bound : Time.PolynomialBound embed := _.
 
   (** ** Formulas *)
 
@@ -181,7 +180,7 @@ Module ETHCost (Import Time : TimeStdlib).
                 + 36 * list_sum (val cC) + 78 * length (val cC) + 11) >|).
   Proof.
     cbound. simpl_czip.
-    pose proof (list_sum_map_le_affine code_neg 1 1 cC (fun x _ => ltac:(pose proof (code_neg_le x); lia))).
+    pose proof (list_sum_map_le_affine code_neg 1 1 cC (fun x _ => ltac:(add_value_facts; lia))).
     nia.
   Qed.
 
@@ -192,19 +191,12 @@ Module ETHCost (Import Time : TimeStdlib).
     (fun cC => 1 +> fun cF =>
        (length (val cF) * (84 * list_sum (val cC) + 199 * length (val cC) + 71) + 12) >|) := _.
 
-  (** The products of the length of the sorted clauses by the measures of
-      the clause inserted, which [nia] does not find. *)
+  (** The sorted clauses are at most the clauses ([length_sort_clauses],
+      [ETHFacts], registered above). *)
   Global Instance fold_right_insert_clause_complexity : Time.ComplexityBound (fold_right insert_clause [])
     (fun cF =>
        (length (val cF) * (84 * list_sum (map list_sum (val cF)) + 199 * list_sum (map (@length nat) (val cF))
-                           + 36 * length (val cF)) + 6) >|).
-  Proof.
-    cbound.
-    match goal with |- context [length (fold_right insert_clause [] ?l)] => pose proof (length_sort_clauses l) as Hl end.
-    match goal with |- context [list_sum ?C] => is_var C;
-      pose proof (Nat.mul_le_mono_r _ _ (list_sum C) Hl); pose proof (Nat.mul_le_mono_r _ _ (length C) Hl) end.
-    cnorm_types. lia.
-  Qed.
+                           + 36 * length (val cF)) + 6) >|) := _.
 
   Global Instance sort_clauses_complexity : Time.ComplexityBound sort_clauses
     (fun cF =>
@@ -261,16 +253,9 @@ Module ETHCost (Import Time : TimeStdlib).
                   (fun x _ => ltac:(cbv beta; nia))).
     pose proof (list_sum_map_mul_le (@length nat) list_sum cF).
     pose proof (list_sum_map_mul_le (@length nat) (@length nat) cF).
-    (* the clauses kept, then sorted, are at most those of [cF] *)
-    match goal with |- context [filter ?p cF] =>
-      pose proof (filter_length_le p cF); pose proof (list_sum_map_filter_le (@length nat) p cF);
-      pose proof (list_sum_map_filter_le list_sum p cF); set (G := filter p cF) in * end.
-    pose proof (length_sort_clauses G : @length (list nat) (sort_clauses G) <= @length (list nat) G).
-    pose proof (list_sum_map_sort_clauses (@length nat) G
-      : list_sum (@map (list nat) nat (@length nat) (sort_clauses G)) <= _).
-    pose proof (list_sum_map_sort_clauses list_sum G
-      : list_sum (@map (list nat) nat list_sum (sort_clauses G)) <= _).
-    simpl_czip. cnorm_types.
+    (* the clauses kept, then sorted, are at most those of [cF] ([ValueFact]) *)
+    simpl_czip. add_value_facts.
+    match goal with |- context [filter ?p cF] => set (G := filter p cF) in * end.
     set (N := @length (list nat) cF) in *. set (S1 := list_sum (map (@length nat) cF)) in *.
     set (S2 := list_sum (map list_sum cF)) in *.
     set (a := @length (list nat) G) in *. set (b := list_sum (map (@length nat) G)) in *.

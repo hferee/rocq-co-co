@@ -313,6 +313,11 @@ Module ZComplexity (Import Time : TimePos).
         cbn [zsize Pos.size_nat] in *; unfold Z.double in *; clear E
     end; size_facts.
 
+  (** The inequalities left are only given to [lia] and [nia]: they are
+      not simplified ([csimplify], [Advice]), which would take seconds
+      with these constants. *)
+  #[local] Ltac2 Set csimplify := Init.false.
+
   Global Instance Z_pos_div_eucl_complexity : Time.ComplexityBound Z.pos_div_eucl
     (fun ca => 4 +> fun cb =>
        (Pos.size_nat (val ca) * (100 * Pos.size_nat (val ca) + 200 * zsize (val cb) + 500) + 100) >|).
@@ -323,6 +328,8 @@ Module ZComplexity (Import Time : TimePos).
        (zsize (val ca) * (100 * zsize (val ca) + 200 * zsize (val cb) + 600)
           + 100 * zsize (val cb) + 300) >|).
   Proof. cbound. all: div_facts; timeout 5 lia. Qed.
+
+  #[local] Ltac2 Set csimplify := Init.true.
 
   Global Instance Z_div_complexity : Time.ComplexityBound Z.div
     (fun ca => 4 +> fun cb =>
@@ -360,12 +367,16 @@ Module ZComplexity (Import Time : TimePos).
     try match goal with |- context [Pos.size_nat (Pos.sub ?x ?y)] => pose proof (size_nat_sub x y) end;
     cbn [Pos.size_nat] in *.
 
+  #[local] Ltac2 Set csimplify := Init.false.
+
   (** [Pos.ggcdn n a b] recurses at most [n] times, on arguments whose
       sizes do not grow. *)
   Global Instance Pos_ggcdn_complexity : Time.ComplexityBound Pos.ggcdn
     (fun cn => 10 +> fun ca => 10 +> fun cb =>
        (val cn * (200 * (Pos.size_nat (val ca) + Pos.size_nat (val cb)) + 300) + 20) >|).
   Proof. cbound. all: ggcd_facts; timeout 5 nia. Qed.
+
+  #[local] Ltac2 Set csimplify := Init.true.
 
   Global Instance Pos_ggcd_complexity : Time.ComplexityBound Pos.ggcd
     (fun ca => 10 +> fun cb =>
