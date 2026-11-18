@@ -1,7 +1,7 @@
 (** * The bounds of the higher-order functions on lists hold in L
 
-    [LH] ([LInstance]) is the instance of the cost model with lists,
-    options and pairs of any data ([HOTimeCostModel]). With the bounds of the boolean operations
+    [LH] ([LInstance], the same as [L]) is the instance of the cost
+    model. With the bounds of the boolean operations
     ([BoolComplexity]), it is an instance of [HOTimeBool], to which the
     analyses of [HOListComplexity] apply: their bounds are L running times.
     They use no axiom. *)

@@ -6,7 +6,7 @@
     arguments of the fixpoint. A functional parameter comes with a
     hypothesis on its complexity ([fold_left_complexity]), or is an
     argument of the function, in the environment of its fixpoint
-    ([fold_left_hcomplexity], [fold_right_hcomplexity], [map_complexity],
+    ([fold_left_ground_hcomplexity], [fold_right_ground_hcomplexity], [map_complexity],
     ...); [fold_right_fcost_le] closes the costs of [fold_right] in the
     sizes, from the growth of the accumulator.
 
@@ -149,7 +149,7 @@ Module ListComplexity (Import Time : TimeNat).
   (** For a function of constant complexity, on ground data, the costs of
       its applications are linear in the length. *)
   Lemma fold_left_fcost_constant {A B} (f : A -> B -> A) (c1 c2 : nat) l cx :
-    fold_left_fcost (f ⋊ (fun _ => c1 +> fun _ => c2 >|)) l cx = (c1 + c2) * length l.
+    fold_left_fcost (f ⋊ (fun _ : ℂI A unit => c1 +> fun _ : ℂI B unit => c2 >|)) l cx = (c1 + c2) * length l.
   Proof.
     revert cx. induction l as [|b t IH]; intro cx; cbn [fold_left_fcost length]; cbn; [lia|].
     rewrite IH. lia.
@@ -162,7 +162,7 @@ Module ListComplexity (Import Time : TimeNat).
       slope [c1 + c2 + 40] ([fold_left_fcost_constant]). [fold_left] is a
       fixpoint under `fun f`: `f` is in the environment of the fixpoint
       ([crec_env]), and the recursive calls do not pass it again. *)
-  Lemma fold_left_hcomplexity {A CA B} `{Repr A CA} `{Ground B} :
+  Lemma fold_left_ground_hcomplexity {A CA B} `{Repr A CA} `{Ground B} :
     Time.ComplexityBound (@fold_left A B)
       (fun cf => 1 +> fun cl => 4 +> fun cx =>
          (fold_left_fcost cf (val cl) cx + 40 * length (val cl) + 6) +> fold_left_pot cf (val cl) cx).
@@ -181,7 +181,7 @@ Module ListComplexity (Import Time : TimeNat).
         cost r1 + cost (res r1 (fold_right (val cf) a0 t ⋊ tt)) + fold_right_fcost cf a0 t
     end.
 
-  Lemma fold_right_hcomplexity {A B} `{Ground A} `{Ground B} :
+  Lemma fold_right_ground_hcomplexity {A B} `{Ground A} `{Ground B} :
     Time.ComplexityBound (@fold_right A B)
       (fun cf => 1 +> fun ca0 => 2 +> fun cl =>
          (fold_right_fcost cf (val ca0) (val cl) + 28 * length (val cl) + 10) >|).
@@ -231,12 +231,12 @@ Module ListComplexity (Import Time : TimeNat).
     Time.ComplexityBound f (fun cx : ℂI B unit => c1 +> fun cy : ℂI A unit => g #|val cx| #|val cy| >|) ->
     (forall x y, #|f x y| <= #|x| + #|y| + d) ->
     Time.ComplexityBound (fold_right f)
-      (fun ca0 : ℂI A unit => 2 +> fun cl : ℂI (list B) unit =>
+      (fun ca0 : ℂI A unit => 2 +> fun cl : ℂI (list B) (list unit) =>
          (length (val cl) * (c1 + g #|val cl| (#|val ca0| + #|val cl| + d * length (val cl)))
           + 28 * length (val cl) + 10) >|).
   Proof.
     intros Hg Hf Hd.
-    eapply ComplexityBound_mono; [| exact (apply_complexity _ Hf fold_right_hcomplexity)].
+    eapply ComplexityBound_mono; [| exact (apply_complexity _ Hf fold_right_ground_hcomplexity)].
     cbv beta; cbn [res]; bo_split; destr_inputs; cbn [cost val pot res]; [lia|].
     match goal with |- context [fold_right_fcost ?cf ?a0 ?l] =>
       pose proof (fold_right_fcost_le cf a0 c1 d g Hg (fun _ => le_n _) (fun _ _ => le_n _) Hd l) end.

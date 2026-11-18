@@ -2,12 +2,10 @@
 
     As in [BoolComplexity]: they are not recursive, compilation and
     typeclass search derive their complexity, and the constants are the
-    smallest ones. Pairs are of ground data in the model with ground lists
-    ([TimeCostModel]): [Nat.div] and [Nat.modulo] project the pair computed
-    by [Nat.divmod] ([NatComplexity]). They are of any data in the model
-    with lists of any data ([HOTimeCostModel], [HProdTimeCostModel]): the
-    complexity of a projection is that of the element
-    ([HPairComplexity]). *)
+    smallest ones. For pairs of data of complexity [unit] ([PairComplexity]):
+    [Nat.div] and [Nat.modulo] project the pair computed by [Nat.divmod]
+    ([NatComplexity]). For pairs of any data ([HPairComplexity]): the
+    complexity of a projection is that of the element. *)
 
 From Complexity Require Export TimeCostModel.
 
@@ -29,7 +27,7 @@ End PairComplexity.
 
 (** Pairs of any data: the elements may be functions, or other data with
     complexities. *)
-Module HPairComplexity (Import Time : HOTimeCostModel).
+Module HPairComplexity (Import Time : TimeCostModel).
   Global Instance fst_hcomplexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@fst A B) (fun cp => 5 +> fst (pot cp)) := _.
   Global Instance snd_hcomplexity {A CA B CB} `{Repr A CA} `{Repr B CB} :

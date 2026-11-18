@@ -32,14 +32,33 @@ Record ℂO (C : Type) := { cost : nat; res : C }.
     [c] (they are added to it when [r] is used). Below [+] and [*], so that
     a cost needs no parentheses: [fun cn => 4 +> fun cm => 22 * val cn + 6 >|]. *)
 Notation "c +> r" := (Build_ℂO _ c r) (at level 55, right associativity).
-(** [c >|]: the cost [c], and nothing after it: [Build_ℂO _ c tt], the
-    end of a bound whose result is ground (a number, a boolean, a list,
-    ...). Like [+>], it takes the whole cost on its left:
-    [22 * val cn + 6 >|]. Being declared after [+>], it is the one Rocq
-    prints. It is at level 55, not at the usual level 1 of a postfix
-    notation, so that it takes the whole cost. *)
+(** Inhabited types, with an element: the class [Inhabited] of stdpp (with
+    the same names), on which [>|] relies. The search waits for the type
+    ([Hint Mode]), so that [>|] finds the instance from the type of the
+    result. The instances are declared with the types: [unit] below, lists
+    in [TimeLists], options, pairs and sums in [TimeDatatypes]. *)
+Class Inhabited (A : Type) : Type := populate { inhabitant : A }.
+#[global] Hint Mode Inhabited ! : typeclass_instances.
+#[global] Arguments populate {_} _.
+
+(** [unit], the complexity of numbers, booleans, ... *)
+#[global] Instance unit_inhabited : Inhabited unit := populate tt.
+
+(** An indiscrete (or chaotic) order: any two elements are related. The
+    complexities of ground data have an indiscrete order ([IsGround]). *)
+Class IndiscreteOrder {A} (R : A -> A -> Prop) : Prop := indiscrete : forall x y, R x y.
+
+(** [c >|]: the cost [c], and nothing after it: [Build_ℂO _ c inhabitant],
+    the end of a bound whose result is ground (a number, a boolean, a list
+    of numbers, ...). Its complexity is any one ([inhabitant]: [tt] for
+    [unit], the empty list for the lists of ground data, ...), any two
+    complexities of ground data being related ([IsGround]). Like [+>], it
+    takes the whole cost on its left: [22 * val cn + 6 >|]. Being declared
+    after [+>], it is the one Rocq prints. It is at level 55, not at the
+    usual level 1 of a postfix notation, so that it takes the whole
+    cost. *)
 #[warnings="-postfix-notation-not-level-1"]
-Notation "c >|" := (Build_ℂO _ c tt) (at level 55, format "c  >|").
+Notation "c >|" := (Build_ℂO _ c inhabitant) (at level 55, format "c  >|").
 Arguments cost {_}.
 Arguments res {_}.
 
@@ -84,9 +103,26 @@ Create HintDb costs.
 
 (** Destruct the complexities of the inputs of ground type: [c : ℂI A unit]
     becomes the value of the input, still named [c]. *)
+(** The complexity types of ground data: [unit], and the lists, pairs,
+    options and sums of them. *)
+Ltac is_ground_ctype C :=
+  lazymatch C with
+  | unit => idtac
+  | list ?C1 => is_ground_ctype C1
+  | prod ?C1 ?C2 => is_ground_ctype C1; is_ground_ctype C2
+  | option ?C1 => is_ground_ctype C1
+  | sum ?C1 ?C2 => is_ground_ctype C1; is_ground_ctype C2
+  end.
+
+(** The inputs of ground data are replaced by their values (their
+    complexities carry no information): the value keeps the name of the
+    input. *)
 Ltac destr_inputs :=
   repeat match goal with
   | c : ℂI _ unit |- _ => let v := fresh "v" in destruct c as [v []]; rename v into c
+  | c : ℂI _ ?C |- _ =>
+      is_ground_ctype C;
+      let v := fresh "v" in let p := fresh "p" in destruct c as [v p]; rename v into c
   end.
 
 (** * Sizes
@@ -166,6 +202,11 @@ Module Type CostModelAxioms.
   #[global] Declare Instance bound_order_po :
     forall {A CA} `{Repr A CA}, PreOrder (@bound_order A CA _).
 
+  (** A complexity of each representable type: the one that the
+      representations of data use for a missing complexity (an element of a
+      list longer than its complexities, ...). *)
+  Parameter cdefault : forall {A CA} `{Repr A CA}, CA.
+
   (** The order on the complexities of functions is pointwise, and compares
       costs. *)
   Parameter bound_order_arr : forall {A CA B CB} `{Repr A CA} `{Repr B CB}
@@ -190,6 +231,22 @@ Module Complexities (Import CM : CostModelAxioms).
   Lemma bound_order_ground {A} `{Ground A} (c c' : unit) : bound_order c c'.
   Proof. destruct c, c'. reflexivity. Qed.
 
+  (** Ground data, in general: their complexities carry no information. Their
+      type is inhabited, and their order is indiscrete: any two are related.
+      The data of complexity [unit] are ground; so are the lists, options,
+      pairs and sums of ground data ([TimeLists], [TimeDatatypes]). The
+      bounds whose result is ground end with [>|]: the complexity of the
+      result is then any one ([inhabitant]). *)
+  Class IsGround {A CA} (R : Repr A CA) : Type := {
+    ground_inhabited :: Inhabited CA;
+    ground_indiscrete :: IndiscreteOrder (@bound_order A CA R) }.
+
+  Definition ground_order {A CA} {R : Repr A CA} {G : IsGround R} (c c' : CA) : bound_order c c' :=
+    indiscrete c c'.
+
+  Global Instance unit_ground {A} (R : Ground A) : IsGround R :=
+    {| ground_inhabited := unit_inhabited; ground_indiscrete := @bound_order_ground A R |}.
+
   (** Decompose [bound_order] goals into inequalities between costs. The
       arguments of functions are named as in the right-hand side (usually
       the claimed bound). *)
@@ -204,6 +261,7 @@ Module Complexities (Import CM : CostModelAxioms).
         end;
         split
     | |- @bound_order _ unit _ _ _ => apply bound_order_ground
+    | |- @bound_order _ _ _ _ _ => solve [apply ground_order]
     end.
 
   (** ** Bounds *)

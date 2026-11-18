@@ -11,13 +11,15 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
 - `time/`: the time cost model, as one signature gathering the costs of
   application (`TimeBasic`), of the combinators (`TimeCombinators`), of the
   datatypes (`TimeDatatypes`, with separate layers for the data, the
-  constructors and the case analysis of each datatype; lists in `TimeLists`,
-  with two models: lists of ground data, and lists of any data, whose
-  complexity is the list of the complexities of their elements) and of
-  fixpoints (`TimeFix`). The costs are constants: `ParamTimeCostModel` leaves
-  them abstract, `TimeCostModel` sets them all to 1, and `HOTimeCostModel` is
-  the same with lists, options and pairs of any data (`TimeDatatypes` has
-  the two models of each; sums are of any data in both). The size of a value is
+  constructors and the case analysis of each datatype; lists in `TimeLists`)
+  and of fixpoints (`TimeFix`). The data are of any type: the complexity of
+  a list is the list of the complexities of its elements, the value giving
+  the shape (the missing complexities are a default one); ground data
+  (numbers, lists of numbers, ...) are those whose complexities carry no
+  information (`IsGround`), and a bound with a ground result ends with `>|`.
+  The costs are constants: `ParamTimeCostModel` leaves them abstract,
+  `TimeCostModel` sets them all to 1 (`HOTimeCostModel` is its former name,
+  for the model with lists of any data). The size of a value is
   the length of its binary encoding, its number of constructors (exact
   equations: `size (S n) = 1 + size n`, ...). `TimeArith` defines another
   model, with addition and multiplication as primitives and no case analysis
@@ -40,12 +42,12 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   (`SOPoly`), sizes of binary numbers.
 - `stdlib/`: analyses of the standard library, as layers over
   `TimeCostModel` (`TimeBoolPair`, `TimeNat`, `TimePos`, `TimeStdlib`;
-  booleans and pairs first, then numbers and lists, with the higher-order
-  functions on lists of ground data), and the
-  higher-order functions on lists and options of any data (`map`, `filter`,
-  `find`, the folds, `option_map`, ...) over `HOTimeCostModel`
-  (`HOListComplexity`), and the usual functions on sums (of any data, in
-  both models) and on lists of sums (`SumComplexity`).
+  booleans and pairs first, then numbers and lists: the first-order
+  functions of lists and the higher-order ones on lists of numbers
+  (`ListComplexity`), the higher-order functions on lists and options of
+  any data (`map`, `filter`, `find`, the folds, `option_map`, ...;
+  `HOListComplexity`), and the usual functions on sums and on lists of
+  sums (`SumComplexity`)).
 - `bff/`: the basic feasible functionals (PV^ω), their complexity, their
   higher-order polynomial bounds, and Irwin, Kapron and Royer's type-3
   example.
@@ -53,8 +55,7 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   (`MachineCostModel`: closures, variables read in a linked environment,
   frames for the evaluations in non-tail position, so that tail calls are
   cheaper), and running times on it (`MachineExamples`). The machine is an
-  instance of the whole time model, with ground lists and options and with
-  lists, options and pairs of any data (`instances/LMachine`: `LM`, `LMH`).
+  instance of the whole time model (`instances/LMachine`: `LM`).
 - `lower/`: lower bounds. A cost model with elements compared at cost 1,
   and the axiom that lower bounds need: a function with a bound is a
   comparison tree (`ComparisonModel`); the counting argument

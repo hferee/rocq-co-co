@@ -8,10 +8,9 @@
     Sums are of any data ([SumTimeCostModel] in [TimeDatatypes]): the
     complexity of a sum is the sum of the complexities, and a bound reads
     the element with its complexity ([czip_sum]). The functions on sums
-    alone hold in both time models ([SumComplexity], over
-    [TimeCostModelBase]); those on lists of sums need lists of any data
-    ([HSumComplexity], over [HOTimeCostModel]), as a sum is not ground
-    data. *)
+    alone are proved over the model without lists ([SumComplexity], over
+    [TimeCostModelBase]); those on lists of sums ([HSumComplexity]) read
+    the lists with their complexities ([czip]), as for lists of any data. *)
 
 From Complexity Require Export TimeCostModel HOListComplexity.
 From Stdlib Require Import List.
@@ -122,12 +121,12 @@ Module HSumComplexity (Import Time : HOTimeCostModel).
   Global Instance lefts_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@lefts A B)
       (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (27 * length (val cl) + 6)
-                 +> map (@pot A CA) (lefts (map (czip_sum cdefault cdefault) (czip cl)))).
+                 +> map (@pot A CA) (lefts (map (czip_sum cdefault cdefault) (czip cdefault cl)))).
   Proof. cbound. Qed.
   Global Instance rights_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@rights A B)
       (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (27 * length (val cl) + 6)
-                 +> map (@pot B CB) (rights (map (czip_sum cdefault cdefault) (czip cl)))).
+                 +> map (@pot B CB) (rights (map (czip_sum cdefault cdefault) (czip cdefault cl)))).
   Proof. cbound. Qed.
 
 End HSumComplexity.

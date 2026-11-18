@@ -96,11 +96,11 @@ Module ETHCost (Import Time : TimeStdlib).
 
   (** [subsetN a b]: [memN x b] for each element [x] of [a] ([forallb], on
       the closure of [b]). [cbound] leaves the sum of the costs of the
-      elements, distributed by [simpl_list_sum]. *)
+      elements, distributed by [simpl_czip]. *)
   Global Instance subsetN_complexity : Time.ComplexityBound subsetN
     (fun ca => 1 +> fun cb =>
        (length (val cb) * (28 * list_sum (val ca) + 45 * length (val ca)) + 46 * length (val ca) + 12) >|).
-  Proof. cbound. simpl_list_sum. nia. Qed.
+  Proof. cbound. simpl_czip. nia. Qed.
 
   (** Each insertion costs at most the length of the original list
       ([length_sort_uniq], [ETHFacts]). *)
@@ -121,11 +121,11 @@ Module ETHCost (Import Time : TimeStdlib).
     (fun cn => 1 +> fun cv => 2 +> fun cb =>
        (val cn * (length (val cv) * (28 * val cn + 134) + 120) + 19) >|).
   Proof.
-    cbound. simpl_list_sum.
+    cbound. simpl_czip.
     match goal with |- context [list_sum (map ?f (range ?n))] =>
       pose proof (list_sum_map_le f (fun x => length cv * (28 * x + 41) + 48 * length cv + 41) (range n)
         (fun x _ => ltac:(cbv beta; pose proof (indexN_le x cv); destruct (memN x cv); cbn; lia))) end.
-    simpl_list_sum. unfold range in *. rewrite length_seq in *. pose proof (list_sum_seq0 cn).
+    simpl_czip. unfold range in *. rewrite length_seq in *. pose proof (list_sum_seq0 cn).
     nia.
   Qed.
   (** The cost is cubic: [nia] does not find the polynomial bound alone.
@@ -162,9 +162,9 @@ Module ETHCost (Import Time : TimeStdlib).
   Global Instance nclause_eval_complexity : Time.ComplexityBound nclause_eval
     (fun cx => 1 +> fun cC => (41 * list_sum (val cC) + 96 * length (val cC) + 12) >|).
   Proof.
-    cbound. simpl_list_sum.
+    cbound. simpl_czip.
     pose proof (list_sum_map_le (fun x => 2 * code_var x) (fun x => x) cC (fun x _ => code_var_le x)).
-    simpl_list_sum. lia.
+    simpl_czip. lia.
   Qed.
 
   (** [ncnf_eval x F]: the sum over the clauses, in the sums of their codes
@@ -173,14 +173,14 @@ Module ETHCost (Import Time : TimeStdlib).
     (fun cx => 1 +> fun cF =>
        (41 * list_sum (map list_sum (val cF)) + 96 * list_sum (map (@length nat) (val cF))
         + 44 * length (val cF) + 14) >|).
-  Proof. cbound. simpl_list_sum. lia. Qed.
+  Proof. cbound. simpl_czip. lia. Qed.
 
   (** [tautological C]: [memN (code_neg c) C] for each code [c] of [C]. *)
   Global Instance tautological_complexity : Time.ComplexityBound tautological
     (fun cC => (length (val cC) * (28 * list_sum (val cC) + 73 * length (val cC))
                 + 36 * list_sum (val cC) + 78 * length (val cC) + 11) >|).
   Proof.
-    cbound. simpl_list_sum.
+    cbound. simpl_czip.
     pose proof (list_sum_map_le_affine code_neg 1 1 cC (fun x _ => ltac:(pose proof (code_neg_le x); lia))).
     nia.
   Qed.
@@ -222,8 +222,8 @@ Module ETHCost (Import Time : TimeStdlib).
     (fun cF => (40 * length (val cF) + 6) >|).
   Proof.
     cbound. match goal with |- context [list_sum (map ?f ?l)] =>
-      pose proof (list_sum_map_le_const f 8 l (fun x _ => ltac:(destruct x; cbn; lia))) end.
-    lia.
+      pose proof (list_sum_map_le_const f 8 l (fun x _ => ltac:(destruct x as [[|] ?]; cbn; lia))) end.
+    simpl_czip. lia.
   Qed.
 
   (** [antichain F]: [strict_subset C' C] for each pair of clauses. The
@@ -235,13 +235,14 @@ Module ETHCost (Import Time : TimeStdlib).
              + 92 * length (val cF))
         + length (val cF) * (86 * length (val cF) + 49) + 11) >|).
   Proof.
-    cbound. simpl_list_sum.
+    cbound. simpl_czip.
     match goal with |- context [list_sum (map ?f ?l)] =>
+      lazymatch f with context [dzip] => idtac end;
       pose proof (list_sum_map_le f
         (fun x => 54 * length l + list_sum (map (@length nat) l) * (28 * list_sum x + 90 * length x + 46)
                   + length x * (28 * list_sum (map list_sum l) + 46 * length l)) l
-        (fun x _ => ltac:(cbv beta; simpl_list_sum; cnorm_types; nia))) end.
-    simpl_list_sum. cnorm_types. nia.
+        (fun x _ => ltac:(cbv beta; simpl_czip; cnorm_types; nia))) end.
+    simpl_czip. cnorm_types. nia.
   Qed.
   (** [normalize F]: the clauses kept by the filter, then sorted, are at
       most those of [F] ([ETHFacts]). *)
@@ -253,7 +254,7 @@ Module ETHCost (Import Time : TimeStdlib).
         + length (val cF) * (84 * list_sum (map list_sum (val cF)) + 122 * length (val cF) + 99)
         + 36 * list_sum (map list_sum (val cF)) + 27) >|).
   Proof.
-    cbound. simpl_list_sum.
+    cbound. simpl_czip.
     (* the tautology tests: the products of the measures of each clause *)
     pose proof (list_sum_map_le (fun x : list nat => length x * (28 * list_sum x + 73 * length x))
                   (fun x => 28 * (length x * list_sum x) + 73 * (length x * length x)) cF
@@ -269,7 +270,7 @@ Module ETHCost (Import Time : TimeStdlib).
       : list_sum (@map (list nat) nat (@length nat) (sort_clauses G)) <= _).
     pose proof (list_sum_map_sort_clauses list_sum G
       : list_sum (@map (list nat) nat list_sum (sort_clauses G)) <= _).
-    simpl_list_sum. cnorm_types.
+    simpl_czip. cnorm_types.
     set (N := @length (list nat) cF) in *. set (S1 := list_sum (map (@length nat) cF)) in *.
     set (S2 := list_sum (map list_sum cF)) in *.
     set (a := @length (list nat) G) in *. set (b := list_sum (map (@length nat) G)) in *.
@@ -289,7 +290,7 @@ Module ETHCost (Import Time : TimeStdlib).
   Global Instance max_width_complexity : Time.ComplexityBound max_width
     (fun cF => (length (val cF) * (30 * list_sum (map (@length nat) (val cF)) + 76)
                 + 16 * list_sum (map (@length nat) (val cF)) + 22) >|).
-  Proof. cbound. simpl_list_sum. cnorm_types. nia. Qed.
+  Proof. cbound. simpl_czip. cnorm_types. nia. Qed.
 
   (** The bounds in the sizes of the arguments: polynomial. *)
   Global Instance indexN_polynomial_bound : Time.PolynomialBound indexN := _.
@@ -394,10 +395,10 @@ Module ETHDataCost (Import Time : TimeStdlib) (Import D : ETHData Time).
     (fun cC => (length (val cC) * (112 * list_sum (map lvar (val cC)) + 161 * length (val cC))
                 + 56 * list_sum (map lvar (val cC)) + 125 * length (val cC) + 15) >|).
   Proof.
-    cbound. simpl_list_sum.
+    cbound. simpl_czip.
     pose proof (list_sum_map_le lit_code (fun l => S (2 * lvar l)) cC
                   (fun l _ => ltac:(cbv beta; pose proof (lit_code_le l); lia))) as H.
-    simpl_list_sum. pose proof (Nat.mul_le_mono_l _ _ (length cC) H).
+    simpl_czip. pose proof (Nat.mul_le_mono_l _ _ (length cC) H).
     cnorm_types. lia.
   Qed.
   Global Instance norm_clause_polynomial_bound : Time.PolynomialBound norm_clause := _.
@@ -474,7 +475,7 @@ End ETHDataCost.
       [forallb] and [flat_map] have bounds in the costs of their function
       ([ListComplexity]), which [subsetN], [tautological], ... use; the
       folds with a function that is a closure ([zipWith], [embed], ...)
-      do not ([fold_left_hcomplexity] is not closed, and [fold_right] has
+      do not ([fold_left_ground_hcomplexity] is not closed, and [fold_right] has
       no such bound yet: [sort_uniq] and [sort_clauses] analyse it with
       their function fixed).
     The subexponential bounds of the top layers also need the facts of the
@@ -546,13 +547,13 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
       size [k], all subsets of [l]), each with one application of [f]; the
       accumulator grows by at most [d] at each one. *)
   Lemma fold_tuples_complexity {A B} `{Ground A} `{Size A} `{Ground B} `{Size B}
-    (f : B -> list A -> B) (cf : ℂI B unit -> ℂO (ℂI (list A) unit -> ℂO unit)) (g : nat -> nat) (d : nat) :
+    (f : B -> list A -> B) (cf : ℂI B unit -> ℂO (ℂI (list A) (list unit) -> ℂO unit)) (g : nat -> nat) (d : nat) :
     Time.ComplexityBound f cf ->
-    (forall a t, cost (cf (a ⋊ tt)) + cost (res (cf (a ⋊ tt)) (t ⋊ tt)) <= g (#|a| + #|t|)) ->
+    (forall a t, cost (cf (a ⋊ inhabitant)) + cost (res (cf (a ⋊ inhabitant)) (t ⋊ inhabitant)) <= g (#|a| + #|t|)) ->
     (forall a t, #|f a t| <= #|a| + d) -> (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun len alphabet acc prefix => fold_tuples len alphabet f acc prefix)
-      (fun (cn : ℂI nat unit) => c +> fun (ca : ℂI (list A) unit) => c +> fun (cacc : ℂI B unit) => c +>
-       fun (cp : ℂI (list A) unit) =>
+      (fun (cn : ℂI nat unit) => c +> fun (ca : ℂI (list A) (list unit)) => c +> fun (cacc : ℂI B unit) => c +>
+       fun (cp : ℂI (list A) (list unit)) =>
          (S (length (val ca)) ^ val cn *
             (g (#|val cacc| + d * S (length (val ca)) ^ val cn + c * S (val cn + #|val ca| + #|val cp|) ^ c)
              + c * S (val cn + #|val ca| + #|val cp|) ^ c)) >|). Abort.
@@ -561,37 +562,37 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
     Time.PolynomialBound f -> Time.PolynomialBound (find_first f). Abort.
 
   Lemma find_tuple_complexity {A} `{Ground A} `{Size A}
-    (p : list A -> bool) (cp : ℂI (list A) unit -> ℂO unit) (g : nat -> nat) :
-    Time.ComplexityBound p cp -> (forall t, cost (cp (t ⋊ tt)) <= g #|t|) ->
+    (p : list A -> bool) (cp : ℂI (list A) (list unit) -> ℂO unit) (g : nat -> nat) :
+    Time.ComplexityBound p cp -> (forall t, cost (cp (t ⋊ inhabitant)) <= g #|t|) ->
     (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun len alphabet prefix => find_tuple len alphabet p prefix)
-      (fun (cn : ℂI nat unit) => c +> fun (ca : ℂI (list A) unit) => c +> fun (cpr : ℂI (list A) unit) =>
+      (fun (cn : ℂI nat unit) => c +> fun (ca : ℂI (list A) (list unit)) => c +> fun (cpr : ℂI (list A) (list unit)) =>
          (S (length (val ca)) ^ val cn *
             (g (c * S (val cn + #|val ca| + #|val cpr|) ^ c) + c * S (val cn + #|val ca| + #|val cpr|) ^ c)) >|).
   Abort.
 
   Lemma combinations_complexity : exists c, Time.ComplexityBound combinations
-    (fun (cl : ℂI (list nat) unit) => c +> fun (ck : ℂI (nat) unit) => (S (length (val cl)) ^ val ck * c * S (#|val cl| + val ck) ^ c) >|). Abort.
+    (fun (cl : ℂI (list nat) (list unit)) => c +> fun (ck : ℂI (nat) unit) => (S (length (val cl)) ^ val ck * c * S (#|val cl| + val ck) ^ c) >|). Abort.
 
   Lemma fold_combinations_complexity {B} `{Ground B} `{Size B}
-    (f : B -> list nat -> B) (cf : ℂI B unit -> ℂO (ℂI (list nat) unit -> ℂO unit)) (g : nat -> nat) (d : nat) :
+    (f : B -> list nat -> B) (cf : ℂI B unit -> ℂO (ℂI (list nat) (list unit) -> ℂO unit)) (g : nat -> nat) (d : nat) :
     Time.ComplexityBound f cf ->
-    (forall a t, cost (cf (a ⋊ tt)) + cost (res (cf (a ⋊ tt)) (t ⋊ tt)) <= g (#|a| + #|t|)) ->
+    (forall a t, cost (cf (a ⋊ inhabitant)) + cost (res (cf (a ⋊ inhabitant)) (t ⋊ inhabitant)) <= g (#|a| + #|t|)) ->
     (forall a t, #|f a t| <= #|a| + d) -> (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun l k acc prefix => fold_combinations l k f acc prefix)
-      (fun (cl : ℂI (list nat) unit) => c +> fun (ck : ℂI nat unit) => c +> fun (cacc : ℂI B unit) => c +>
-       fun (cp : ℂI (list nat) unit) =>
+      (fun (cl : ℂI (list nat) (list unit)) => c +> fun (ck : ℂI nat unit) => c +> fun (cacc : ℂI B unit) => c +>
+       fun (cp : ℂI (list nat) (list unit)) =>
          (S (length (val cl)) ^ val ck *
             (g (#|val cacc| + d * S (length (val cl)) ^ val ck + c * S (#|val cl| + val ck + #|val cp|) ^ c)
              + c * S (#|val cl| + val ck + #|val cp|) ^ c)) >|). Abort.
 
   Lemma fold_sublists_complexity {B} `{Ground B} `{Size B}
-    (f : B -> list nat -> B) (cf : ℂI B unit -> ℂO (ℂI (list nat) unit -> ℂO unit)) (g : nat -> nat) (d : nat) :
+    (f : B -> list nat -> B) (cf : ℂI B unit -> ℂO (ℂI (list nat) (list unit) -> ℂO unit)) (g : nat -> nat) (d : nat) :
     Time.ComplexityBound f cf ->
-    (forall a t, cost (cf (a ⋊ tt)) + cost (res (cf (a ⋊ tt)) (t ⋊ tt)) <= g (#|a| + #|t|)) ->
+    (forall a t, cost (cf (a ⋊ inhabitant)) + cost (res (cf (a ⋊ inhabitant)) (t ⋊ inhabitant)) <= g (#|a| + #|t|)) ->
     (forall a t, #|f a t| <= #|a| + d) -> (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun l acc prefix => fold_sublists l f acc prefix)
-      (fun (cl : ℂI (list nat) unit) => c +> fun (cacc : ℂI B unit) => c +> fun (cp : ℂI (list nat) unit) =>
+      (fun (cl : ℂI (list nat) (list unit)) => c +> fun (cacc : ℂI B unit) => c +> fun (cp : ℂI (list nat) (list unit)) =>
          (2 ^ length (val cl) *
             (g (#|val cacc| + d * 2 ^ length (val cl) + c * S (#|val cl| + #|val cp|) ^ c)
              + c * S (#|val cl| + #|val cp|) ^ c)) >|). Abort.
@@ -601,7 +602,7 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
 
   (** The [2 ^ n] assignments. *)
   Lemma count_bruteforce_complexity : exists c, Time.ComplexityBound count_bruteforce
-    (fun (cn : ℂI (nat) unit) => c +> fun (cF : ℂI (ncnf) unit) => (2 ^ val cn * c * S (val cn + #|val cF|) ^ c) >|). Abort.
+    (fun (cn : ℂI (nat) unit) => c +> fun (cF : ℂI (ncnf) (list (list unit))) => (2 ^ val cn * c * S (val cn + #|val cF|) ^ c) >|). Abort.
 
   (** *** 3. Disjoint sparsification *)
 
@@ -621,19 +622,19 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma deg_c_polynomial : Time.PolynomialBound deg_c. Abort.
   (** The subsets of the clauses of width at most [k], and [M ^ k]. *)
   Lemma find_branch_complexity : exists c, Time.ComplexityBound find_branch
-    (fun (ck : ℂI (nat) unit) => c +> fun (cM : ℂI (nat) unit) => c +> fun (cF : ℂI (ncnf) unit) =>
+    (fun (ck : ℂI (nat) unit) => c +> fun (cM : ℂI (nat) unit) => c +> fun (cF : ℂI (ncnf) (list (list unit))) =>
        (c * S (val ck + val cM + #|val cF|) ^ (c * S (val ck))) >|). Abort.
   Lemma branch_children_polynomial : Time.PolynomialBound branch_children. Abort.
   (** The sparsification tree has at most [2 ^ fuel] nodes, whose formulas
       are of size polynomial in that of [F] and in [fuel] (to check); the
       leaves cost what [leaf] and [fallback] cost. *)
   Lemma sparsify_fold_complexity (k M : nat) (leaf fallback : ncnf -> Z)
-    (cl cb : ℂI ncnf unit -> ℂO unit) (g : nat -> nat) :
+    (cl cb : ℂI ncnf (list (list unit)) -> ℂO unit) (g : nat -> nat) :
     Time.ComplexityBound leaf cl -> Time.ComplexityBound fallback cb ->
-    (forall F, cost (cl (F ⋊ tt)) <= g #|F| /\ cost (cb (F ⋊ tt)) <= g #|F|) ->
+    (forall F, cost (cl (F ⋊ inhabitant)) <= g #|F| /\ cost (cb (F ⋊ inhabitant)) <= g #|F|) ->
     (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun fuel F => sparsify_fold fuel k M leaf fallback F)
-      (fun (cfuel : ℂI nat unit) => c +> fun (cF : ℂI ncnf unit) =>
+      (fun (cfuel : ℂI nat unit) => c +> fun (cF : ℂI ncnf (list (list unit))) =>
          (2 ^ val cfuel *
             (g (c * S (#|val cF| + val cfuel) ^ c)
              + c * S (#|val cF| + val cfuel + M + k) ^ (c * S k))) >|). Abort.
@@ -647,10 +648,10 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma mono_eval_polynomial : Time.PolynomialBound mono_eval. Abort.
   Lemma f2_eval_polynomial : Time.PolynomialBound f2_eval. Abort.
   Lemma count_zeros_bruteforce_complexity : exists c, Time.ComplexityBound count_zeros_bruteforce
-    (fun (cn : ℂI (nat) unit) => c +> fun (ce : ℂI (list f2poly) unit) => (2 ^ val cn * c * S (val cn + #|val ce|) ^ c) >|). Abort.
+    (fun (cn : ℂI (nat) unit) => c +> fun (ce : ℂI (list f2poly) (list (list (list unit)))) => (2 ^ val cn * c * S (val cn + #|val ce|) ^ c) >|). Abort.
   (** The subsets of the positive literals of the clause. *)
   Lemma violation_poly_complexity : exists c, Time.ComplexityBound violation_poly
-    (fun (cC : ℂI (nclause) unit) => (2 ^ length (val cC) * c * S #|val cC| ^ c) >|). Abort.
+    (fun (cC : ℂI (nclause) (list unit)) => (2 ^ length (val cC) * c * S #|val cC| ^ c) >|). Abort.
   Lemma restrict_poly_polynomial : Time.PolynomialBound restrict_poly. Abort.
   Lemma eq_scope_polynomial : Time.PolynomialBound eq_scope. Abort.
   Lemma occurrences_polynomial : Time.PolynomialBound occurrences. Abort.
@@ -732,7 +733,7 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma aux_measurements_complexity : exists c, Time.ComplexityBound aux_measurements
     (fun (cpr : ℂI (params) unit) => (c * S (#|val cpr|) ^ c * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|). Abort.
   Lemma times_W0_complexity : exists c, Time.ComplexityBound times_W0
-    (fun (cpr : ℂI (params) unit) => c +> fun (cv : ℂI (list Q) unit) => (c * S (#|val cpr| + #|val cv|) ^ c * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|).
+    (fun (cpr : ℂI (params) unit) => c +> fun (cv : ℂI (list Q) (list unit)) => (c * S (#|val cpr| + #|val cv|) ^ c * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|).
   Abort.
   Lemma fW0_row_complexity : exists c, Time.ComplexityBound fW0_row
     (fun (cpr : ℂI (params) unit) => c +> fun (cw : ℂI (nat) unit) => (c * S (#|val cpr| + val cw) ^ c * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|).
@@ -746,26 +747,26 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma incidences_polynomial : Time.PolynomialBound incidences. Abort.
   Lemma prob_same_polynomial : Time.PolynomialBound prob_same. Abort.
   Lemma opt_digit_complexity : exists c, Time.ComplexityBound opt_digit
-    (fun (cr : ℂI (nat) unit) => c +> fun (ct : ℂI (nat) unit) => c +> fun (cx : ℂI (option nat) unit) => (c * S (val cr + val ct + #|val cx|) ^ c * S (val cr) ^ val ct) >|).
+    (fun (cr : ℂI (nat) unit) => c +> fun (ct : ℂI (nat) unit) => c +> fun (cx : ℂI (option nat) (option unit)) => (c * S (val cr + val ct + #|val cx|) ^ c * S (val cr) ^ val ct) >|).
   Abort.
   Lemma label_potential_complexity : exists c, Time.ComplexityBound label_potential
-    (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cb : ℂI (nat) unit) => c +> fun (cw : ℂI (nat) unit) => c +> fun (ci : ℂI (list (nat * nat)) unit) => c +> fun (ca : ℂI (list (option nat)) unit) => c +> fun (cd : ℂI (list (option nat)) unit) =>
+    (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cb : ℂI (nat) unit) => c +> fun (cw : ℂI (nat) unit) => c +> fun (ci : ℂI (list (nat * nat)) (list (unit * unit))) => c +> fun (ca : ℂI (list (option nat)) (list (option unit))) => c +> fun (cd : ℂI (list (option nat)) (list (option unit))) =>
        (c * S (#|val cpr| + val cn + val cb + val cw + #|val ci| + #|val ca| + #|val cd|) ^ c
           * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|). Abort.
   Lemma argmin_first_polynomial (cost : nat -> Q) :
     Time.PolynomialBound cost -> Time.PolynomialBound (fun cands => argmin_first cands cost). Abort.
   Lemma unopt_polynomial : Time.PolynomialBound unopt. Abort.
   Lemma choose_labels_complexity : exists c, Time.ComplexityBound choose_labels
-    (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cb : ℂI (nat) unit) => c +> fun (cw : ℂI (nat) unit) => c +> fun (cs : ℂI (list (list nat)) unit) =>
+    (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cb : ℂI (nat) unit) => c +> fun (cw : ℂI (nat) unit) => c +> fun (cs : ℂI (list (list nat)) (list (list unit))) =>
        (c * S (#|val cpr| + val cn + val cb + val cw + #|val cs|) ^ c
           * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|). Abort.
   Lemma assign_copies_polynomial : Time.PolynomialBound assign_copies. Abort.
   Lemma design_of_labels_complexity : exists c, Time.ComplexityBound design_of_labels
-    (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cs : ℂI (list (list nat)) unit) => c +> fun (ca : ℂI (list nat) unit) => c +> fun (cd : ℂI (list nat) unit) =>
+    (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cs : ℂI (list (list nat)) (list (list unit))) => c +> fun (ca : ℂI (list nat) (list unit)) => c +> fun (cd : ℂI (list nat) (list unit)) =>
        (c * S (#|val cpr| + val cn + #|val cs| + #|val ca| + #|val cd|) ^ c
           * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|). Abort.
   Lemma build_design_complexity : exists c, Time.ComplexityBound build_design
-    (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cb : ℂI (nat) unit) => c +> fun (cw : ℂI (nat) unit) => c +> fun (cs : ℂI (list (list nat)) unit) =>
+    (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cb : ℂI (nat) unit) => c +> fun (cw : ℂI (nat) unit) => c +> fun (cs : ℂI (list (list nat)) (list (list unit))) =>
        (c * S (#|val cpr| + val cn + val cb + val cw + #|val cs|) ^ c
           * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|). Abort.
 
@@ -781,29 +782,29 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma point_rows_polynomial : Time.PolynomialBound point_rows. Abort.
   Lemma corrections_polynomial : Time.PolynomialBound corrections. Abort.
   Lemma group_value_complexity : exists c, Time.ComplexityBound group_value
-    (fun (cJ : ℂI (nat) unit) => c +> fun (cl : ℂI (nat) unit) => c +> fun (ces : ℂI (list (Z * Z)) unit) => c +> fun (ceqs : ℂI (list f2poly) unit) => c +> fun (cpr : ℂI (params) unit) => c +> fun (cd : ℂI (design) unit) =>
-       c +> fun (ct : ℂI (nat) unit) => c +> fun (cg : ℂI (nat) unit) => c +> fun (cPt : ℂI (list (list Q)) unit) => c +> fun (cDelta : ℂI (list qpoly) unit) => c +> fun (cx : ℂI (list bool) unit) =>
+    (fun (cJ : ℂI (nat) unit) => c +> fun (cl : ℂI (nat) unit) => c +> fun (ces : ℂI (list (Z * Z)) (list (unit * unit))) => c +> fun (ceqs : ℂI (list f2poly) (list (list (list unit)))) => c +> fun (cpr : ℂI (params) unit) => c +> fun (cd : ℂI (design) unit) =>
+       c +> fun (ct : ℂI (nat) unit) => c +> fun (cg : ℂI (nat) unit) => c +> fun (cPt : ℂI (list (list Q)) (list (list unit))) => c +> fun (cDelta : ℂI (list qpoly) (list (list unit))) => c +> fun (cx : ℂI (list bool) (list unit)) =>
        (c * S (val cJ + val cl + #|val ces| + #|val ceqs| + #|val cpr| + #|val cd| + val ct + val cg
                + #|val cPt| + #|val cDelta| + #|val cx|) ^ c * S (p_r (val cpr)) ^ val ct) >|). Abort.
   (** The measurement values: [(2 D + 1) ^ (r c)] tuples; for each, the
       assignments of each group, with one application of [A] each. *)
   Lemma separated_sum_complexity (A : nat -> list bool -> rv)
-    (cA : ℂI nat unit -> ℂO (ℂI (list bool) unit -> ℂO unit)) (g : nat -> nat) :
+    (cA : ℂI nat unit -> ℂO (ℂI (list bool) (list unit) -> ℂO (list (list unit)))) (g : nat -> nat) :
     Time.ComplexityBound A cA ->
-    (forall a x, cost (cA (a ⋊ tt)) + cost (res (cA (a ⋊ tt)) (x ⋊ tt)) <= g (a + #|x|)) ->
+    (forall a x, cost (cA (a ⋊ inhabitant)) + cost (res (cA (a ⋊ inhabitant)) (x ⋊ inhabitant)) <= g (a + #|x|)) ->
     (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun J l n D r meas groups E => separated_sum J l n D r meas groups E A)
       (fun (cJ : ℂI nat unit) => c +> fun (cl : ℂI nat unit) => c +> fun (cn : ℂI nat unit) => c +>
-       fun (cD : ℂI nat unit) => c +> fun (cr : ℂI nat unit) => c +> fun (cm : ℂI (list (list Z)) unit) => c +>
-       fun (cg : ℂI (list (list nat)) unit) => c +> fun (cE : ℂI (list nat) unit) =>
+       fun (cD : ℂI nat unit) => c +> fun (cr : ℂI nat unit) => c +> fun (cm : ℂI (list (list Z)) (list (list unit))) => c +>
+       fun (cg : ℂI (list (list nat)) (list (list unit))) => c +> fun (cE : ℂI (list nat) (list unit)) =>
          (S (2 * val cD + 1) ^ (val cr * length (val cm)) * S (val cr) * 2 ^ maxN (map (@length nat) (val cg))
             * (g (c * S (val cn + val cr) ^ c)
                + c * S (val cJ + val cl + val cn + val cD + val cr + #|val cm| + #|val cg| + #|val cE|) ^ c)) >|).
   Abort.
   (** The subsets [U ⊆ E] with [|E| <= q], and the separated sums. *)
   Lemma taylor_at_complexity : exists c, Time.ComplexityBound taylor_at
-    (fun (cpr : ℂI (params) unit) => c +> fun (cd : ℂI (design) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cl : ℂI (nat) unit) => c +> fun (cJ : ℂI (nat) unit) => c +> fun (cq : ℂI (nat) unit) => c +> fun (ces : ℂI (list (Z * Z)) unit) =>
-       c +> fun (ceqs : ℂI (list f2poly) unit) => c +> fun (ct : ℂI (nat) unit) =>
+    (fun (cpr : ℂI (params) unit) => c +> fun (cd : ℂI (design) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cl : ℂI (nat) unit) => c +> fun (cJ : ℂI (nat) unit) => c +> fun (cq : ℂI (nat) unit) => c +> fun (ces : ℂI (list (Z * Z)) (list (unit * unit))) =>
+       c +> fun (ceqs : ℂI (list f2poly) (list (list (list unit)))) => c +> fun (ct : ℂI (nat) unit) =>
        (S (val cn) ^ (S (val cq)) * 2 ^ val cq
           * S (2 * p_D (val cpr) + 1) ^ (p_r (val cpr) * length (ds_meas (val cd)))
           * 2 ^ maxN (map (fun g => length (group_vars (val cpr) (val cd) (val cn) (val ct) g))
@@ -821,7 +822,7 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma factor_scopes_polynomial : Time.PolynomialBound factor_scopes. Abort.
   (** [pts] Taylor expansions, with [q = J - 1]. *)
   Lemma count_from_design_complexity : exists c, Time.ComplexityBound count_from_design
-    (fun (cpr : ℂI (params) unit) => c +> fun (cd : ℂI (design) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (ck : ℂI (nat) unit) => c +> fun (cl : ℂI (nat) unit) => c +> fun (ces : ℂI (list (Z * Z)) unit) => c +> fun (ceqs : ℂI (list f2poly) unit) =>
+    (fun (cpr : ℂI (params) unit) => c +> fun (cd : ℂI (design) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (ck : ℂI (nat) unit) => c +> fun (cl : ℂI (nat) unit) => c +> fun (ces : ℂI (list (Z * Z)) (list (unit * unit))) => c +> fun (ceqs : ℂI (list f2poly) (list (list (list unit)))) =>
        let J := val ck * p_R (val cpr) * (length (val ceqs) + 2 * (val cl - 1)) / p_pts (val cpr) + 1 in
        (S (val cn) ^ (S J) * 2 ^ J
           * S (2 * p_D (val cpr) + 1) ^ (p_r (val cpr) * length (ds_meas (val cd)))
@@ -831,7 +832,7 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
           * c * S (#|val cpr| + #|val cd| + val cn + val ck + val cl + #|val ces| + #|val ceqs|) ^ c
           * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|). Abort.
   Lemma count_with_design_complexity : exists c, Time.ComplexityBound count_with_design
-    (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (ck : ℂI (nat) unit) => c +> fun (cl : ℂI (nat) unit) => c +> fun (ces : ℂI (list (Z * Z)) unit) => c +> fun (ceqs : ℂI (list f2poly) unit) => c +> fun (cb : ℂI (nat) unit) =>
+    (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (ck : ℂI (nat) unit) => c +> fun (cl : ℂI (nat) unit) => c +> fun (ces : ℂI (list (Z * Z)) (list (unit * unit))) => c +> fun (ceqs : ℂI (list f2poly) (list (list (list unit)))) => c +> fun (cb : ℂI (nat) unit) =>
        c +> fun (cw : ℂI (nat) unit) =>
        let d := build_design (val cpr) (val cn) (val cb) (val cw) (factor_scopes (val cn) (val ceqs)) in
        let J := val ck * p_R (val cpr) * (length (val ceqs) + 2 * (val cl - 1)) / p_pts (val cpr) + 1 in
@@ -856,15 +857,15 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
       exhaustive fallback is taken only for small [n] (to check). *)
   Lemma count_branch_complexity (k : nat) : exists C : nat -> nat,
     Time.ComplexityBound (count_branch k)
-      (fun (cn : ℂI nat unit) => C 0 +> fun (cl : ℂI nat unit) => C 0 +> fun (ces : ℂI (list (Z * Z)) unit) =>
-       C 0 +> fun (ch : ℂI (list nat) unit) => C 0 +> fun (ceqs : ℂI (list f2poly) unit) => C 0 +>
-       fun (cbits : ℂI (list bool) unit) =>
+      (fun (cn : ℂI nat unit) => C 0 +> fun (cl : ℂI nat unit) => C 0 +> fun (ces : ℂI (list (Z * Z)) (list (unit * unit))) =>
+       C 0 +> fun (ch : ℂI (list nat) (list unit)) => C 0 +> fun (ceqs : ℂI (list f2poly) (list (list (list unit)))) => C 0 +>
+       fun (cbits : ℂI (list bool) (list unit)) =>
          let b := maxN (map (fun v => occurrences v (factor_scopes (val cn) (val ceqs))) (range (val cn))) in
          (C b * S (val cn + val cl + #|val ces| + #|val ch| + #|val ceqs| + #|val cbits|) ^ C b
             * 2 ^ (C b * rho (val cn))) >|). Abort.
   Lemma count_zeros_complexity (k : nat) : exists C : nat -> nat,
     Time.ComplexityBound (count_zeros k)
-      (fun (cn : ℂI nat unit) => C 0 +> fun (ceqs : ℂI (list f2poly) unit) =>
+      (fun (cn : ℂI nat unit) => C 0 +> fun (ceqs : ℂI (list f2poly) (list (list (list unit)))) =>
          let b := maxN (map (fun v => occurrences v (factor_scopes (val cn) (val ceqs))) (range (val cn))) in
          (C b * S (val cn + #|val ceqs|) ^ C b * 2 ^ (C b * rho (val cn))) >|). Abort.
 
@@ -878,11 +879,11 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma parity_bits_polynomial : Time.PolynomialBound parity_bits. Abort.
   (** The [2 ^ lG] characters. *)
   Lemma walsh_ok_complexity : exists c, Time.ComplexityBound walsh_ok
-    (fun (clG : ℂI (nat) unit) => c +> fun (cdG : ℂI (nat) unit) => c +> fun (ce : ℂI (nat) unit) => c +> fun (cs : ℂI (list nat) unit) =>
+    (fun (clG : ℂI (nat) unit) => c +> fun (cdG : ℂI (nat) unit) => c +> fun (ce : ℂI (nat) unit) => c +> fun (cs : ℂI (list nat) (list unit)) =>
        (2 ^ val clG * c * S (val clG + val cdG + val ce + #|val cs|) ^ c) >|). Abort.
   (** The words of weight at most [h] among [dG] positions. *)
   Lemma kernel_word_free_complexity : exists c, Time.ComplexityBound kernel_word_free
-    (fun (cdG : ℂI (nat) unit) => c +> fun (ch : ℂI (nat) unit) => c +> fun (cA : ℂI (list (list bool)) unit) =>
+    (fun (cdG : ℂI (nat) unit) => c +> fun (ch : ℂI (nat) unit) => c +> fun (cA : ℂI (list (list bool)) (list (list unit))) =>
        (S (val cdG) ^ val ch * c * S (val cdG + val ch + #|val cA|) ^ c) >|). Abort.
   (** The shifts ([qG ^ dG] tuples) and the local codes ([2 ^ (cG dG)]),
       with [dG <= degree_bound m B] and [qG <= 2 m]. *)
@@ -892,21 +893,21 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
           * S (val cm + val cB) ^ c) >|). Abort.
   Lemma clause_coeff_polynomial : Time.PolynomialBound clause_coeff. Abort.
   Lemma row_poly_complexity : exists c, Time.ComplexityBound row_poly
-    (fun (cF : ℂI (ncnf) unit) => c +> fun (crow : ℂI (hash_row) unit) => (2 ^ max_width (val cF) * c * S (#|val cF| + #|val crow|) ^ c) >|). Abort.
+    (fun (cF : ℂI (ncnf) (list (list unit))) => c +> fun (crow : ℂI (hash_row) (list (unit * unit))) => (2 ^ max_width (val cF) * c * S (#|val cF| + #|val crow|) ^ c) >|). Abort.
   (** [rounds] rounds of [(2 m) ^ P] candidates, each counted by [count0]. *)
-  Lemma greedy_rows_complexity (count0 : list f2poly -> Z) (c0 : ℂI (list f2poly) unit -> ℂO unit)
+  Lemma greedy_rows_complexity (count0 : list f2poly -> Z) (c0 : ℂI (list f2poly) (list (list (list unit))) -> ℂO unit)
     (g : nat -> nat) :
-    Time.ComplexityBound count0 c0 -> (forall e, cost (c0 (e ⋊ tt)) <= g #|e|) ->
+    Time.ComplexityBound count0 c0 -> (forall e, cost (c0 (e ⋊ inhabitant)) <= g #|e|) ->
     (forall x y, x <= y -> g x <= g y) ->
     exists c, Time.ComplexityBound (fun F P rounds A => greedy_rows count0 F P rounds A)
-      (fun (cF : ℂI ncnf unit) => c +> fun (cP : ℂI nat unit) => c +> fun (cr : ℂI nat unit) => c +>
-       fun (cA : ℂI (list hash_row) unit) =>
+      (fun (cF : ℂI ncnf (list (list unit))) => c +> fun (cP : ℂI nat unit) => c +> fun (cr : ℂI nat unit) => c +>
+       fun (cA : ℂI (list hash_row) (list (list (unit * unit)))) =>
          (val cr * S (2 * length (val cF)) ^ val cP
             * (g (c * S (#|val cF| + val cP + val cr + #|val cA|) ^ c * 2 ^ max_width (val cF))
                + c * S (#|val cF| + val cP + val cr + #|val cA|) ^ c * 2 ^ max_width (val cF))) >|). Abort.
   Lemma count_sparse_formula_complexity (k B : nat) : exists C,
     Time.ComplexityBound (fun n F => count_sparse_formula k n B F)
-      (fun (cn : ℂI nat unit) => C +> fun (cF : ℂI ncnf unit) =>
+      (fun (cn : ℂI nat unit) => C +> fun (cF : ℂI ncnf (list (list unit))) =>
          (C * S (val cn + #|val cF|) ^ (C * S (dist_denom (length (val cF)) B)) * 2 ^ (C * rho (val cn))) >|).
   Abort.
 
@@ -916,7 +917,7 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
       [k'] of the normalised formula is at least [k]. *)
   Theorem count_sat_complexity (k : nat) : exists C : nat -> nat,
     Time.ComplexityBound (count_sat k)
-      (fun (cn : ℂI nat unit) => C 0 +> fun (cF : ℂI cnf unit) =>
+      (fun (cn : ℂI nat unit) => C 0 +> fun (cF : ℂI cnf (list (list unit))) =>
          let k' := Nat.max 2 (Nat.max k (max_width (normalize (map norm_clause (val cF))))) in
          (C k' * S (val cn + #|val cF|) ^ C k' * 2 ^ (C k' * rho (val cn))) >|). Abort.
 End ETHPlan.

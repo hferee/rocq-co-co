@@ -3,8 +3,8 @@
     They are not recursive: compilation and typeclass search derive their
     complexity, and only the claimed bound remains to be checked. The
     constants are the smallest ones (see [NatComplexity]). They do not use
-    lists: they hold in both cost models ([TimeCostModelBase]), with ground
-    lists and with lists of any data ([HOListComplexity]). *)
+    lists: they are proved over [TimeCostModelBase], the model without
+    lists, options and pairs. *)
 
 From Complexity Require Export TimeCostModel.
 

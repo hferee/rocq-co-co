@@ -49,7 +49,7 @@ End NatArithTimeCostModel.
 Module Type ParamArithTimeCostModel := CostModel.CostModel <+ BasicTimeCostModel
   <+ CombinatorTimeCostModel <+ BoolTimeCostModel
   <+ NatData <+ NatCtorTimeCostModel <+ NatArithTimeCostModel
-  <+ ListTimeCostModel <+ FixTimeCostModel.
+  <+ HListTimeCostModel <+ HListGround <+ FixTimeCostModel.
 
 Module Type ArithOpsTimeCostModel := ParamArithTimeCostModel
   with Definition c_add_clo := 0 with Definition c_add_n := 0

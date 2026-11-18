@@ -1,7 +1,6 @@
 (** * The cost model of the environment machine for L
 
-    The time cost model ([ParamTimeCostModel], and [ParamHOTimeCostModel]
-    with lists and options of any data), with the constants of the
+    The time cost model ([ParamTimeCostModel]), with the constants of the
     environment machine for L ([LMachine], its instance), in steps of the
     machine:
     - [c_clo = 1]: a partial application allocates a closure;
@@ -40,7 +39,8 @@ Module Type MachineTimeCostModel := ParamTimeCostModel
   with Definition c_ctor_Z := 1 with Definition c_case_Z := 43
   with Definition c_fix := 36.
 
-(** The same, with lists and options of any data. *)
+(** The former name of the model with lists, options and pairs of any
+    data: it is the same model. *)
 Module Type MachineHOTimeCostModel := ParamHOTimeCostModel
   with Definition c_clo := 1 with Definition c_frame := 2
   with Definition c_ehd := 15 with Definition c_etl := 16 with Definition c_Lam := 5

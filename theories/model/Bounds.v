@@ -62,6 +62,8 @@ Ltac cnorm_types :=
   | |- context [@length ?T _] => cnorm_type T
   | |- context [@map ?T _ _ _] => cnorm_type T
   | |- context [@map _ ?T _ _] => cnorm_type T
+  | |- context [@val ?T _ _] => cnorm_type T
+  | _ : context [@val ?T _ _] |- _ => cnorm_type T
   | _ : context [@length ?T _] |- _ => cnorm_type T
   | _ : context [@map ?T _ _ _] |- _ => cnorm_type T
   | _ : context [@map _ ?T _ _] |- _ => cnorm_type T
@@ -251,9 +253,9 @@ Module Bounds (Import CM : CostModelCore).
       result are ground data, with sizes for the arguments, and [CA] the type
       of their complexities. *)
   Inductive FirstOrder : Type -> Type -> Type :=
-  | fo_res {B} : Ground B -> FirstOrder B unit
-  | fo_arg {A B CB} : Ground A -> Size A -> FirstOrder B CB ->
-      FirstOrder (A -> B) (ℂI A unit -> ℂO CB).
+  | fo_res {B CB} (RB : Repr B CB) : IsGround RB -> FirstOrder B CB
+  | fo_arg {A CA B CB} (RA : Repr A CA) : IsGround RA -> Size A -> FirstOrder B CB ->
+      FirstOrder (A -> B) (ℂI A CA -> ℂO CB).
   Existing Class FirstOrder.
   Global Existing Instances fo_res fo_arg.
 
@@ -261,8 +263,8 @@ Module Bounds (Import CM : CostModelCore).
       search. *)
   Fixpoint fo_repr {A CA} (fo : FirstOrder A CA) : Repr A CA :=
     match fo in FirstOrder A CA return Repr A CA with
-    | fo_res RB => RB
-    | fo_arg RA _ fo => Repr_arr RA (fo_repr fo)
+    | fo_res RB _ => RB
+    | fo_arg RA _ _ fo => Repr_arr RA (fo_repr fo)
     end.
 
   (** [size_bound g ss]: the complexity in which each application to an
@@ -270,8 +272,8 @@ Module Bounds (Import CM : CostModelCore).
       of those already given. *)
   Fixpoint size_bound {A CA} (fo : FirstOrder A CA) (g : list nat -> nat) (ss : list nat) : CA :=
     match fo in FirstOrder A CA return CA with
-    | fo_res _ => tt
-    | fo_arg _ SA fo => fun ca =>
+    | fo_res RB _ => @cdefault _ _ RB
+    | fo_arg _ _ SA fo => fun ca =>
         g (ss ++ [size (Size := SA) (val ca)]) +>
         size_bound fo g (ss ++ [size (Size := SA) (val ca)])
     end.
@@ -294,8 +296,8 @@ Module Bounds (Import CM : CostModelCore).
     (forall ss, g ss <= g' ss) ->
     bound_order (H := fo_repr fo) (size_bound fo g s) (size_bound fo g' s).
   Proof.
-    intro Hg. revert s. induction fo as [B RB | A B CB RA SA fo IH]; intro s; cbn.
-    - apply bound_order_ground.
+    intro Hg. revert s. induction fo as [B CB RB GB | A CA B CB RA GA SA fo IH]; intro s; cbn.
+    - apply ground_order.
     - apply bound_order_arr. intro ca. cbn. split; [apply Hg | apply IH].
   Qed.
 
