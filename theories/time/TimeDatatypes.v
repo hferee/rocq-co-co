@@ -1,35 +1,25 @@
 (** * Cost models for the basic datatypes
 
-    Booleans, natural numbers, options (of ground data, and of any data),
-    pairs of ground data, sums of any data, and binary numbers (lists are in
-    [TimeLists]). Values are ground data, with sizes ([Size]); constructors
-    and case analyses are primitive. Each case analysis is compiled to a case
-    combinator ([Combinators]), defined here with its datatype. Recursion is
-    covered by [TimeFix]: the functions of the standard library are analysed
-    as they are defined ([stdlib]).
-
-    The case combinators work on environments, as the code of closures
-    ([Combinators]): their branches and the matched value are code, functions
-    of the environment [e] of the match, and the branch of a constructor with
-    arguments runs in [e] extended with them. The code of a match is thus
-    closed, built once; its evaluation builds no closure: it pays the case
-    analysis, the matched value and the selected branch.
-
-    Each datatype has up to three layers, so that a cost model can choose its
-    primitives: the data ([NatData]: representation, sizes and values, with
-    no cost), the constructors ([NatCtorTimeCostModel]) and the case analysis
-    ([NatCaseTimeCostModel]). A model without the case layer of [nat] has no
-    known cost for matches on [nat]: [cbc] fails on them. The constructor and
-    case layers declare their constants (the cost of a partial application
-    is [c_clo], from [BasicTimeCostModel]). [NatTimeCostModel] gathers the
-    three layers. *)
+    Booleans, natural numbers, options, pairs, sums and binary numbers
+    (lists are in [TimeLists]): their representations and sizes, and the
+    costs of their constructors and case analyses, which are primitive.
+    Recursion is covered by [TimeFix]. *)
 
 From Complexity Require Export TimeCombinators.
 From Stdlib Require Import List PArith NArith ZArith QArith.
 Local Open Scope nat_scope.
 
 
-(** ** Booleans *)
+(** ** Booleans
+
+    Each case analysis is compiled to a case combinator ([Combinators]),
+    defined with its datatype. The case combinators work on environments,
+    as the code of closures: their branches and the matched value are
+    functions of the environment [e] of the match, and the branch of a
+    constructor with arguments runs in [e] extended with them. The code of
+    a match is thus closed, built once; its evaluation builds no closure:
+    it pays the case analysis, the matched value and the selected
+    branch. *)
 
 (** Case combinator (see [Combinators]). *)
 
@@ -71,7 +61,14 @@ Module Type BoolTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
   (CB : CombinatorTimeCostModel CM BT) :=
   BoolData CM <+ BoolCaseTimeCostModel CM BT CB.
 
-(** ** Natural numbers *)
+(** ** Natural numbers
+
+    Each datatype has up to three layers, so that a cost model can choose
+    its primitives: the data ([NatData]: representation, sizes and values,
+    with no cost), the constructors ([NatCtorTimeCostModel]) and the case
+    analysis ([NatCaseTimeCostModel]), which declare their constants. A
+    model without the case layer of [nat] has no cost for the matches on
+    [nat]: [cbound] fails on them. *)
 
 (** Case combinator (see [Combinators]). *)
 

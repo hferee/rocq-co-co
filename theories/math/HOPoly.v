@@ -1,22 +1,13 @@
 (** * Higher-order polynomials
 
-    The higher-order polynomials are the closed simply typed λ-terms over
-    the numerals, addition and multiplication. They denote functionals over
-    the natural numbers. At type [N ⇒ .. ⇒ N],
-    they contain the usual polynomials ; at type 2,
-    the second-order polynomials of Kapron and Cook ([SOPoly]). They are
-    monotone, in the sense of Bezem's strong majorization
-    ([hpoly_monotone]). At type [N ⇒ N] they are bounded by polynomials
-    ([hpoly_growth]), and at type [(N ⇒ N) ⇒ N ⇒ N] they are exactly the
-    second-order polynomials ([SOPoly]). They bound the basic feasible
-    functionals ([BFF], [BFFFeasibility]).
+    The closed simply typed λ-terms over the numerals, addition and
+    multiplication. They denote functionals over the natural numbers: the
+    usual polynomials at type [N ⇒ .. ⇒ N], the second-order polynomials of
+    Kapron and Cook at type [(N ⇒ N) ⇒ N ⇒ N] ([SOPoly]). They bound the
+    basic feasible functionals ([BFF], [BFFFeasibility]).
 
-    References: 
     B. M. Kapron, S. A. Cook. A new characterization of type-2 feasibility.
-    SIAM Journal on Computing 25(1):117-132, 1996.
-
-    M. Bezem. Strongly majorizable functionals of finite type: a model for
-    bar recursion containing discontinuous functionals. *)
+    SIAM Journal on Computing 25(1):117-132, 1996. *)
 
 From Complexity Require Export Lambda.
 From Complexity Require Import Poly.
@@ -50,6 +41,11 @@ Proof. reflexivity. Qed.
 Ltac simpl_hp := simpl_interp hp_interp.
 
 (** ** Strong majorization
+
+    The higher-order polynomials are monotone, in the sense of Bezem's
+    strong majorization ([hpoly_monotone]): M. Bezem, Strongly majorizable
+    functionals of finite type: a model for bar recursion containing
+    discontinuous functionals.
 
     [mle σ x y]: [y] majorizes [x], pointwise and hereditarily, on
     arguments related in the same way. A functional is monotone when it

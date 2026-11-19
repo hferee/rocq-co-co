@@ -1,16 +1,10 @@
 (** * Complexity of the basic feasible functionals ([BFF])
 
-    The bounds of the constants of PV^ω, as defined in [BFF]. Each one is
-    proved by [cbound], with the smallest constants for its shape. The
-    first-order constants have linear bounds in the size of their arguments,
-    except [smash], whose bound is polynomial ([Bounds]).
-
-    The bound of the recursor `R` is higher-order: its cost ([R_cost]) is a
-    function of the potentials of `F` and `h`, that is of the costs of
-    their applications. When these costs and the lengths of the values of
-    `h` are bounded by monotone functions of the lengths of the arguments,
-    the cost of `R` is bounded by a second-order polynomial in these bounds
-    ([R_cost_bound]): `R` preserves feasibility. *)
+    The bounds of the constants of PV^ω, as defined in [BFF], proved by
+    [cbound] with the smallest constants for their shape: linear in the
+    sizes of their arguments, except [smash] (polynomial). The bound of the
+    recursor `R` is higher-order: its cost ([R_cost]) is a function of the
+    costs of the applications of `F` and `h`. *)
 
 From Complexity Require Export TimeCostModel BFF.
 From Stdlib Require Import NArith.

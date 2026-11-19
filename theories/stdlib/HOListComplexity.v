@@ -1,34 +1,11 @@
 (** * Higher-order functions on lists and options of any data
 
-    The elements of a list or of an option may be functions ([TimeLists],
-    [TimeDatatypes]), and the complexity of a list is the list of the
-    complexities of its elements (of an option, the complexity of its
-    element).
-    The bounds of the higher-order functions of the standard library are
-    then as general as their types: the function and the elements may be of
-    any type, and their bounds are those of the function and of the
-    elements, given as complexities.
-
-    A list with complexity [cl] is read as the case analysis reads it
-    ([list_case_complexity]): its elements [val cl] paired with their
-    complexities [pot cl], the default one for the elements beyond them
-    ([czip cdefault cl]). The bounds are stated with the functions of the
-    standard library on [czip cdefault cl]: the costs are the costs of the
-    applications of the function to the elements
-    ([list_sum (map _ (czip cdefault cl))]), a constant per element and a
-    constant; the complexity of the result is that of the elements, or that
-    given by the complexity of the function ([map], [filter], [find],
-    [flat_map] on [czip cdefault cl]). [simpl_czip] reads the sums over
-    [czip] as sums over the values, when the costs do not depend on the
-    complexities (for lists of ground data, and functions on them). The folds thread an
-    accumulator, whose value is the one that the function computes: their
-    costs are given by [fold_left_fcost], [fold_right_fcost] and the
-    complexities of their results by [fold_left_pot], [fold_right_pot]
-    (below). As in [ListComplexity], [cbound] proves the bounds, with the
-    smallest constants.
-
-    Not covered yet: [partition], whose result is a pair of lists, of any
-    data ([ProdTimeCostModel]). *)
+    The bounds of the higher-order functions of the standard library are as
+    general as their types: the function and the elements may be of any
+    type, and the bounds are those of the function and of the elements,
+    given as complexities. [cbound] proves them, with the smallest
+    constants. Not covered yet: [partition], whose result is a pair of
+    lists. *)
 
 From Complexity Require Export TimeCostModel BoolComplexity ListFacts.
 From Stdlib Require Import List.
@@ -37,7 +14,17 @@ Import ListNotations.
 (** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
-(** ** The elements of a list, with their complexities *)
+(** ** The elements of a list, with their complexities
+
+    A list with complexity [cl] is read as the case analysis reads it
+    ([list_case_complexity]): its elements paired with their complexities,
+    the default one beyond them ([czip cdefault cl]). The bounds are
+    stated with the functions of the standard library on it: the costs are
+    those of the applications of the function to the elements, a constant
+    per element and a constant; the complexity of the result is that of the
+    elements, or that given by the function. [simpl_czip] reads the sums
+    over [czip] as sums over the values, when the costs do not depend on
+    the complexities. *)
 
 (** The value gives the shape: the elements beyond the complexities have
     the default one [d] ([cdefault], as the case analyses give it). *)
@@ -164,6 +151,15 @@ Module HOListComplexity (Import Time : TimeBool).
   (** The complexity of [l ++ m] is that of the elements of [l], then of [m]. *)
   Global Instance app_complexity {A CA} `{Repr A CA} : Time.ComplexityBound (@app A)
     (fun cl : ℂI (list A) (list CA) => 1 +> fun cm : ℂI (list A) (list CA) => (21 * length (val cl) + 10) +> (map pot (czip cdefault cl) ++ pot cm)).
+  Proof. cbound. Qed.
+
+  (** The tail keeps the complexities of the elements: those of the list
+      after the first. A [match], since the complexities of the empty list
+      may be longer than it, and the tail of the empty list is built. *)
+  Global Instance tl_complexity {A CA} `{Repr A CA} :
+    Time.ComplexityBound (@tl A)
+      (fun cl : ℂI (list A) (list CA) =>
+         3 +> match val cl with [] => [] | _ :: _ => tl (pot cl) end).
   Proof. cbound. Qed.
 
   (** ** Higher-order functions *)
@@ -316,7 +312,5 @@ Module HOListComplexity (Import Time : TimeBool).
          (match czip_option cdefault co with Some x => cost (pot cf x) | None => 0 end + 10)
          +> option_map (fun x => res (pot cf x)) (czip_option cdefault co)).
   Proof. cbound. Qed.
-
-
 End HOListComplexity.
 

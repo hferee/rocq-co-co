@@ -1,36 +1,10 @@
 (** * One axiom for all fixpoints
 
     A Gallina axiom cannot quantify over the syntax of [fix] terms (their
-    number of arguments, recursive argument, mutual functions, ...). Instead,
-    [fix_complexity] uses the unfolding equation of a recursive function:
-    `f e a = F (ECons e (f e)) a` (pointwise in all the arguments). Here
-    `f e` is the recursive function whose free variables are the values of
-    the environment `e`, as for any closure ([Combinators]); the functional
-    `F` is the code of the body of the fixpoint, in the environment `e`
-    extended with the recursive function itself, read from it by the
-    recursive calls. The candidate complexity [cf] of [f] is a bound as soon
-    as it bounds the cost of building the closure `f e` ([c_clo]), and of
-    one unfolding, plus [c_fix], where the recursive calls cost what [cf]
-    says.
-
-    This covers any structural recursion (any arity, recursive argument in
-    any position, matches on other arguments, recursive calls on deeper
-    subterms, polymorphic fixpoints), through an indexed function mutual
-    recursion, and fixpoints with free variables, such as [fold_left], a
-    fixpoint under `fun f`: `f` is in the environment, and the recursive
-    calls do not pass it again. A closed recursive function is the case of
-    the empty environment [tt] ([fix_closed_complexity]), where the
-    recursive calls read the function in [ECons tt f].
-
-    Since the axiom holds for every function satisfying the equation,
-    [ComplexityBound f c] now means that the function [f] is computable within
-    [c], rather than that a particular term defining it is. This is sound
-    because each unfolding costs at least one ([c_fix ⊕] below, with
-    [1 <= c_fix]): the recurrence cannot be satisfied by an unfolding that
-    does not terminate. With free unfoldings, every function would have every
-    bound ([UnguardedFix]). The condition is a premise of the rule, not an
-    axiom, so that a model where [c_fix] is [0] stays consistent: its
-    recursive functions cannot be analysed. *)
+    number of arguments, recursive argument, mutual functions, ...):
+    [fix_complexity] uses the unfolding equation of a recursive function
+    instead. It covers any structural recursion, mutual recursion through
+    an indexed function, and fixpoints with free variables. *)
 
 From Complexity Require Export TimeCombinators.
 From Ltac2 Require Import Ltac2.
@@ -45,7 +19,7 @@ Lemma env_input_split {E A CE CA} (P : ℂI (env E A) (CE * CA) -> Prop) :
 Proof. intros H [[e a] [pe pa]]. exact (H (e ⋊ pe) (a ⋊ pa)). Qed.
 
 (** The functional of a recursive function is compiled with the combinators
-    ([crec] leaves it to [cbc]): this module type depends on their model. As
+    ([crec] leaves it to [cbc_found]): this module type depends on their model. As
     for the combinators, the model of fixpoints ([FixTimeCostModel], at the
     end) is made of its axioms, of the rules derived from them
     ([FixRules], which its instances include) and of the tactics that they
@@ -54,7 +28,12 @@ Module Type FixTimeCostAxioms
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
   (Import CB : CombinatorTimeCostModel CM BT).
 
-  (** The cost of an unfolding. *)
+  (** The cost of an unfolding. Each unfolding must cost at least one
+      ([1 <= c_fix], a premise of the rules): the recurrence cannot then be
+      satisfied by an unfolding that does not terminate, whereas with free
+      unfoldings every function would have every bound ([UnguardedFix]).
+      As a premise rather than an axiom, it keeps the models where [c_fix]
+      is [0] consistent: their recursive functions cannot be analysed. *)
   Parameter c_fix : nat.
   #[global] Hint Unfold c_fix : costs.
 
@@ -71,8 +50,20 @@ Module Type FixTimeCostAxioms
   #[global] Declare Instance pw_ext_fun : forall {A CA B CB} (RA : Repr A CA) (RB : Repr B CB)
     (ar : Arity B), PwExt RB ar -> PwExt (Repr_arr RA RB) (ar_fun A B ar).
 
-  (** For a recursive function [f e] with the environment [e]: its
-      functional [F] runs in [e] extended with [f e]. *)
+  (** For a recursive function [f e] with the environment [e], the values
+      of its free variables, as for any closure ([Combinators]): it
+      satisfies `f e a = F (ECons e (f e)) a`, pointwise in all the
+      arguments, where the functional [F] is the code of the body, run in
+      [e] extended with the function itself, which the recursive calls read.
+      A candidate complexity [cf] is a bound as soon as it bounds the cost
+      of building the closure [f e] ([c_clo]) and of one unfolding plus
+      [c_fix], where the recursive calls cost what [cf] says. A fixpoint
+      under `fun f`, as [fold_left], has `f` in the environment: the
+      recursive calls do not pass it again.
+
+      Since the axiom holds for every function satisfying the equation,
+      [ComplexityBound f c] means that the function [f] is computable
+      within [c], rather than that a particular term defining it is. *)
   Parameter fix_complexity : forall {E CE A B CA CB} `{Repr E CE} `{Repr A CA} {RB : Repr B CB}
     (ar : Arity B) `{!PwExt RB ar} (f : E -> A -> B)
     (F : env E (A -> B) -> A -> B)
@@ -129,7 +120,7 @@ Module FixTactics
 
   (** In a goal [ComplexityBound f cf] where [f] is a recursive function,
       [crec] leaves the goals `ComplexityBound F ?cF` (to be solved by
-      [cbc]) and the recurrence on [cf]. [fix_equation] gives the
+      [cbc_found]) and the recurrence on [cf]. [fix_equation] gives the
       functional `FF` of [f], over the recursive function: `F` is `FF`
       reading it in the environment ([ehd]), beta-reduced, so that each
       recursive call reads it. [crec_mutual] does the same for

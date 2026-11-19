@@ -1,25 +1,8 @@
 (** * Simply typed λ-calculus over a signature
 
     The terms of the simply typed λ-calculus over one base type and a
-    signature `C` of typed constants, with de Bruijn variables
-    (`term C Γ σ`, in the context [Γ]), and their denotations in the
-    functionals over a type `B` (`sem B σ`), for an interpretation of the
-    constants (`Interp C B`).
-
-    The denotation of a term in the context [Γ] is a function of the
-    environment (`envT B Γ`, the values of the variables), built from the
-    closure combinators of the categorical abstract machine
-    ([Combinators]): it is the closure conversion of the term, so that the
-    cost model gives its complexity ([BFFFeasibility]). On a closed term,
-    it computes to the expected functional ([⟦ t ⟧]).
-
-    Closed terms are written with binders, in parametric higher-order
-    abstract syntax ([pterm], with the notation [<{ .. }>]), and converted
-    to de Bruijn terms by computation ([of_pterm], [db]).
-
-    Reference:
-    A. Chlipala. Parametric higher-order abstract syntax for mechanized
-    semantics. ICFP 2008. *)
+    signature of typed constants, and their denotations in the functionals
+    over a type, for an interpretation of the constants. *)
 
 From Complexity Require Export Combinators.
 From Stdlib Require Import List Program.Basics.
@@ -71,7 +54,13 @@ Arguments tcst {C Γ σ}.
 Arguments tlam {C Γ σ τ}.
 Arguments tapp {C Γ σ τ}.
 
-(** ** Denotation *)
+(** ** Denotation
+
+    The denotation of a term in the context [Γ] is a function of the
+    environment (the values of the variables), built from the closure
+    combinators ([Combinators]): it is the closure conversion of the term,
+    so that the cost model gives its complexity ([BFFFeasibility]). On a
+    closed term, it computes to the expected functional ([⟦ t ⟧]). *)
 
 (** The interpretation of the constants of `C` as functionals over `B`. *)
 Class Interp (C : ty -> Type) (B : Type) := cinterp : forall σ, C σ -> sem B σ.
@@ -211,6 +200,11 @@ Proof.
 Qed.
 
 (** ** Terms with binders
+
+    In parametric higher-order abstract syntax ([pterm], with the notation
+    [<{ .. }>]), converted to de Bruijn terms by computation ([of_pterm],
+    [db]): A. Chlipala, Parametric higher-order abstract syntax for
+    mechanized semantics, ICFP 2008.
 
     `pterm C V σ`: the terms whose variables are Rocq variables of types
     `V σ`. A closed term is a term for every `V` ([PTerm]). *)

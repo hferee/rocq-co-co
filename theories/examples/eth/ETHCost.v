@@ -3,8 +3,8 @@
     The functions are analysed as they are written in [ETHAlgorithm], by
     [cbound] ([TimeFix]): the compiler only replaces terms by
     convertible ones. The constants are the smallest ones
-    for the shape of each bound (see [NatComplexity]). This file is the start
-    of the analysis; the remarks at the end list what is covered. *)
+    for the shape of each bound (see [NatComplexity]). The plan at the end
+    states the bounds that remain. *)
 
 From Complexity Require Export TimeStdlib ETHAlgorithm ETHData ETHFacts.
 From Stdlib Require Import List ZArith QArith Qreduction Qround.
@@ -388,84 +388,14 @@ Module ETHDataCost (Import Time : TimeStdlib) (Import D : ETHData Time).
   Qed.
   Global Instance norm_clause_polynomial_bound : Time.PolynomialBound norm_clause := _.
 End ETHDataCost.
-
-(** * Coverage of [ETHAlgorithm] by the current models
-
-    With the generic fixpoint axiom ([TimeFix]), every structurally
-    recursive function can be analysed as written, whatever its number of
-    arguments, the position of its recursive argument, the matches of its
-    body (also on other arguments), the depth of its recursive calls, and
-    its type arguments; mutual recursion goes through an indexed function
-    (see [Pos.add] in [PosComplexity]). This covers in particular the
-    functions that were out of reach of the former recursors: polymorphic
-    fixpoints ([fold_tuples], [find_tuple], [fold_sublists], [zipWith],
-    [set_nth], ...), fixpoints with more than two arguments
-    ([spar_M_search], [sparsify_fold], [rv_mul_aux], [Nat.div] through
-    [divmod], ...), toplevel matches on other arguments ([nth],
-    [combinations]), and deeper recursive calls ([Nat.even], [Nat.div2]).
-
-    Still missing in the model:
-
-    - Local fixpoints (the [go] of [lifted_factor]) are not analysed: their
-      bounds are declared first, for the function of the variables they
-      use ([Examples]).
-    - The data types of the algorithm ([params], [design], [literal],
-      [pair_eig]) come with their own axioms: representation, sizes,
-      constructors, case analyses ([ETHData]: all of them for [literal],
-      the first two for the others).
-
-    Not a matter of expressiveness, but of proofs about the values computed
-    (the paper's appendices): the bit sizes of the rationals manipulated by
-    the counting routine, the size of the sparsification tree, and the
-    parameter checks of [choose_params] for large inputs. *)
-
 (** ** Plan: the bounds that lead to [count_sat]
 
-    The statements below, in the order of [ETHAlgorithm], are the bounds to
-    prove to reach the main function [count_sat]; each ends with [Abort].
-    Their forms:
-    - [Time.PolynomialBound f]: a polynomial in the sizes of the arguments
-      (unary for [nat]: in their values);
-    - [exists c, Time.ComplexityBound f ...]: an explicit shape, for the
-      functions whose cost is exponential in some arguments (powers of
-      numbers, enumerations), with the factor read from the definition;
-    - for the higher-order functions: their bound from that of their
-      function argument, closed under polynomials, or, for the enumerations,
-      the number of the elements enumerated times a bound [g] on the cost of
-      the argument (and a bound on the growth of the accumulator);
-    - for the top layers ([count_zeros], [count_sparse_formula],
-      [count_sat]): the shape claimed by the paper,
-      [(n+m)^O(1) 2^O(rho n)], with constants depending on the width or the
-      sparsity.
-    The bounds of [memN], [countN], [eqbN], [insert_uniq], [range],
-    [sumN], [indexN], [lexltbN], [maxN], [set_nth], [remove_nth],
-    [chunks], [ceil_div], [clog2], [csqrt], [subsetN], [sort_uniq],
-    [embed] and of
-    the functions on formulas [code_var], [code_pos], [code_neg],
-    [nclause_eval], [ncnf_eval], [tautological], [insert_clause],
-    [sort_clauses], [strict_subset], [antichain], [normalize],
-    [has_empty_clause] and [max_width] are proved above ([ETHCost]), and those of the functions on literals
-    [lvar], [lpos], [lit_code] and [norm_clause] with the axioms of
-    [literal] ([ETHDataCost]).
-
-    Prerequisites (not yet in the library):
-    - the axioms of the data types of the algorithm, which come with the
-      algorithm ([ETHData]): those of [literal] are there; [params],
-      [design] (records) and [pair_eig] have their representations and
-      sizes, their constructors and case analyses are still to be
-      axiomatised, as for [literal];
-    - bounds of functions of the standard library (section 0 below: the
-      remaining ones);
-    - higher-order functions on lists: [map], [filter], [existsb],
-      [forallb], [flat_map] and the folds have bounds in the costs of their
-      function ([HOListComplexity]), which [subsetN], [tautological], ...
-      use ([simpl_czip]); [fold_right] has a closed bound in the sizes
-      ([fold_right_size_complexity]), [fold_left] not yet ([zipWith],
-      ...); [sort_uniq] and [sort_clauses] analyse [fold_right] with their
-      function fixed.
-    The subexponential bounds of the top layers also need the facts of the
-    paper on the parameters: the numerical checks of [choose_params] pass
-    for large [n] (otherwise the counts fall back to exhaustive search). *)
+    The bounds still to prove, in the order of [ETHAlgorithm]; each ends
+    with [Abort]. [Time.PolynomialBound f] is a polynomial in the sizes of
+    the arguments; [exists c, Time.ComplexityBound f ...] an explicit shape,
+    for the functions exponential in some arguments (powers, enumerations);
+    the higher-order functions are bounded from their function argument;
+    the top layers have the shape claimed by the paper. *)
 
 (** The exponent of the paper: rho(n) = n (log log n)^2 / sqrt (log n). *)
 Definition rho (n : nat) : nat := n * Nat.log2 (Nat.log2 n) ^ 2 / S (Nat.sqrt (Nat.log2 n)).
@@ -496,9 +426,10 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma inject_Z_polynomial : Time.PolynomialBound inject_Z. Abort.
   Lemma Qfloor_polynomial : Time.PolynomialBound Qfloor. Abort.
 
-  (** The bounds of [map], [filter], [existsb], [forallb] and [flat_map]
-      in the costs of their function, a closure, are in [ListComplexity];
-      the statements below are their closures under polynomials. *)
+  (** The bounds of [map], [filter], [existsb], [forallb], [flat_map] and
+      the folds in the costs of their function are in [HOListComplexity];
+      the statements below are their closures under polynomials
+      ([fold_left] has no closed bound in the sizes yet). *)
   Section Lists.
     Context {A B : Type} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A}
       {CB} {RB : Repr B CB} {GB : IsGround RB} `{Size B}.
@@ -688,11 +619,17 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma rv_mul_aux_polynomial : Time.PolynomialBound rv_mul_aux. Abort.
   Lemma rv_mul_polynomial : Time.PolynomialBound rv_mul. Abort.
   Lemma rv_coeff_polynomial : Time.PolynomialBound rv_coeff. Abort.
+  (** Its local fixpoint ([go]) needs its bound first, for the function of
+      the variables it uses ([Examples]). *)
   Lemma lifted_factor_polynomial : Time.PolynomialBound lifted_factor. Abort.
   Lemma lift_eval_polynomial (theta : nat -> qpoly) :
     Time.PolynomialBound theta -> Time.PolynomialBound (fun J p => lift_eval J p theta). Abort.
 
-  (** *** 8. The design: powers of [r], up to [K = r ^ pts] and [D = K ^ 2] *)
+  (** *** 8. The design: powers of [r], up to [K = r ^ pts] and [D = K ^ 2]
+
+      [params] and [design] have their representations and sizes
+      ([ETHData]); their constructors and case analyses are still to be
+      axiomatised, as for [literal]. *)
 
   Lemma p_K_complexity : exists c, Time.ComplexityBound p_K
     (fun (cpr : ℂI (params) unit) => (c * S (#|val cpr|) ^ c * S (p_r (val cpr)) ^ p_pts (val cpr)) >|). Abort.
@@ -900,7 +837,10 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   (** *** 13. The algorithm (Proposition 6.4) *)
 
   (** The main result: [(n + m) ^ O_k(1) 2 ^ O_k(rho n)], where the width
-      [k'] of the normalised formula is at least [k]. *)
+      [k'] of the normalised formula is at least [k]. It needs facts on the
+      values computed (the paper's appendices): the bit sizes of the
+      rationals, the size of the sparsification tree, and the parameter
+      checks of [choose_params] for large [n]. *)
   Theorem count_sat_complexity (k : nat) : exists C : nat -> nat,
     Time.ComplexityBound (count_sat k)
       (fun (cn : ℂI nat unit) => C 0 +> fun (cF : ℂI cnf (list (list unit))) =>

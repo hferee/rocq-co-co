@@ -6,40 +6,16 @@
     - `W F x = 2^x` if `F (C x) <> F zero`, [0] otherwise,
 
     where `C x` is the characteristic function of [2^x] and [zero] the
-    constant function [0], for `F : (N -> N) -> N`. `V` is basic feasible.
-    [W] is not: when `F` is 0-1 valued, the length of the values of a BFF is
-    bounded by a polynomial in [|x|], but `|W F x| = x + 1` when `F`
-    distinguishes `C x` from [zero]. Yet [W] is not harder than `V`: if
-    `F (C x) <> F zero`, then `F` has queried its argument at [2^x], the
-    only point where `C x` and [zero] differ, so that a machine running `F`
-    has written down [2^x], and [W] can write it once more.
+    constant function [0], for `F : (N -> N) -> N`. `V` is basic feasible,
+    [W] is not, yet [W] is not harder than `V`.
 
-    References:
     J. S. Royer. A feasible type-3 functional that fails to be basic
     feasible. DIMACS workshop on computational complexity and programming
     languages, 1996.
 
     R. J. Irwin, J. S. Royer, B. M. Kapron. On characterizations of the basic
     feasible functionals, Part I. Journal of Functional Programming
-    11(1):117-153, 2001.
-
-    The functionals are defined below over binary numbers ([N]), with the
-    test [y = 2^x] in polynomial time ([pow2_eq_pos]), and their costs are
-    analysed in [Type3Complexity]: the cost of [W] is the cost of `V` plus,
-    when `F` distinguishes `C x` from [zero], the cost of writing [2^x],
-    linear in [x], that is exponential in [|x|] ([W_cost]). The argument
-    above bounds it by the cost of `F` only under an assumption that the
-    cost model does not provide: that `F` pays for the size of its queries
-    ([W_cost_paid]). The assumption holds when the potential of `F` is a
-    size bound ([CSized], [sized_query]).
-
-    `V` is a BFF: it is equal, as a functional, to a PV^ω term ([V_BFF]).
-    [W] is not: no BFF is equal to it ([W_not_BFF]), since every BFF has a
-    polynomial majorant.
-    In terms of higher-order polynomial bounds in the cost model
-    ([BFFFeasibility]): `V` has one ([V_hpoly]), [W] has none, whatever its
-    complexity ([W_not_hpoly]). On sized arguments, both have one
-    ([V_hpolyS], [W_hpolyS], [W_sized_contrast]). *)
+    11(1):117-153, 2001. *)
 
 From Complexity Require Import PosComplexity BFFFeasibility BitSize ListFacts.
 From Stdlib Require Import PArith NArith NArithRing.
@@ -49,7 +25,10 @@ Import List.ListNotations.
 (** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
-(** ** Definitions *)
+(** ** Definitions
+
+    Over binary numbers ([N]), with the test [y = 2^x] in polynomial time
+    ([pow2_eq_pos]). *)
 
 (** [zeros p q]: [q] followed by [p] zeros, that is [q 2^p], in time linear
     in [p]. *)
@@ -177,7 +156,11 @@ Proof.
            with (S (Pos.size_nat p - 1)) by lia; rewrite Nat.pow_succ_r'); cbn; lia.
 Qed.
 
-(** ** [W] is not a basic feasible functional *)
+(** ** [W] is not a basic feasible functional
+
+    When `F` is 0-1 valued, the length of the values of a BFF is bounded by
+    a polynomial in [|x|], but `|W F x| = x + 1` when `F` distinguishes
+    `C x` from [zero]: every BFF has a polynomial majorant. *)
 
 (** The bound [n ↦ m (λ _, 1) (n + 1)] on the lengths of `W F x`, for a
     majorant [m] of [W] and a 0-1 valued `F`, with [|x| = n + 1]. *)
@@ -215,7 +198,16 @@ Proof.
   rewrite size_nat_pow2, Hv0 in Hb. lia.
 Qed.
 
-(** ** Complexity *)
+(** ** Complexity
+
+    The cost of [W] is the cost of `V` plus, when `F` distinguishes `C x`
+    from [zero], the cost of writing [2^x], linear in [x], exponential in
+    [|x|] ([W_cost]). If `F (C x) <> F zero`, then `F` has queried its
+    argument at [2^x], the only point where `C x` and [zero] differ, so
+    that a machine running `F` has written down [2^x]: this bounds the cost
+    of [W] by the cost of `F` only when `F` pays for the size of its
+    queries ([W_cost_paid]), which holds when the potential of `F` is a
+    size bound ([CSized], [sized_query]). *)
 
 (** The constants of the costs below, abbreviations, so that the costs
     are numbers: [C_pot] ([C_a], [C_b], [C_c]) and its majorants [C_maj] and
@@ -563,7 +555,7 @@ Module Type3Complexity (Import Time : TimePos).
   (** ** The complexities are size bounds
 
       The complexities of `C`, [zero], `V` and [W] are size bounds of them
-      ([SizedComplexities] with [k = 0]). `V` and [W] ask `F` about `C x`
+      ([CSized]), with no constant. `V` and [W] ask `F` about `C x`
       and [zero], and read [x]. [W] creates its value [2^x], of length
       [x + 1], and pays for it in [W_cost]. *)
   Lemma C_complexity_sized : CSized (bits (tN ⇒ tN ⇒ tN)) C (fun cx => 4 +> C_pot (val cx)).

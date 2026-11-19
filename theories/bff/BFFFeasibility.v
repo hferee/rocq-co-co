@@ -1,28 +1,9 @@
 (** * The basic feasible functionals have higher-order polynomial bounds
 
     The denotation of every term of PV^ω ([BFF]) has a complexity bound
-    which is majorized by a higher-order polynomial ([HOPoly]): its costs
-    and the lengths of its values are bounded by a λ-term over [+] and [×]
-    applied to bounds on its arguments ([BFF_hpoly_bound]).
-
-    The majorization ([maj]) and the higher-order polynomial bounds
-    ([HPolyBound]) are those of the cost model ([HOBounds]), at the types
-    [bits σ]: the ground type is [N], whose size is the length of its
-    binary representation ([N.size_nat]). At [N], a bound [m] majorizes a
-    number of length at most [m].
-
-    The denotation of a term is its closure conversion ([Lambda]), whose
-    complexity follows from the axioms of the combinators. The proof is by
-    induction on the terms, in an environment of majorized values
-    ([interp_hpoly]): the majorant of a term is the term itself, with each
-    constant replaced by its majorant ([BFFComplexity]; for the recursion
-    `R`, the bound of [R_cost_bound] in the majorants of `F` and `h`), and
-    the costs of the combinators added ([plus_t]).
-
-    The theorem is about terms, not functionals: a complexity is that of a
-    program. A functional equal to a BFF ([is_BFF]) may be computed by
-    other, slower programs. Every BFF also has a bound on
-    sized arguments ([BFF_hpolyS]). *)
+    majorized by a higher-order polynomial ([HOPoly]): its costs and the
+    lengths of its values are bounded by a λ-term over [+] and [×] applied
+    to bounds on its arguments ([BFF_hpoly_bound]). *)
 
 From Complexity Require Export BFFComplexity SOPoly.
 From Stdlib Require Import NArith.
@@ -33,7 +14,15 @@ Import List.ListNotations.
 
 Open Scope list_scope.
 
-(** ** Complexities *)
+(** ** Complexities
+
+    The majorization ([maj]) and the higher-order polynomial bounds
+    ([HPolyBound]) are those of the cost model ([HOBounds]), at the types
+    [bits σ]: the ground type is [N], whose size is the length of its
+    binary representation; a bound [m] majorizes a number of length at
+    most [m]. The denotation of a term is its closure conversion
+    ([Lambda]), whose complexity follows from the axioms of the
+    combinators. *)
 
 (** The type of the complexities of the functionals of type [σ], and of the
     environments of [Γ]. *)
@@ -73,12 +62,12 @@ Module BFFFeasibility (Import Time : TimeCostModel).
   (** [f] has the complexity [c], at type [σ]; [f], a function of the
       environments of [Γ], has the complexity [c]. *)
   Definition CBound (σ : ty) (f : den σ) (c : cty σ) : Prop :=
-    @Time.ComplexityBound (den σ) (@repr_ctype _ _ (repr σ)) (repr σ) f c.
+    @Time.ComplexityBound (den σ) (@repr_ctype _ _ (repr σ)) f c.
 
   Definition CBoundE Γ σ (f : envT N Γ -> den σ) (c : ℂI (envT N Γ) (cenv Γ) -> ℂO (cty σ)) :=
-    @Time.ComplexityBound _ (@repr_ctype _ _ (Repr_arr (renv Γ) (repr σ))) (Repr_arr (renv Γ) (repr σ)) f c.
+    @Time.ComplexityBound _ (@repr_ctype _ _ (Repr_arr (renv Γ) (repr σ))) f c.
 
-  Ltac simpl_c := cbv [app cost_add fmap ret_I ret cost res val pot] in *; autounfold with costs in *.
+  Ltac simpl_c := cbv [app cost_add fmap ret_I cost res val pot] in *; autounfold with costs in *.
 
   Global Instance zero_hpoly : Time.HPolyBound (bits tN) 0%N.
   Proof. refine (hpoly_intro _ _ (db <{ 0 }>) _ (N_complexity 0) _). cbn. lia. Qed.
@@ -175,6 +164,12 @@ Module BFFFeasibility (Import Time : TimeCostModel).
   Proof. destruct c; exact _. Qed.
 
   (** ** Open terms
+
+      The proof is by induction on the terms, in an environment of
+      majorized values ([interp_hpoly]): the majorant of a term is the term
+      itself, with each constant replaced by its majorant ([BFFComplexity];
+      for the recursion `R`, the bound of [R_cost_bound]), and the costs of
+      the combinators added ([plus_t]).
 
       The denotation of a term [t] in the context [Γ] is a function of the
       environments of [Γ] ([interp]). Its majorant is a higher-order
@@ -288,7 +283,12 @@ Module BFFFeasibility (Import Time : TimeCostModel).
         rewrite baseM_plus_t, !base_t_baseM by assumption. simpl_c. split; [lia | apply maj_plus, Jam].
   Qed.
 
-  (** ** The theorem *)
+  (** ** The theorem
+
+      It is about terms, not functionals: a complexity is that of a
+      program, and a functional equal to a BFF ([is_BFF]) may be computed
+      by other, slower programs. Every BFF also has a bound on sized
+      arguments ([BFF_hpolyS]). *)
 
   Theorem BFF_hpoly_bound σ (t : term pv [] σ) : Time.HPolyBound (bits σ) ⟦t⟧.
   Proof.

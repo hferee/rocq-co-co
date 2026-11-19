@@ -6,75 +6,24 @@
     Lean formalization [lean/OAI/Algorithms/SubexponentialSAT].
 
     The Lean development states its result
-    ([SqrtLogSpace.exact_count_and_sat]) for a multi-tape Turing machine
-    ([Computation.PrimitiveMachine]). That machine is compiled
-    ([GuardedCompiler.primitive]) from a [BitProgram]: a register machine with
-    80 one-bit registers and 1220 Boolean stacks, assembled from structured
-    commands ([Native.countingProgram cutoff k (NativeLeafProgram.command k)]).
-
-    This file does not transcribe that stack program instruction by
-    instruction. It transcribes the algorithm that the program implements, as
-    described in the preprint, into plain functional Rocq: the "rational
-    interpolation" algorithm of Proposition 6.4, whose exponent
-    rho(n) = n (log log n)^2 / sqrt(log n) is the one proved in Lean
-    ([SqrtLog.Statement.runtimeScale]). Its layers are:
-
-    - Appendix A: disjoint sparsification ([sparsify_fold]);
-    - Section 6: reduction of each sparse formula to sparse polynomial
-      equations over F_2, via a Tanner code ([tanner_rows]) and greedy parity
-      tests chosen by counting ([greedy_rows]);
-    - Section 5: counting common zeros of sparse equations ([count_zeros]),
-      via the Beigel-Tarui parity lift ([lift_coeffs]), branching on frequent
-      variables and the design of Section 4 ([build_design]);
-    - Section 3: the counting routine itself: separation by measurements
-      ([separated_sum]), Taylor coefficients by Boolean differences
-      ([taylor_at]) and Hermite interpolation ([hermite_value_at_0]).
-
-    Differences with the paper/Lean that do not change the computed values:
-    - rationals are [Q] normalised with [Qred], instead of integers over fixed
-      common denominators (Appendix B);
-    - the value at 0 of the Hermite interpolant is computed by Cramer's rule
-      with Gaussian elimination over [Q], instead of fraction-free (Bareiss)
-      elimination over [Z];
-    - the conditional expectations of Lemma 4.5 are computed from closed-form
-      probabilities, instead of by enumerating assignments of each indicator;
-    - groups are numbered 0..r-1 instead of 1..r;
-    - small inputs use the paper's computable guards (exhaustive search when
-      n < 20 or a parameter check fails), whereas the Lean machine takes an
-      existentially quantified cutoff.
-
-    Nothing here is proved: neither correctness nor cost. Recursion is
-    structural (on lists or [nat]) everywhere. Explicit fuel is used only where
-    the paper bounds the number of iterations, as noted at each use.
-
-    Complexity. The enumerations visit the same sets as the paper's, with the
-    same nesting: measurement tuples times the assignments of one group
-    (Lemma 3.2), pairs U ⊆ E with |E| <= q (C_q in (3.14)), branches on
-    frequent variables (Section 5.5), (2m)^P greedy candidates (Lemma 6.2),
-    shifts and local codes (Lemma 6.1), and the sparsification tree
-    (Appendix A). Product spaces are folded over ([fold_tuples]), not stored.
-    Every [nat] value is polynomial in the input size: the largest are
-    D = r^(2Q) <= (2n)^(1/128), q_G < 2m and M^(k-1) = polylog(n). Counts and
-    coefficients, which can have poly(n) bits, are [Z] and [Q]. So under
-    call-by-value, even with unary [nat], the running time is within a
-    polynomial factor of the paper's (n+m)^O_k(1) 2^O_k(ρ(n)), provided [Z]
-    and [Q] operations cost polynomially in the bit sizes. Appendix B bounds
-    those sizes polynomially; reducing with [Qred] can only shrink them, and
-    Gaussian elimination over [Q] keeps them polynomial.
-
-    With the paper's parameters, the subexponential path is only taken for
-    astronomically large inputs: the top-level schedule s = ⌊√λ/ν²⌋ first
-    reaches 2 at λ = ⌈log2 n⌉ = 521284, and the parameter checks of
-    Lemma 4.8 need λ above 10^10. Every executable instance therefore takes
-    the exhaustive-search fallback. The examples at the end exercise the inner
-    components directly on tiny parameters instead. *)
+    ([SqrtLogSpace.exact_count_and_sat]) for a multi-tape Turing machine,
+    compiled from a register machine program. This file transcribes the
+    algorithm that the program implements, as described in the preprint,
+    into plain functional Rocq: the "rational interpolation" algorithm of
+    Proposition 6.4. Nothing here is proved, neither correctness nor cost
+    ([ETHCost] starts the cost analysis). *)
 
 From Stdlib Require Import Arith Bool List ZArith QArith Qreduction Qround.
 Import ListNotations.
 
 Local Open Scope nat_scope.
 
-(** ** 1. Generic utilities *)
+(** ** 1. Generic utilities
+
+    Recursion is structural (on lists or [nat]) everywhere; explicit fuel
+    is used only where the paper bounds the number of iterations, as noted
+    at each use. Product spaces are folded over ([fold_tuples]), not
+    stored. *)
 
 Definition range (n : nat) : list nat := seq 0 n.
 
@@ -412,7 +361,11 @@ Definition occurrences (v : nat) (scopes : list (list nat)) : nat :=
 Definition max_degree (eqs : list f2poly) : nat :=
   maxN (map (fun p => maxN (map (@length nat) p)) eqs).
 
-(** ** 5. Rational arithmetic and truncated polynomials *)
+(** ** 5. Rational arithmetic and truncated polynomials
+
+    Rationals are [Q] normalised with [Qred], instead of integers over fixed
+    common denominators (Appendix B): reducing can only shrink their bit
+    sizes, which Appendix B bounds polynomially. *)
 
 Definition qadd (a b : Q) : Q := Qred (a + b).
 Definition qsub (a b : Q) : Q := Qred (a - b).
@@ -556,7 +509,7 @@ Definition lift_eval (J : nat) (p : f2poly) (theta : nat -> qpoly) : qpoly :=
 (** ** 8. Low-degree replacement forms (Section 4) *)
 
 Record params := mkParams {
-  p_r : nat;    (* number of groups r *)
+  p_r : nat;    (* number of groups r, numbered 0..r-1 (1..r in the paper) *)
   p_pts : nat;  (* number of evaluation points Q *)
   p_R : nat;    (* degree parameter R *)
   p_A0 : nat    (* parity interval I = {A0, ..., A0 + R - 1} *)
@@ -671,7 +624,9 @@ Definition prob_same (K : nat) (same : bool) (x y : option nat) : Q :=
 Definition opt_digit (r t : nat) (x : option nat) : option nat :=
   match x with Some a => Some (digit r t a) | None => None end.
 
-(* Conditional expectation of Φ/(M(b+w)) + Ξ/(Q n) (proof of Lemma 4.5). *)
+(* Conditional expectation of Φ/(M(b+w)) + Ξ/(Q n) (proof of Lemma 4.5),
+   from closed-form probabilities, instead of by enumerating the assignments
+   of each indicator. *)
 Definition label_potential (pr : params) (n b w : nat) (inc : list (nat * nat))
   (aopt dopt : list (option nat)) : Q :=
   let r := p_r pr in
@@ -888,8 +843,9 @@ Definition hermite_matrix (pts J : nat) : list (list Q) :=
       if j <=? u then qofZ (binomZ u j * Z.of_nat t ^ Z.of_nat (u - j))%Z else 0%Q)
       (range (pts * J))) (range J)) (seq 1 pts).
 
-(* The constant coefficient of the interpolant, by Cramer's rule (eq. (B.1)),
-   given the Hermite matrix V and its determinant. *)
+(* The constant coefficient of the interpolant, by Cramer's rule (eq. (B.1))
+   with Gaussian elimination over Q, instead of fraction-free (Bareiss)
+   elimination over Z; given the Hermite matrix V and its determinant. *)
 Definition hermite_value_at_0 (V : list (list Q)) (detV : Q) (data : list Q) : Q :=
   qdiv (det (zipWith (fun row y => y :: tl row) V data)) detV.
 
@@ -1120,7 +1076,27 @@ Definition count_sparse_formula (k n B : nat) (F : ncnf) : Z :=
         count_zeros k n (map (row_poly F) A)
   end.
 
-(** ** 13. The algorithm (Proposition 6.4) *)
+(** ** 13. The algorithm (Proposition 6.4)
+
+    The layers: disjoint sparsification (Appendix A, [sparsify_fold]);
+    reduction of each sparse formula to sparse equations over F_2 (Section
+    6, [tanner_rows], [greedy_rows]); counting the common zeros of sparse
+    equations (Section 5, [count_zeros]); and the counting routine itself
+    (Section 3, [separated_sum], [taylor_at], [hermite_value_at_0]). Its
+    exponent is ρ(n) = n (log log n)^2 / sqrt(log n), as in Lean
+    ([SqrtLog.Statement.runtimeScale]).
+
+    The enumerations visit the same sets as the paper's, with the same
+    nesting. Every [nat] value is polynomial in the input size (the largest
+    are D = r^(2Q) <= (2n)^(1/128), q_G < 2m and M^(k-1) = polylog(n));
+    counts and coefficients, of poly(n) bits, are [Z] and [Q]. So under
+    call-by-value, even with unary [nat], the running time is within a
+    polynomial factor of the paper's (n+m)^O_k(1) 2^O_k(ρ(n)), provided the
+    operations of [Z] and [Q] cost polynomially in the bit sizes.
+
+    Small inputs use the paper's computable guards (exhaustive search when
+    n < 20 or a parameter check fails), where the Lean machine takes an
+    existentially quantified cutoff. *)
 
 (* The number of satisfying assignments in {0,1}^n of a k-CNF on the
    variables 0, ..., n-1. *)
@@ -1147,7 +1123,13 @@ Definition count_sat (k n : nat) (F0 : cnf) : Z :=
 
 Definition sat (k n : nat) (F : cnf) : bool := (0 <? count_sat k n F)%Z.
 
-(** ** 14. Sanity checks on tiny instances *)
+(** ** 14. Sanity checks on tiny instances
+
+    With the paper's parameters, the subexponential path is only taken for
+    astronomically large inputs: s = ⌊√λ/ν²⌋ first reaches 2 at
+    λ = ⌈log2 n⌉ = 521284, and the parameter checks of Lemma 4.8 need λ
+    above 10^10. Every executable instance takes the exhaustive search: the
+    checks below exercise the inner components on tiny parameters. *)
 
 (* The example after Lemma 5.2: p_2(Y) = (1 - Y) + (2Y - 1) h(Y). *)
 Example lift_coeffs_2 : lift_coeffs 2 = [(1, -1); (-1, 2)]%Z.

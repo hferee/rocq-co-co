@@ -1,14 +1,8 @@
 (** * Complexity of functions over [nat] from the standard library
 
     Each function is analysed as defined in the standard library, by
-    [cbound] ([TimeFix]).
-
-    The constants are the smallest ones for the shape of each bound: they
-    were found by stating the bound with abstract constants, which [cbound]
-    turns into the inequalities that the recurrence requires. The first cost
-    ([5] for [Nat.add]) is the cost of the partial application to the first
-    argument; the cost of a step of the recursion includes it, since the
-    recursive call is a partial application too. *)
+    [cbound] ([TimeFix]), with the smallest constants for the shape of each
+    bound. *)
 
 From Complexity Require Export TimeCostModel BoolComplexity PairComplexity.
 
@@ -28,7 +22,14 @@ Module NatComplexity (Import Time : TimeBoolPair).
   Proof. induction n; [rewrite size_O | rewrite size_S]; lia. Qed.
   Global Instance nat_size_fact (n : nat) : SizeFact n (n < size n) := nat_lt_size n.
 
-  (** ** Bounds *)
+  (** ** Bounds
+
+      The constants were found by stating the bound with abstract
+      constants, which [cbound] turns into the inequalities that the
+      recurrence requires. The first cost ([5] for [Nat.add]) is that of the
+      partial application to the first argument; the cost of a step of the
+      recursion includes it, since the recursive call is a partial
+      application too. *)
 
   Global Instance Nat_add_complexity : Time.ComplexityBound Nat.add
     (fun cn => 1 +> fun cm => (14 * val cn + 10) >|) := _.

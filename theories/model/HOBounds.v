@@ -3,44 +3,19 @@
     [Bounds] bounds first-order functions by polynomials in the sizes of
     their arguments. At higher types, the arguments are themselves
     functions: they are measured by majorants, functionals over the sizes,
-    and the bounds are higher-order polynomials ([HOPoly]).
+    and the bounds are higher-order polynomials ([HOPoly]). *)
 
-    [HigherOrder σ A CA]: [A] is a type of functionals of shape [σ], built
-    from ground types with a representation ([IsGround]) and a size
-    ([Size]),
-    and [CA] is the type of their complexities. Everything below is defined
-    over such a description, whatever the ground types and their sizes.
-
-    The majorization is a logical relation over the types ([maj]):
-    - at a ground type, a bound [m] majorizes a value of size at most [m];
-    - at [σ ⇒ τ], [m] majorizes a function [f] of complexity [c] when, for
-      every argument [x] majorized by a monotone `a`, the cost of [f x] is
-      at most the value of `m a` at [0]s ([baseM]), and `m a` majorizes
-      [f x].
-    [HPolyBound h f]: [f] has a complexity majorized by a higher-order
-    polynomial.
-
-    The majorization quantifies over all the potentials of the arguments,
-    even those that are not complexities of them. The sizes ([CSized])
-    restrict them. Following Férée, the size of a function bounds its
-    dialogue with its arguments, the questions it asks them and its answer,
-    and it has the type of the complexities. Only what the function creates
-    is charged: the values it receives (the answers of its arguments) are
-    free, as in the cost model, where moving a value costs nothing.
-    [HPolyBoundS] is [HPolyBound] on the arguments with a size bound
-    ([smaj]): in their complexities and their sizes, kept apart. Every
-    [HPolyBound] is one ([hpoly_hpolyS]).
-
-    H. Férée. Game semantics approach to higher-order complexity. JCSS
-    87:1-15, 2017. *)
-
-From Complexity Require Import CostModelCore HOPoly.
+From Complexity Require Import CostModelCore GroundTypes Bounds HOPoly.
 From Stdlib Require Import List Lia.
 Import ListNotations.
 
-Module HOBounds (Import CM : CostModelCore).
+Module HOBounds (Import CM : GroundCostModel).
 
-  (** ** Higher-order types *)
+  (** ** Higher-order types
+
+      [HigherOrder σ A CA]: [A] is a type of functionals of shape [σ],
+      built from ground types with a representation ([IsGround]) and a size
+      ([Size]), and [CA] the type of their complexities. *)
 
   Inductive HigherOrder : ty -> Type -> Type -> Type :=
   | ho_ground {A CA} (RA : Repr A CA) : IsGround RA -> Size A -> HigherOrder tN A CA
@@ -55,9 +30,15 @@ Module HOBounds (Import CM : CostModelCore).
 
   (** [f] has the complexity [c]. *)
   Definition HOBound {σ A CA} (h : HigherOrder σ A CA) (f : A) (c : CA) : Prop :=
-    @ComplexityBound A (@repr_ctype _ _ (ho_repr h)) (ho_repr h) f c.
+    @ComplexityBound A (@repr_ctype _ _ (ho_repr h)) f c.
 
-  (** ** Majorization *)
+  (** ** Majorization
+
+      A logical relation over the types: at a ground type, a bound [m]
+      majorizes a value of size at most [m]; at [σ ⇒ τ], [m] majorizes a
+      function [f] of complexity [c] when, for every argument [x] majorized
+      by a monotone `a`, the cost of [f x] is at most the value of `m a` at
+      [0]s ([baseM]), and `m a` majorizes [f x]. *)
 
   Fixpoint maj {σ A CA} (h : HigherOrder σ A CA) : A -> CA -> M σ -> Prop :=
     match h in HigherOrder σ A CA return A -> CA -> M σ -> Prop with
@@ -96,6 +77,15 @@ Module HOBounds (Import CM : CostModelCore).
   Arguments hpoly_intro & {σ A CA} h f p c _ _.
 
   (** ** Sizes
+
+      The majorization quantifies over all the potentials of the
+      arguments, even those that are not complexities of them; the sizes
+      restrict them. Following Férée (Game semantics approach to
+      higher-order complexity, JCSS 87:1-15, 2017), the size of a function
+      bounds its dialogue with its arguments, the questions it asks and its
+      answer, with the type of the complexities. Only what the function
+      creates is charged: the values it receives are free, as in the cost
+      model.
 
       [CSized h f s], with [s] of the type of a complexity of [f]: for all
       the arguments [xs] of [f], each sized by the complexity given with
@@ -211,9 +201,6 @@ Module HOBounds (Import CM : CostModelCore).
   (** [s] is a size bound of [f]: same type as a complexity of [f]. *)
   Definition CSized {σ A CA} (h : HigherOrder σ A CA) : A -> CA -> Prop := lsized (lev h).
 
-  (** The arguments [xs] are sized by their potentials. *)
-  Definition Sized_args {σ A CA} (h : HigherOrder σ A CA) : spine h -> Prop := lspine (lev h).
-
   Lemma CSized_ground {A CA} (RA : Repr A CA) (GA : IsGround RA) (sA : Size A) x c :
     CSized (ho_ground RA GA sA) x c.
   Proof. exact I. Qed.
@@ -261,20 +248,6 @@ Module HOBounds (Import CM : CostModelCore).
     revert c; induction h as [A CA0 RA GA s|σ τ A CA B CB h1 _ h2 IH]; intros c; [exact I|].
     intros x. cbn. split; [lia | apply IH].
   Qed.
-
-  (** *** Complexities and sizes
-
-      Férée's sizes are bounded by the complexities (proposition 6): a
-      machine pays for its dialogue. [SizedComplexities] states it, up to a
-      constant for the literals of the program. It is not a theorem of the
-      cost model, whose complexities are upper bounds: it is a principle to
-      check in its instances. It is meant for allocation, not for time: in
-      the allocation cost model, it is an axiom ([sized_allocations], for
-      the ground types measured by their footprint). Since received values
-      are free, a function that moves them, as the identity, is sized at a
-      constant cost ([id_sized]). *)
-  Definition SizedComplexities : Prop :=
-    forall σ A CA (h : HigherOrder σ A CA) f c, HOBound h f c -> exists k, CSized h f (cplus h k c).
 
   (** *** Low types *)
 
@@ -378,6 +351,10 @@ Module HOBounds (Import CM : CostModelCore).
   Proof. intros H. apply (CSized_1 RA GA sA RA GA sA). intros y. specialize (H y). lia. Qed.
 
   (** ** Sized arguments
+
+      [HPolyBoundS] is [HPolyBound] on the arguments with a size bound, in
+      their complexities and their sizes, kept apart; every [HPolyBound] is
+      one ([hpoly_hpolyS]).
 
       [smaj h f c m]: [f] of complexity [c] is majorized by [m] on the
       arguments with a size bound. Each argument [x] comes with its

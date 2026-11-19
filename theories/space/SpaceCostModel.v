@@ -1,29 +1,18 @@
 (** * The space cost model
 
-    The cost of a computation is the memory it allocates: the space
-    counterpart of [TimeCostModel]. The layers of the time cost model are
-    parametric in the cost of each primitive ([ParamTimeCostModel]); the
-    space cost model is the same layers with the allocations of the
-    primitives:
-    - a closure ([c_clo]) and a constructor ([c_S], [c_cons], [c_Some],
-      [c_pair], [c_ctor_Z]) allocate one cell;
-    - the unfolding of a recursive function ([c_fix]) allocates one frame
-      (the fixpoint rule needs [1 <= c_fix]: a recursion that allocates
-      nothing could not be bounded);
-    - the application of a combinator ([c_ehd], ..., [c_Sc]) and a case
-      analysis ([c_case_bool], ...) allocate nothing: they read memory.
-
-    The space is the total allocation, without deallocation. The costs of
-    the cost model are added along a computation ([CostModelCore.app]), so
-    the peak of the memory in use, which would take a maximum, is not
-    expressible.
-
-    Each constant is at most its value in [TimeCostModel]: every allocation
-    happens in a step, so the space of a computation is at most its time. *)
+    The memory that a computation allocates: the layers of the time cost
+    model, with the allocations of the primitives as costs. *)
 
 From Complexity Require Export TimeCostModel.
 
+(** The total allocation, without deallocation: costs are added along a
+    computation ([CostModelCore.app]), so that the peak of the memory in
+    use, a maximum, is not expressible. Each constant is at most its value
+    in [TimeCostModel]: every allocation happens in a step, so the space of
+    a computation is at most its time. *)
 Module Type SpaceCostModel := ParamTimeCostModel
+  (* a closure and a constructor allocate one cell; the combinators and the
+     case analyses only read memory *)
   with Definition c_clo := 1 with Definition c_frame := 0
   with Definition c_ehd := 0 with Definition c_etl := 0 with Definition c_Lam := 0
   with Definition c_Kc := 0 with Definition c_Ic := 0 with Definition c_compose := 0
@@ -35,4 +24,5 @@ Module Type SpaceCostModel := ParamTimeCostModel
   with Definition c_pair := 1 with Definition c_case_prod := 0
   with Definition c_ctor_sum := 1 with Definition c_case_sum := 0
   with Definition c_ctor_Z := 1 with Definition c_case_Z := 0
+  (* an unfolding allocates a frame: the fixpoint rule needs [1 <= c_fix] *)
   with Definition c_fix := 1.

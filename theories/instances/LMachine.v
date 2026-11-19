@@ -1,25 +1,10 @@
 (** * An environment machine for L, as an instance of the cost model
 
-    [LInstance] measures time in β-steps of L, where a step substitutes
-    a value in a term at no cost, and where there is no stack. This file
-    takes a machine closer to an implementation: an environment machine
-    for the same terms, whose values are closures (a term and the values of
-    its free variables), and which counts
-    - the read of a variable in the environment, a list: [n + 1] for the
-      variable [n];
-    - the allocation of a closure, for a λ: [1];
-    - a β-step: [1];
-    - a frame, pushed and popped, for each subterm of an application that
-      is not a value (a variable or a λ): [2]. The body of the function is
-      evaluated in tail position, without a frame: a tail call is cheaper
-      than another call.
-    Data are encoded as in [LInstance] (Scott encodings), as closures.
-
-    It proves the whole time cost model, with the constants of the machine
-    ([MachineTimeCostModel], [machine/MachineCostModel]): each combinator
-    costs the steps of its realiser, from [c_Ic = 1] to [c_etl = 16], the
-    projections of the environments being the dearest (environments are
-    Scott-encoded pairs); a non-tail evaluation [c_frame = 2]. [LM] gathers
+    [LInstance] measures time in β-steps of L, where a step substitutes a
+    value in a term at no cost, with no stack. This file takes a machine
+    closer to an implementation: an environment machine for the same
+    terms, whose values are closures. It proves the whole time cost model,
+    with the constants of the machine ([MachineTimeCostModel]); [LM] gathers
     the layers. *)
 
 From Stdlib Require Import List Lia PeanoNat PArith NArith ZArith QArith.
@@ -28,7 +13,14 @@ From Undecidability.L Require Import L.
 Import ListNotations.
 Local Open Scope nat_scope.
 
-(** ** The machine *)
+(** ** The machine
+
+    It counts the read of a variable in the environment, a list ([n + 1]
+    for the variable [n]), the allocation of a closure for a λ ([1]), a
+    β-step ([1]), and a frame, pushed and popped, for each subterm of an
+    application that is not a value ([2]). The body of a function is
+    evaluated in tail position, without a frame: a tail call is cheaper
+    than another call. *)
 
 (** A closure: the value of [lam s] in the environment [E]. *)
 #[warnings="-register-all"]
@@ -142,7 +134,7 @@ Ltac Mfun :=
   let w := fresh "w" in let Hj := fresh "Hj" in let Ha := fresh "Ha" in
   let Hc := fresh "Hc" in let u := fresh "wu" in let E := fresh "wE" in
   intros j a c w Hj Ha Hc; destruct w as [u E];
-  cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hc |- *.
+  cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hc |- *.
 
 (** Apply the realiser [Hf] of a function to the realiser [Ha] of an
     argument, with the budget [J]. *)
@@ -156,7 +148,9 @@ Ltac Mcall Hf Ha J :=
 Ltac Mstep := do 2 eexists; split; [cbn [call]; Mev | split; [cbn; lia |]].
 Ltac Mend H := eapply rl_down; [| exact H]; cbn [cost res pot val] in *; lia.
 
-(** ** Encodings, as closures *)
+(** ** Encodings, as closures
+
+    The Scott encodings of [LInstance], as closures. *)
 
 Definition unit_enc : value := clos (var 0) [].
 Definition bool_enc (b : bool) : value := if b then clos (lam (var 1)) [] else clos (lam (var 0)) [].
@@ -193,11 +187,6 @@ Module MCM <: CostModel.
   Definition Repr := MRepr.
   Existing Class Repr.
 
-  Global Instance Repr_unit : Repr unit unit := ground_repr (fun _ => unit_enc).
-  Global Instance Size_unit : Size unit := fun _ => 1.
-  Lemma size_tt : CostModelCore.size tt = 1.
-  Proof. reflexivity. Qed.
-
   Global Instance Repr_arr {A CA B CB} (RA : Repr A CA) (RB : Repr B CB) :
     Repr (A -> B) (ℂI A CA -> ℂO CB) := arr_repr RA RB.
 
@@ -217,6 +206,7 @@ Module MCM <: CostModel.
   Proof. intro H. exact H. Qed.
 
   Include Complexities.
+  Include GroundTypes.
 
   Lemma complexity_bound_has {A CA} {R : Repr A CA} (f : A) (c : CA) :
     ComplexityBound f c -> has_complexity f c.
@@ -293,11 +283,17 @@ Module MBT <: BasicTimeCostModel MCM.
     exists (clos (var 1) [sb]). intro k. Mfun. Mstep. apply Hb.
   Qed.
 
+  Global Instance Repr_unit : Repr unit unit := ground_repr (fun _ => unit_enc).
+
   Lemma tt_complexity : ComplexityBound tt tt.
   Proof. apply has_complexity_bound. exists unit_enc. intro k. reflexivity. Qed.
 End MBT.
 
-(** ** Combinators *)
+(** ** Combinators
+
+    Each combinator costs the steps of its realiser, from [c_Ic = 1] to
+    [c_etl = 16]: the projections of the environments, Scott-encoded pairs,
+    are the dearest. *)
 
 Module MCB <: CombinatorTimeCostModel MCM MBT.
   Import MCM MBT.
@@ -446,7 +442,7 @@ Module MBO <: BoolTimeCostModel MCM MBT MCB.
   Definition c_case_bool := 25.
   Global Instance Repr_bool : Repr bool unit := ground_repr bool_enc.
   Global Instance Size_bool : Size bool := fun _ => 1.
-  Lemma size_bool : forall b : bool, CostModelCore.size b = 1.
+  Lemma size_bool : forall b : bool, Bounds.size b = 1.
   Proof. reflexivity. Qed.
 
   Lemma bool_complexity : forall b : bool, ComplexityBound b tt.
@@ -476,9 +472,9 @@ Module MNT <: NatTimeCostModel MCM MBT MCB.
   Definition c_case_nat := 33.
   Global Instance Repr_nat : Repr nat unit := ground_repr nat_enc.
   Global Instance Size_nat : Size nat := fun n => S n.
-  Lemma size_O : CostModelCore.size 0 = 1.
+  Lemma size_O : Bounds.size 0 = 1.
   Proof. reflexivity. Qed.
-  Lemma size_S : forall n, CostModelCore.size (S n) = 1 + CostModelCore.size n.
+  Lemma size_S : forall n, Bounds.size (S n) = 1 + Bounds.size n.
   Proof. reflexivity. Qed.
 
   Lemma nat_complexity : forall n : nat, ComplexityBound n tt.
@@ -599,7 +595,7 @@ Module MPM <: ProdTimeCostModel MCM MBT MCB.
   Global Instance Size_prod {A B} (SA : Size A) (SB : Size B) : Size (A * B) :=
     fun p => 1 + SA (fst p) + SB (snd p).
   Lemma size_pair : forall {A B} `{Size A} `{Size B} (a : A) (b : B),
-    CostModelCore.size (a, b) = 1 + CostModelCore.size a + CostModelCore.size b.
+    Bounds.size (a, b) = 1 + Bounds.size a + Bounds.size b.
   Proof. reflexivity. Qed.
 
   Lemma bound_order_prod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA * CB),
@@ -658,10 +654,10 @@ Module MSM <: SumTimeCostModel MCM MBT MCB.
   Global Instance Size_sum {A B} (SA : Size A) (SB : Size B) : Size (A + B) :=
     fun x => match x with inl a => 1 + SA a | inr b => 1 + SB b end.
   Lemma size_inl : forall {A B} `{Size A} `{Size B} (a : A),
-    CostModelCore.size (@inl A B a) = 1 + CostModelCore.size a.
+    Bounds.size (@inl A B a) = 1 + Bounds.size a.
   Proof. reflexivity. Qed.
   Lemma size_inr : forall {A B} `{Size A} `{Size B} (b : B),
-    CostModelCore.size (@inr A B b) = 1 + CostModelCore.size b.
+    Bounds.size (@inr A B b) = 1 + Bounds.size b.
   Proof. reflexivity. Qed.
 
   Lemma bound_order_sum : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA + CB),
@@ -748,26 +744,26 @@ Module MZM <: ZTimeCostModel MCM MBT MCB.
   Global Instance Size_Z : Size Z := fun z => match z with Z0 => 1 | Zpos p | Zneg p => S (Pos.size_nat p) end.
   Global Instance Size_Q : Size Q := fun q => S (Size_Z (Qnum q) + Pos.size_nat (Qden q)).
   Global Instance Size_comparison : Size comparison := fun _ => 1.
-  Lemma size_xH : (CostModelCore.size xH = 1)%nat.
+  Lemma size_xH : (Bounds.size xH = 1)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_xO : (forall p, CostModelCore.size (xO p) = 1 + CostModelCore.size p)%nat.
+  Lemma size_xO : (forall p, Bounds.size (xO p) = 1 + Bounds.size p)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_xI : (forall p, CostModelCore.size (xI p) = 1 + CostModelCore.size p)%nat.
+  Lemma size_xI : (forall p, Bounds.size (xI p) = 1 + Bounds.size p)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_N0 : (CostModelCore.size N0 = 1)%nat.
+  Lemma size_N0 : (Bounds.size N0 = 1)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_Npos : (forall p, CostModelCore.size (Npos p) = 1 + CostModelCore.size p)%nat.
+  Lemma size_Npos : (forall p, Bounds.size (Npos p) = 1 + Bounds.size p)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_Z0 : (CostModelCore.size Z0 = 1)%nat.
+  Lemma size_Z0 : (Bounds.size Z0 = 1)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_Zpos : (forall p, CostModelCore.size (Zpos p) = 1 + CostModelCore.size p)%nat.
+  Lemma size_Zpos : (forall p, Bounds.size (Zpos p) = 1 + Bounds.size p)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_Zneg : (forall p, CostModelCore.size (Zneg p) = 1 + CostModelCore.size p)%nat.
+  Lemma size_Zneg : (forall p, Bounds.size (Zneg p) = 1 + Bounds.size p)%nat.
   Proof. reflexivity. Qed.
   Lemma size_Qmake :
-    (forall n d, CostModelCore.size (Qmake n d) = 1 + CostModelCore.size n + CostModelCore.size d)%nat.
+    (forall n d, Bounds.size (Qmake n d) = 1 + Bounds.size n + Bounds.size d)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_comparison : (forall c : comparison, CostModelCore.size c = 1)%nat.
+  Lemma size_comparison : (forall c : comparison, Bounds.size c = 1)%nat.
   Proof. reflexivity. Qed.
   Lemma pos_size_pos p : 0 < Pos.size_nat p.
   Proof. destruct p; cbn; lia. Qed.
@@ -1000,10 +996,10 @@ Module MLM <: ListTimeCostModel MCM MBT MCB.
   Global Instance Repr_list {A CA} (RA : Repr A CA) : Repr (list A) (list CA) := list_repr RA.
   Global Instance Size_list {A} (SA : Size A) : Size (list A) :=
     fix size_list l := match l with nil => 1 | a :: l => 1 + SA a + size_list l end.
-  Lemma size_nil : forall {A} `{Size A}, CostModelCore.size (@nil A) = 1.
+  Lemma size_nil : forall {A} `{Size A}, Bounds.size (@nil A) = 1.
   Proof. reflexivity. Qed.
   Lemma size_cons : forall {A} `{Size A} (a : A) l,
-    CostModelCore.size (a :: l) = 1 + CostModelCore.size a + CostModelCore.size l.
+    Bounds.size (a :: l) = 1 + Bounds.size a + Bounds.size l.
   Proof. reflexivity. Qed.
 
   Lemma bound_order_list : forall {A CA} `{Repr A CA} (c c' : list CA),
@@ -1066,9 +1062,9 @@ Module MOM <: OptionTimeCostModel MCM MBT MCB.
   Global Instance Repr_option {A CA} (RA : Repr A CA) : Repr (option A) (option CA) := option_repr RA.
   Global Instance Size_option {A} (SA : Size A) : Size (option A) :=
     fun o => match o with None => 1 | Some a => 1 + SA a end.
-  Lemma size_None : forall {A} `{Size A}, CostModelCore.size (@None A) = 1.
+  Lemma size_None : forall {A} `{Size A}, Bounds.size (@None A) = 1.
   Proof. reflexivity. Qed.
-  Lemma size_Some : forall {A} `{Size A} (a : A), CostModelCore.size (Some a) = 1 + CostModelCore.size a.
+  Lemma size_Some : forall {A} `{Size A} (a : A), Bounds.size (Some a) = 1 + Bounds.size a.
   Proof. reflexivity. Qed.
 
   Lemma bound_order_option : forall {A CA} `{Repr A CA} (c c' : option CA),
@@ -1177,7 +1173,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
     destruct sF as [uF EF].
     exists (clos (lam BODY1) [clos uF EF]). intro k. Mfun.
     destruct (Hrec (a ⋊ c)) as [Hcost0 Hcomp0].
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hcost0, Hcomp0.
+    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost0, Hcomp0.
     set (cfe := res (cf (a ⋊ c))) in *.
     set (e := clos wu wE) in *. set (sF := clos uF EF) in *.
     (* the closures of the recursive function of [e], at every budget up to [j] *)
@@ -1186,7 +1182,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
     { intro k'. induction k' as [k' IH] using (well_founded_induction lt_wf).
       intros Hk' x0 y0. Mfun.
       destruct (Hcomp0 (a0 ⋊ c0)) as [Hcost Hcomp].
-      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hcost, Hcomp.
+      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost, Hcomp.
       set (x := clos wu0 wE0) in *. set (w := clos WB [y0; e; sF]).
       set (eta := clos ETAB [x; w; y0; e; sF]).
       assert (He : rl (env_repr RE (Repr_arr RA RB)) (j0 - 36) (ECons a (f a)) (c, cfe)
@@ -1203,7 +1199,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
     do 2 eexists; split; [cbn [call]; apply ev_lam | split; [lia |]].
     Mfun.
     destruct (Hcomp0 (a0 ⋊ c0)) as [Hcost Hcomp].
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hcost, Hcomp.
+    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost, Hcomp.
     set (x := clos wu0 wE0) in *. set (w := clos WB [x; e; sF]).
     set (eta := clos ETAB [x; w; x; e; sF]).
     assert (He : rl (env_repr RE (Repr_arr RA RB)) (j0 - 36) (ECons a (f a)) (c, cfe)

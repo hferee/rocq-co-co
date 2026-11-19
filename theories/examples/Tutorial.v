@@ -1,148 +1,49 @@
 (** * Tutorial: proving complexity bounds
 
-    This file is a set of exercises. Each one states a complexity bound for
-    a function, with 0 in place of its constants, and ends with [Abort]. To
-    do an exercise, replace the 0s by constants for which the bound holds,
-    and [Abort] by a proof that ends with [Qed]. The comments explain the
-    method and the tactics. The sections get harder as they go: functions without
-    recursion, recursive functions, mutually recursive functions, then
-    bounds in the sizes of the arguments.
-
-    ** The cost model
-
-    The functions are analysed in the standard time cost model
-    ([TimeCostModel]). A function is compiled to combinators, and each
-    application of a combinator, a constructor or a case analysis costs one
-    step. This file is a module over [TimeStdlib]: the time cost model with
-    the bounds of the standard library ([Nat.add], [Nat.mul], [length], ...),
-    which are used when your functions call them.
-
-    ** Reading a bound
-
-    [Time.ComplexityBound f c] says that [c] bounds the cost of [f]. For a
-    function of one argument, [c] is a function [fun cn => k +> r]: applying
-    [f] to the argument [n] costs at most [k] steps, and [r] bounds the
-    result. In [k], [val cn] is the value of the argument [n]. A result that
-    is a number (or a boolean, a list, ...) has nothing more to bound: the
-    bound is then [fun cn => k >|], and [k >|] reads: the cost [k], and
-    nothing after it. For example,
-<<
-      Time.ComplexityBound Nat.add (fun cn => 1 +> fun cm => 14 * val cn + 10 >|)
->>
-    says that applying [Nat.add] to [n] costs 1 step (it builds the closure
-    [Nat.add n]), and that applying [Nat.add n] to [m] costs at most
-    [14 n + 10] steps. A function of two arguments has a bound of the form
-    [fun cn => k1 +> fun cm => k2 >|]. [k +> r] reads: the cost [k],
-    then the costs of [r], when the result is used. [+>] and [>|] bind less
-    tightly than [+] and [*], so [14 * val cn + 10 >|] needs no parentheses.
-
-    ** The method
-
-    1. Start from the bound with 0s.
-    2. Run [cbound]. It compiles the function, computes its cost in the
-       model, and compares it with your bound: it reduces the bound to
-       inequalities [cost found <= claimed bound], one for each case of the
-       arguments, and proves those it can with [lia] and [nia].
-    3. If inequalities are left, read the messages of [cbound]:
-       - "The inequality ... is false for cn = 0: the cost found is 8, the
-         claimed bound 6": your bound is too small for these values.
-         Increase its constants, or change its shape (linear, quadratic,
-         ...). With 0s, the inequalities show the cost found in each case:
-         choose the constants from them.
-       - Without a message, the inequality may be true but need facts that
-         [lia] and [nia] do not know (see the facts below). [cexplain]
-         suggests some. Then register them, or prove the inequality: with
-         [lia] or [nia] after the facts, or by hand.
-    4. If [cbound] fails with "no complexity bound is known for g", your
-       function calls a function [g] whose bound is unknown: one of yours
-       that you have not proved yet, or one of the library that nobody has
-       studied. Prove a bound for [g] first, and declare it as an instance
-       ([Global Instance], or [Existing Instance] after a [Lemma]), so that
-       [cbound] finds it. If it fails with "unknown complexity bound for
-       the local fixpoint", your function contains a [fix] (a [let fix],
-       say): prove its bound first, as a hypothesis ([assert (H :
-       Time.ComplexityBound (fix ...) ...) by cbound]) or an instance, and
-       [cbound] reads it from the context (see the local fixpoints of
-       [Examples]).
-
-    ** The facts
-
-    [lia] and [nia] only know arithmetic: the values of the functions, the
-    sizes, and the booleans are unknowns for them. Before [lia] and [nia],
-    [cbound] adds to each inequality the facts that it knows on what the
-    inequality mentions:
-    - the tests of its case: in the branch where [n <? 10] is [true], the
-      fact [n < 10]; where [10 <? n] is [false], [n <= 10] ([cbool_facts]).
-      A cost in [n] may then be bounded by a constant (section 2, [small]);
-    - the facts on the values of functions ([ValueFact]): a lemma on the
-      value [f x] of a function, declared as an instance, is added to every
-      inequality that mentions a value of [f]. For [double] (section 2):
-<<
-      Instance double_value_fact n : ValueFact (double n) (fun y => y = 2 * n) := double_spec n.
->>
-      The fact is a predicate on the value ([fun y => ...]), applied to the
-      value as the inequality writes it. The library registers some
-      ([length (filter p l) <= length l], [HOListComplexity]); register
-      those of your functions where they are defined. One instance per
-      value: a conjunction for several facts;
-    - the facts on the sizes ([SizeFact]), for the bounds in the sizes of
-      the arguments (section 4): [n < #|n|] for a number, [length l < #|l|]
-      for a list. The model registers them with its data types
-      ([NatComplexity], [ListComplexity]); a new data type registers its own
-      ([literal_size_fact], in [ETHCost]).
-    A fact that is not registered can be added by hand, with [pose proof],
-    before [lia] or [nia]: for an inequality that [cbound] leaves.
-
-    ** Finding the constants
-
-    Instead of 0s, you can make the constants unknowns. In the proof
-    (before [Abort], or in a [Goal True]), introduce temporary constants
-    with [evar], state the bound with them, and run [cbound] on it. The
-    constants are opaque: [lia] proves nothing about them, so every
-    inequality is left, in terms of them. For [length]:
-<<
-      evar (a : nat). evar (b : nat).
-      assert (Time.ComplexityBound (@length nat) (fun cl => (a * length (val cl) + b) >|)).
-      { cbound. }
->>
-    leaves two inequalities, one for each case of the list:
-    - [6 <= b], for the empty list;
-    - [a * length cl + b + 16 <= a * length cl + a + b], for a list whose
-      tail is [cl] (the cost of the recursive call is the bound itself).
-    That is, [b >= 6] and [a >= 16]: the bound is [16 * length (val cl) + 6].
-    Put the values in the bound, in place of its 0s. To check them first,
-    give them to the unknowns, and finish the proof:
-<<
-      instantiate (a := 16). instantiate (b := 6). all: subst a b; lia.
->>
-
-    In a recursive case, the variables are those of the case: in the case
-    [S n'] of an argument [n], the inequality is written with [n'].
-
-    The tactics stop after 2 seconds, with a message, if they have not
-    finished: [lia] and [nia] may search in vain on an inequality that does
-    not hold. For a larger function, increase the timeout (in seconds; [0]
-    for none):
-<<
-      Ltac2 Set ctimeout := 10.
->>
-
-    The tactics:
-    - [cbound]: steps 2 and 3, for [ComplexityBound], [LinearBound],
-      [PolynomialBound] and [ConstantBound];
-    - [cexplain]: hints on an inequality left by [cbound];
-    - [cproject H b]: the bound of one of two mutually recursive functions,
-      from their bound [H] (section 3);
-    - [csize]: a bound in the sizes of the arguments, from a bound in their
-      values (section 4). *)
+    A set of exercises. Each one states a complexity bound for a function,
+    with [0] in place of its constants, and ends with [Abort]: replace the
+    [0]s by constants for which the bound holds, and [Abort] by a proof
+    that ends with [Qed]. The sections get harder as they go. *)
 
 From Complexity Require Import TimeStdlib.
 From Stdlib Require Import List.
 Import ListNotations.
 
+(** The functions are analysed in the time cost model ([TimeCostModel]):
+    a function is compiled to combinators, and each application of a
+    combinator, a constructor or a case analysis costs one step. [TimeStdlib]
+    adds the bounds of the standard library ([Nat.add], [length], ...),
+    used when your functions call them. *)
 Module Tutorial (Import Time : TimeStdlib).
 
-  (** ** 1. Functions without recursion *)
+  (** ** 1. Functions without recursion
+
+      [Time.ComplexityBound f c] says that [c] bounds the cost of [f]. For a
+      function of one argument, [c] is [fun cn => k +> r]: applying [f] to
+      [n] costs at most [k] steps, and [r] bounds the result; [val cn] is
+      the value of [n]. A result that is a number (or a boolean, a list,
+      ...) has nothing more to bound: [k >|] reads "the cost [k], and
+      nothing after it". For example,
+<<
+      Time.ComplexityBound Nat.add (fun cn => 1 +> fun cm => 14 * val cn + 10 >|)
+>>
+      says that applying [Nat.add] to [n] costs 1 step (it builds the
+      closure [Nat.add n]), and applying [Nat.add n] to [m] at most
+      [14 n + 10] steps. [+>] and [>|] bind less tightly than [+] and [*].
+
+      The method:
+      1. Start from the bound with 0s.
+      2. Run [cbound]. It compiles the function, computes its cost, and
+         reduces the bound to inequalities [cost found <= claimed bound],
+         one for each case of the arguments, which it proves with [lia]
+         and [nia] when it can. It stops after 2 seconds
+         ([Ltac2 Set ctimeout := 10.] for more, [0] for no limit).
+      3. Read the messages on the inequalities left. "The inequality ...
+         is false for cn = 0: the cost found is 8, the claimed bound 6":
+         the bound is too small; with 0s, the inequalities show the cost
+         found in each case. Without a message, the inequality may hold
+         but need facts that [lia] and [nia] do not know: [cexplain]
+         suggests some (section 2). *)
 
   Definition is_zero (n : nat) : bool := match n with O => true | S _ => false end.
 
@@ -185,7 +86,24 @@ Module Tutorial (Import Time : TimeStdlib).
       For a recursive function, [cbound] uses your bound for the recursive
       calls: it checks that the cost of one step, plus your bound at the
       recursive call, is within your bound. Unfolding the definition costs
-      one step ([c_fix]). *)
+      one step ([c_fix]). In a recursive case, the variables are those of
+      the case: in the case [S n'] of [n], the inequality is written with
+      [n']. A [fix] inside a definition needs its bound first, as a
+      hypothesis or an instance ([Examples]).
+
+      The constants can be found as unknowns. Introduce them with [evar],
+      and run [cbound] on the bound with them: [lia] proves nothing about
+      them, so every inequality is left, in terms of them. For [length],
+<<
+      evar (a : nat). evar (b : nat).
+      assert (Time.ComplexityBound (@length nat) (fun cl => (a * length (val cl) + b) >|)).
+      { cbound. }
+>>
+      leaves [6 <= b] for the empty list, and
+      [a * length cl + b + 16 <= a * length cl + a + b] for a list whose
+      tail is [cl]: the bound is [16 * length (val cl) + 6]. To check the
+      values, give them to the unknowns:
+      [instantiate (a := 16). instantiate (b := 6). all: subst a b; lia.] *)
 
   Fixpoint double (n : nat) : nat := match n with O => O | S k => S (S (double k)) end.
 
@@ -202,26 +120,32 @@ Module Tutorial (Import Time : TimeStdlib).
       [Qed]), and add [Existing Instance double_complexity.] after it.
 
       The second call of [double] is on [double n], so its cost depends on
-      the value of [double n]: the inequality left mentions it, and [lia]
-      knows nothing about it. Prove [double n = 2 * n] first (by
-      induction), and register it as a fact on the values of [double]
-      (see the facts, at the top):
+      the value of [double n]: the inequality left mentions it, and [lia],
+      which only knows arithmetic, knows nothing about it. Prove
+      [double n = 2 * n] first (by induction), and register it as a fact on
+      the values of [double] ([ValueFact]): [cbound] adds the registered
+      facts on the values that an inequality mentions. The fact is a
+      predicate on the value, applied to the value as the inequality writes
+      it; one instance per value (a conjunction for several facts). The
+      library registers some ([length (filter p l) <= length l]). A fact
+      that is not registered can be added by hand, with [pose proof],
+      before [lia].
 <<
       Lemma double_spec n : double n = 2 * n.
       Instance double_value_fact n : ValueFact (double n) (fun y => y = 2 * n) := double_spec n.
 >>
-      Then [cbound] adds [double n = 2 * n] to the inequalities that mention
-      [double n], and proves the bound. *)
+      Then [cbound] proves the bound. *)
   Definition quad (n : nat) : nat := double (double n).
 
   Lemma quad_complexity : Time.ComplexityBound quad
     (fun cn => (0 * val cn + 0) >|).
   Abort.
 
-  (** A test of the argument is a fact too: in the branch where [10 <? n]
-      is [false], [cbound] knows that [n <= 10], so the cost of [double n]
-      is at most a constant, and so is the cost of [small]. (The cost of
-      [10 <? n] is constant: [Nat.ltb] recurses on its first argument.) *)
+  (** The tests of a case are facts too ([cbool_facts]): in the branch
+      where [10 <? n] is [false], [cbound] knows that [n <= 10], so the
+      cost of [double n] is at most a constant, and so is the cost of
+      [small]. (The cost of [10 <? n] is constant: [Nat.ltb] recurses on
+      its first argument.) *)
   Definition small (n : nat) : nat := if 10 <? n then 0 else double n.
 
   Lemma small_complexity : Time.ComplexityBound small (fun cn => 0 >|).
@@ -306,9 +230,10 @@ Module Tutorial (Import Time : TimeStdlib).
       The bounds above are in the values of the arguments ([val cn]). In
       the model, each value has a size, [#|x|] (class [Size]), at least its
       value for a natural number ([n < #|n|]) and its length for a list.
-      These are the facts on the sizes ([SizeFact], see the facts, at the
-      top): [cbound] and [csize] add them to the inequalities that mention
-      the sizes.
+      These are the facts on the sizes ([SizeFact]), registered with the
+      data types ([NatComplexity], [ListComplexity]; a new type registers
+      its own, as [literal_size_fact] in [ETHCost]): [cbound] and [csize]
+      add them to the inequalities that mention the sizes.
 
       [LinearBound f] says that the cost of [f] is at most a linear function
       of the sizes of its arguments. [cbound] proves it from a

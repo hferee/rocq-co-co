@@ -1,25 +1,17 @@
 (** * The data types of the ETH algorithm in the cost model
 
-    The algorithm ([ETHAlgorithm]) defines its own data types: the literals
-    ([literal]), the parameters ([params]), the eigenvalues of the pairs of
-    points ([pair_eig]) and the designs ([design]). As the data types of
-    the standard library ([TimeDatatypes]), they come with their own
-    axioms: their representations and sizes, the complexities of their
-    constructors and of their case analyses. They are stated here, with
-    the algorithm; [literal] has all of them, the other types their
-    representations and sizes only.
-
-    A match on a literal is compiled to its case combinator
-    [literal_case], which the compiler finds by its name ([Combinators]),
-    as a match on a pair ([prod_case]); the projections [lvar] and [lpos]
-    are such matches. As for the data types of the standard library, the
-    costs of the constructor and of the case analysis are parameters
-    ([ParamETHData]), [1] in the time cost model ([ETHData], as
-    [TimeCostModel]). *)
+    The algorithm ([ETHAlgorithm]) defines its own data types, which come
+    with their own axioms, as those of the standard library
+    ([TimeDatatypes]): [literal] has all of them, the other types their
+    representations and sizes only. *)
 
 From Complexity Require Export TimeStdlib ETHAlgorithm.
 
-(** ** The case combinator of [literal] *)
+(** ** The case combinator of [literal]
+
+    A match on a literal is compiled to [literal_case], which the compiler
+    finds by its name ([Combinators]), as a match on a pair; the
+    projections [lvar] and [lpos] are such matches. *)
 
 Definition literal_case {E A : Type} (f : env (env E nat) bool -> A) (l : E -> literal) (e : E) : A :=
   match l e with mkLit v p => f (ECons (ECons e v) p) end.
@@ -27,6 +19,8 @@ Definition literal_case {E A : Type} (f : env (env E nat) bool -> A) (l : E -> l
 #[global] Typeclasses Opaque literal_case.
 #[global] Hint Unfold literal_case : comb.
 
+(** The costs of the constructor and of the case analysis are parameters,
+    [1] in the time cost model ([ETHData]). *)
 Module Type ParamETHData (Import Time : TimeStdlib).
 
   (** ** Literals: a variable and a sign *)

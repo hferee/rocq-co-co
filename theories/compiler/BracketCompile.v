@@ -1,16 +1,9 @@
 (** * Bracket abstraction (backup)
 
     The former compilation scheme, kept for comparison with closure
-    conversion ([ClosureCompile]; see [BracketComparison], which selects it
-    with [ccompiler], [Compile]): every lambda is
+    conversion ([ClosureCompile], [BracketComparison]): every lambda is
     eliminated by Turner's bracket abstraction, by value, with the
     combinators [Kc], [Ic], [Sc], [Cc] and [compose] (K, I, S, C, B).
-
-    Under call-by-value, the abstraction of a variable [x] out of a term must
-    not evaluate the computations of the term when the closure is built: K
-    only abstracts values (variables, partial applications of combinators to
-    values, closed terms), and the other terms are abstracted structurally,
-    with S, B and C, even when they do not use [x].
 
     - D. A. Turner. A new implementation technique for applicative
       languages. Software: Practice and Experience 9(1):31-49, 1979.

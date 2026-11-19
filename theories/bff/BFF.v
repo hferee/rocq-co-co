@@ -1,22 +1,12 @@
 (** * Basic feasible functionals
 
     The basic feasible functionals (BFF) are the functionals of finite type
-    over the natural numbers that are computable in polynomial time. They are
-    the functionals defined by the closed terms of the simply typed
-    λ-calculus over constants for polynomial-time functions and a recursor
-    `R`, bounded recursion on notation: Cook & Urquhart's system PV^ω
-    ([pv], [is_BFF]). At type 2, they are the functionals computed by oracle
-    Turing machines in time bounded by a second-order polynomial in the
-    lengths of their inputs (Kapron & Cook).
-
-    Numbers are binary ([N]); the length [|x|] of [x] is its number of bits
-    ([N.size_nat], [0] for [0]). The constants of PV^ω are defined below by
-    recursion on notation, that is on the bits of their arguments (through
-    [positive]), as programs whose costs [BFFComplexity] analyses; each one
-    is shown equal to its arithmetic definition. The terms are those of
-    [Lambda], written with binders ([<{ λ x, .. }>]); derived functions are
-    defined as terms, and every term has a higher-order polynomial
-    majorant ([BFF_majorant]).
+    over the natural numbers computable in polynomial time: those defined
+    by the closed terms of Cook & Urquhart's system PV^ω, the simply typed
+    λ-calculus over constants for polynomial-time functions and bounded
+    recursion on notation. At type 2, they are the functionals computed by
+    oracle Turing machines in time bounded by a second-order polynomial
+    (Kapron & Cook).
 
     S. A. Cook, A. Urquhart. Functional interpretations of feasibly
     constructive arithmetic. Annals of Pure and Applied Logic 63(2):103-200,
@@ -30,7 +20,13 @@ From Stdlib Require Import Arith PArith NArith Lia NArithRing List.
 Import ListNotations.
 Local Open Scope N_scope.
 
-(** ** Successors and truncation *)
+(** ** Successors and truncation
+
+    Numbers are binary ([N]); the length [|x|] of [x] is its number of bits
+    ([N.size_nat], [0] for [0]). The constants of PV^ω are defined by
+    recursion on notation, on the bits of their arguments (through
+    [positive]), as programs whose costs [BFFComplexity] analyses; each one
+    is shown equal to its arithmetic definition. *)
 
 (** [s0 x = 2 x] and [s1 x = 2 x + 1]: a bit appended to [x]. *)
 Definition s0 (x : N) : N := match x with N0 => N0 | Npos p => Npos (xO p) end.

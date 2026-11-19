@@ -1,15 +1,10 @@
 (** * Complexity of the first-order list functions of the standard library
 
-    As in [NatComplexity]: [cbound] proves the bounds, with the smallest
-    constants. These functions are defined in sections: their type
-    parameters are fixed arguments of the fixpoint. Their elements are
-    ground data ([IsGround]: numbers, lists of numbers, ...), so that the
-    complexity of a result is any one ([>|]).
-
-    The functions whose bound holds for lists of any data ([length], [app])
-    and the higher-order functions ([map], [filter], the folds, ...) are in
-    [HOListComplexity]; a functional parameter that is fixed comes with a
-    hypothesis on its complexity here ([fold_left_const_complexity]). *)
+    [cbound] proves the bounds, with the smallest constants. The elements
+    are ground data ([IsGround]: numbers, lists of numbers, ...), so that
+    the complexity of a result is any one ([>|]). The functions on lists of
+    any data ([length], [app]) and the higher-order functions are in
+    [HOListComplexity]. *)
 
 From Complexity Require Export NatComplexity ListFacts HOListComplexity.
 From Stdlib Require Import List.
@@ -71,9 +66,12 @@ Module ListComplexity (Import Time : TimeNatLists).
     SizeFact l (list_sum (map list_sum l) + list_sum (map (@length nat) l) + length l < size l) | 0 :=
     list_sums_lt_size l.
 
-  (** ** Bounds *)
-  Global Instance tl_complexity {A CA} {RA : Repr A CA} {GA : IsGround RA} :
-    Time.ComplexityBound (@tl A) (fun lc => 3 >|) := _.
+  (** ** Bounds
+
+      These functions are defined in sections: their type parameters are
+      fixed arguments of the fixpoint. A functional parameter that is fixed
+      comes with a hypothesis on its complexity
+      ([fold_left_const_complexity]). *)
 
   (** [seq] is recursive on its second argument; the first one changes. *)
   Global Instance seq_complexity : Time.ComplexityBound seq

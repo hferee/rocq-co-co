@@ -1,20 +1,11 @@
 (** * Running times on the environment machine for L
 
-    Bounds in the cost model of the environment machine ([MachineCostModel],
-    whose instance is [LMachine]): in steps of the machine. The functions
-    are compiled to the combinators, as in the time model, and each
-    combinator costs the steps of its realiser on the machine, from [1]
-    ([Ic]) to [16] ([etl]): [Nat.add] costs [199 n + 145] steps, about [14]
-    times its cost in combinator applications ([14 n + 10],
-    [TimeCostModel]). The case analyses ([c_case_nat = 33],
+    Bounds in steps of the environment machine ([MachineCostModel], whose
+    instance is [LMachine]). [Nat.add] costs [199 n + 145] steps, about
+    [14] times its cost in combinator applications ([14 n + 10],
+    [TimeCostModel]): the case analyses ([c_case_nat = 33],
     [c_case_list = 46]) and the unfoldings ([c_fix = 36]) are the largest
-    part.
-
-    Tail calls are cheaper on the machine (no frame), but this is a small
-    part of the costs: [count_acc] and [rev_append], tail-recursive, cost
-    more per element ([377], [433]) than [length] and [succ_all] ([238],
-    [305]), because their accumulator is a second argument: each recursive
-    call pays the partial application of the function ([43]). *)
+    part. *)
 
 From Complexity Require Import MachineCostModel.
 From Stdlib Require Import List.
@@ -37,7 +28,11 @@ Module MachineExamples (Import Machine : MachineTimeCostModel).
   Global Instance length_machine {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Machine.ComplexityBound (@length A)
     (fun cl => (238 * length (val cl) + 107) >|) := _.
 
-  (** Tail-recursive, with an accumulator. *)
+  (** Tail-recursive, with an accumulator: tail calls are cheaper on the
+      machine (no frame), but [count_acc] and [rev_append] cost more per
+      element ([377], [433]) than [length] and [succ_all] ([238], [305]):
+      their accumulator is a second argument, so that each recursive call
+      pays the partial application of the function ([43]). *)
   Global Instance count_acc_machine : Machine.ComplexityBound count_acc
     (fun cl => 43 +> fun ca => (377 * length (val cl) + 109) >|) := _.
 

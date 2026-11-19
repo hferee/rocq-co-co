@@ -1,29 +1,9 @@
 (** * Counting the operations of Strassen's matrix product
 
-    Matrices of size [2^k × 2^k] are quadtrees of depth [k] ([qmat],
-    [full]), and Strassen's product splits them in four blocks and makes
-    seven recursive products ([strassen]), instead of eight. Strassen's
-    algorithm needs subtractions: the entries are integers ([Z]).
-
-    The model ([StrassenTimeCostModel]) is [ArithOpsTimeCostModel] with the
-    integer operations and the quadtrees: an addition costs [c_add], a
-    subtraction [c_sub], a multiplication [c_mul], an unfolding of a
-    fixpoint [c_fix], and everything else is free. On matrices of size
-    [2^k × 2^k], the product takes [7^k] multiplications,
-    [4 (7^k - 4^k)] additions and [2 (7^k - 4^k)] subtractions
-    ([strassen_count]).
-
-    The depth [k] is given as a list of length [k], since the model has no
-    case analysis on [nat] (as for [HornerCount]). The bound of [strassen]
-    holds for all inputs: its cost is a function of the inputs
-    ([strassen_cost]), which follows the algorithm, and which is computed
-    on the quadtrees of depth [k].
-
-    The matrices of CoqEAL (Dénès, Mörtberg & Siles, A refinement-based
-    approach to computational algebra in Coq, ITP 2012), which has a
-    verified Strassen product, are MathComp matrices, with dependent sizes
-    and generic rings: their functions cannot be analysed here as they
-    are. *)
+    Matrices of size [2^k × 2^k] are quadtrees of depth [k], and Strassen's
+    product splits them in four blocks and makes seven recursive products
+    instead of eight: [7^k] multiplications, [4 (7^k - 4^k)] additions and
+    [2 (7^k - 4^k)] subtractions ([strassen_count]). *)
 
 From Complexity Require Import TimeArith.
 From Stdlib Require Import List ZArith.
@@ -32,7 +12,13 @@ Import ListNotations.
 (** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
-(** ** Matrices as quadtrees *)
+(** ** Matrices as quadtrees
+
+    The entries are integers ([Z]): Strassen's algorithm needs
+    subtractions. The matrices of CoqEAL (Dénès, Mörtberg & Siles, ITP
+    2012), which has a verified Strassen product, are MathComp matrices,
+    with dependent sizes and generic rings: their functions cannot be
+    analysed here as they are. *)
 
 Inductive qmat : Type :=
 | QLeaf (z : Z)
@@ -101,6 +87,10 @@ Fixpoint strassen (d : list unit) (a b : qmat) {struct d} : qmat :=
   end.
 
 (** ** Shapes and counts
+
+    The bound of [strassen] holds for all inputs: its cost is a function
+    of the inputs ([strassen_cost]), which follows the algorithm, and which
+    is computed on the quadtrees of depth [k].
 
     Sums, differences and Strassen's product of matrices of size
     [2^k × 2^k] have this size, which has [4^k] entries and [qn k] internal
@@ -171,7 +161,13 @@ Qed.
 Lemma unfs_closed k : 6 * (1 + unfs k) + 48 * 4 ^ k = 49 * 7 ^ k + 5.
 Proof. induction k; cbn [unfs Nat.pow]; [lia | pose proof (qn_closed k); lia]. Qed.
 
-(** ** The model *)
+(** ** The model
+
+    [ArithOpsTimeCostModel] with the integer operations and the quadtrees:
+    an addition costs [c_add], a subtraction [c_sub], a multiplication
+    [c_mul], an unfolding [c_fix], and everything else is free. The depth
+    [k] is given as a list of length [k], since the model has no case
+    analysis on [nat] (as for [HornerCount]). *)
 
 (** Quadtrees are ground data, with constructors and a case analysis. *)
 Module Type QMatTimeCostModel

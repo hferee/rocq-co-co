@@ -1,56 +1,30 @@
 (** * Lower bounds on the functions on numbers
 
-    The axioms of the time cost model all conclude a [ComplexityBound]:
-    they are upper bounds, which [has_complexity := fun _ _ => True]
-    satisfies, so no lower bound follows from them ([ComparisonModel],
-    [OracleModel]). Two axioms with negative content are added here, on the
-    functions from [nat] to [nat], and both hold in L ([LNatLower]):
-    - [succ_not_free]: whatever its bound, an application of [S] costs at
-      least [1], on every argument;
-    - [nat_growth]: the size of the output of a function exceeds the size
-      of its input by at most [a * (1 + cost)], for a constant [a] of the
-      function.
-
-    The cost is not at least the size of the output: the identity has a
-    constant bound ([not_output_size], from the model alone). Nor is it at
-    least the difference between the sizes of the output and of the input,
-    even up to a factor that is the same for all the functions: in L, a
-    realiser of [fun n => k + n] adds [k] layers to the encoding of [n] in
-    one step, at the cost [1] for every [k] ([L_add_cheap]): with
-    [k = 2 * a], it exceeds the bound with the constant [a]
-    ([add_const_family], [L_no_uniform_growth]). The constant [a] of [nat_growth] is that of the
-    function: in L, the depth of its realiser and of the occurrences of the
-    variables under their binders ([L_nat_growth]).
-
-    What follows ([NatLowerBounds]):
-    - from [succ_not_free]: the cost [c_S] of [S] is at least [1]
-      ([c_S_pos]), so that the counting models, where [S] is free,
-      contradict it ([ArithOpsNotSucc], [OracleCountNotSucc]); and the
-      application of a function that is [S] once applied costs at least
-      [1] ([applied_succ_not_free]: [Nat.add 1], [Nat.iter 1 S]). The other
-      rules of the model add costs of their own, so this lower bound does
-      not reach [fun n => S (S n)], nor grow with the arguments;
-    - from [nat_growth], lower bounds that grow: a function whose output
-      exceeds its input by [g n] costs at least [g n / a - 1] on [n]
-      ([nat_growth_diff]). Doubling has no constant bound
-      ([double_not_constant]) and squaring no linear bound
-      ([square_not_linear]), in the sizes of the arguments. The bound is
-      on the functions of one argument: a partial application ([Nat.add n])
-      has its own constant, which may grow with [n] (in L, its realiser
-      contains the encoding of [n]). *)
+    Two axioms with negative content on the functions from [nat] to [nat],
+    what follows from them, and their proofs in L. *)
 
 From Complexity Require Export TimeCostModel TimeArith OracleModel Poly.
 From Stdlib Require Import List Lia.
 Import ListNotations.
 Unset Implicit Arguments.
 
-(** ** The axioms *)
+(** ** The axioms
+
+    The axioms of the time cost model are upper bounds: they all conclude
+    a [ComplexityBound], and [has_complexity := fun _ _ => True] satisfies
+    them. A lower bound needs an axiom that says what a bound implies.
+
+    [succ_not_free]: whatever its bound, an application of [S] costs at
+    least [1], on every argument. *)
 
 Module Type SuccAxiom (Import CM : CostModel) (Import ND : NatData CM).
   Parameter succ_not_free : forall c : ℂI nat unit -> ℂO unit,
     ComplexityBound S c -> forall cn, 1 <= cost (c cn).
 End SuccAxiom.
 
+(** [nat_growth]: the size of the output exceeds the size of the input by
+    at most [a * (1 + cost)], for a constant [a] of the function (it cannot
+    be the same for all the functions, [L_no_uniform_growth]). *)
 Module Type NatGrowthAxiom (Import CM : CostModel) (Import ND : NatData CM).
   Parameter nat_growth : forall (f : nat -> nat) (c : ℂI nat unit -> ℂO unit),
     ComplexityBound f c ->
@@ -83,7 +57,7 @@ Module OracleCountNotSucc (Import M : OracleCountSucc).
   Qed.
 End OracleCountNotSucc.
 
-(** ** What follows *)
+(** ** Consequences *)
 
 Module NatLowerBounds (Import M : NatLowerTimeCostModel).
 
@@ -95,7 +69,9 @@ Module NatLowerBounds (Import M : NatLowerTimeCostModel).
   (** A function [f] that is [S] once applied to [v]: whatever its bound
       [cf], the application of [f v] costs at least [1], on every argument.
       The application of a function to a value with a bound is the only
-      rule of the model that adds no cost ([apply_complexity]). *)
+      rule of the model that adds no cost ([apply_complexity]): the others
+      add costs of their own, so that this lower bound does not reach
+      [fun n => S (S n)], nor grow with the arguments. *)
   Lemma applied_succ_not_free {A CA} `{Repr A CA} (f : A -> nat -> nat)
     (cf : ℂI A CA -> ℂO (ℂI nat unit -> ℂO unit)) (v : A) (cv : CA) :
     f v = S -> ComplexityBound v cv -> ComplexityBound f cf ->
@@ -139,7 +115,9 @@ Module NatLowerBounds (Import M : NatLowerTimeCostModel).
   Qed.
 
   (** The cost is at least the difference between the output and the
-      input, up to the constant of the function. *)
+      input, up to the constant of the function. For the functions of one
+      argument only: a partial application ([Nat.add n]) has its own
+      constant, which may grow with [n]. *)
   Lemma nat_growth_diff (f : nat -> nat) (c : ℂI nat unit -> ℂO unit) :
     ComplexityBound f c -> exists a, forall cn, f (val cn) - val cn <= a * (1 + cost (c cn)).
   Proof.
@@ -332,7 +310,7 @@ Qed.
     ([K] is the factor between the costs and the steps). *)
 Lemma L_nat_growth (f : nat -> nat) (c : ℂI nat unit -> ℂO unit) :
   L.ComplexityBound f c ->
-  exists a, forall cn, CostModelCore.size (f (val cn)) <= CostModelCore.size (val cn) + a * (1 + cost (c cn)).
+  exists a, forall cn, Bounds.size (f (val cn)) <= Bounds.size (val cn) + a * (1 + cost (c cn)).
 Proof.
   intros [(c0 & Hbo & s & Hs)].
   set (D := Nat.max (vdepth s) 2).
@@ -406,7 +384,7 @@ Qed.
     the constant [a]: [fun n => 2 * a + n], at the cost [1]. *)
 Example add_const_family (a : nat) :
   exists (f : nat -> nat) (c : ℂI nat unit -> ℂO unit), L.ComplexityBound f c /\
-    forall cn, CostModelCore.size (f (val cn)) >= CostModelCore.size (val cn) + a * (1 + cost (c cn)).
+    forall cn, Bounds.size (f (val cn)) >= Bounds.size (val cn) + a * (1 + cost (c cn)).
 Proof.
   exists (fun n => 2 * a + n), (fun _ => 1 >|). split; [exact (L_add_cheap (2 * a)) |].
   intro cn. change (S (2 * a + val cn) >= S (val cn) + a * (1 + 1)). lia.
@@ -415,7 +393,7 @@ Qed.
 (** Hence no constant serves for all the functions. *)
 Lemma L_no_uniform_growth :
   ~ exists a, forall (f : nat -> nat) (c : ℂI nat unit -> ℂO unit), L.ComplexityBound f c ->
-      forall cn, CostModelCore.size (f (val cn)) <= CostModelCore.size (val cn) + a * (1 + cost (c cn)).
+      forall cn, Bounds.size (f (val cn)) <= Bounds.size (val cn) + a * (1 + cost (c cn)).
 Proof.
   intros [a H]. destruct (add_const_family (S a)) as (f & c & Hf & Hge).
   specialize (H f c Hf (0 ⋊ tt)). specialize (Hge (0 ⋊ tt)). nia.

@@ -1,40 +1,12 @@
 (** * L is an instance of the cost model
 
-    The modules below implement all the parts of the time cost model
-    ([CostModel], [BasicTimeCostModel], [CombinatorTimeCostModel],
-    [FixTimeCostModel] and the models of the datatypes) with the
-    call-by-value lambda-calculus L, and [L] gathers them ([TimeCostModel]).
-    Rocq checks that they provide every axiom ([<:]). The analyses, which
-    are functors over the cost model, can then be applied to [L]: their
-    bounds are L running times).
-
-    - A representation [Repr A CA] is a realisability relation between the
-      values of [A] with complexities [CA] and closed L values. It is
-      step-indexed by a budget of model cost, which is what
-      [fix_complexity] needs.
-    - A function with complexity [cf] is realised by an L value whose
-      application to the realiser of an argument `a` reduces in at most
-      `K * cost (cf a)` steps to a realiser of the result.
-    - Numbers, booleans and binary numbers are realised by Scott
-      encodings. Lists, options, pairs and sums are realised element-wise,
-      by the realisers of their elements with their complexities (the
-      default one for the missing ones), so that they are representable
-      whenever their elements are. The environments of closures
-      ([Combinators]) are pairs of realisers of any representations. Each
-      representation has a default complexity ([dflt], for [cdefault]).
-    - No axiom is used. The unfolding equation of [fix_complexity] is
-      pointwise: the realisers of a function only observe it through its
-      applications, so that pointwise-equal functions have the same
-      realisers ([PwExt]), without functional extensionality.
-
-    L and its reduction are those of the Rocq Library of Undecidability
-    Proofs (opam package [coq-library-undecidability]): the terms [term],
-    the weak call-by-value reduction [step] and its iterations [pow step n].
-    The relation is stated with them, so that the costs of the model are L
-    running times, up to the factor [K]. L is a reasonable machine model
-    (Forster, Kunze & Roth, POPL 2020). The proofs build reductions with
-    [evalc], a big-step evaluation that counts beta-steps, which is sound
-    and complete for [pow step] ([evalc_sound], [pow_evalc]). *)
+    The parts of the time cost model implemented with the call-by-value
+    λ-calculus L of the Rocq Library of Undecidability Proofs (terms
+    [term], weak call-by-value reduction [step]), gathered in [L]; Rocq
+    checks that they provide every axiom ([<:]), with no axiom used. The
+    analyses, functors over the cost model, then bound L running times, up
+    to the factor [K]: L is a reasonable machine model (Forster, Kunze &
+    Roth, POPL 2020). *)
 
 From Stdlib Require Import List ZArith QArith.
 From Complexity Require Export TimeCostModel.
@@ -46,7 +18,11 @@ Import HOAS_Notations.
 Local Open Scope nat_scope.
 Unset Implicit Arguments.
 
-(** ** Evaluation with a count of beta-steps *)
+(** ** Evaluation with a count of beta-steps
+
+    [evalc], a big-step evaluation that counts β-steps, is sound and
+    complete for [pow step] ([evalc_sound], [pow_evalc]): the proofs build
+    reductions with it. *)
 
 Inductive evalc : nat -> term -> term -> Prop :=
 | evalc_lam s : evalc 0 (lam s) (lam s)
@@ -237,7 +213,13 @@ Qed.
     relation [rl k x c s]: the closed L value [s] realises [x] with
     complexity [c], for the applications whose cost is at most [k] (a
     budget of model cost: this step-indexing is what [fix_complexity]
-    needs). It comes with the order on complexities. *)
+    needs). It comes with the order on complexities, and a default
+    complexity ([dflt], for [cdefault]). A function with complexity [cf]
+    is realised by an L value whose application to the realiser of an
+    argument `a` reduces in at most `K * cost (cf a)` steps to a realiser
+    of the result. Lists, options, pairs and sums are realised
+    element-wise, by the realisers of their elements with their
+    complexities (the default one for the missing ones). *)
 
 (** The factor between the costs of the model and the steps of L. *)
 Definition K := 8.
@@ -468,7 +450,7 @@ Ltac Lfun :=
     let s := fresh "s" in let Hj := fresh "Hj" in let Ha := fresh "Ha" in
     let Hc := fresh "Hc" in
     intros j a c s Hj Ha Hc; pose proof (rl_proc Ha);
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hc |- *].
+    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hc |- *].
 
 (** Evaluate, check the cost, and leave the realisability of the result. *)
 Ltac Lstep := do 2 eexists; split; [apply evalc_sound; Leval | split; [Llia |]].
@@ -497,24 +479,6 @@ Definition Sc_r := lam (lam (lam (app (app (var 2) (var 0)) (app (var 1) (var 0)
 Definition ehd_r := lam (app (var 0) (lam (lam (var 0)))).
 Definition etl_r := lam (app (var 0) (lam (lam (var 1)))).
 Definition Lam_r := lam (lam (lam (app (var 2) (lam (app (app (var 0) (var 2)) (var 1)))))).
-
-(** Case analyses apply the encoding of the value to one closure per
-    constructor, and the selected closure to [Ic_r]: the closure of a
-    constructor with [m] arguments takes them, then a dummy argument, and
-    calls the branch. Branches of constant constructors get [tt]. *)
-Definition hU (i : nat) := lam (app (var i) unit_enc).
-Definition h1 (i : nat) := lam (lam (app (var i) (var 1))).
-Definition h2 (i : nat) := lam (lam (lam (app (app (var i) (var 2)) (var 1)))).
-
-Definition case1_r (x : term) := lam (lam (app (app (var 0) x) Ic_r)).
-Definition case2_r (x y : term) := lam (lam (lam (app (app (app (var 0) x) y) Ic_r))).
-Definition case3_r (x y z : term) :=
-  lam (lam (lam (lam (app (app (app (app (var 0) x) y) z) Ic_r)))).
-
-Ltac Lunfold_r := cbv [case1_r case2_r case3_r hU h1 h2 Ic_r unit_enc]; intro k.
-Ltac Lcase1_start := Lunfold_r; Lfun; Lstep; Lfun.
-Ltac Lcase_start := Lunfold_r; Lfun; Lstep; Lfun; Lstep; Lfun.
-Ltac Lcase3_start := Lunfold_r; Lfun; Lstep; Lfun; Lstep; Lfun; Lstep; Lfun.
 
 (** The case combinators in environments ([TimeDatatypes]): [caseE] takes
     the code of the branches, the code [x] of the matched value and the
@@ -567,14 +531,8 @@ Module LCM <: CostModel.
   Definition Repr := LRepr.
   Existing Class Repr.
 
-  Global Instance Repr_unit : Repr unit unit :=
-    ground_repr (fun _ => unit_enc) (fun _ => unit_enc_proc).
-
   (** The size of a value is its number of constructors, the length of its
       binary encoding ([Size]), not the size of its encoding as an L term. *)
-  Global Instance Size_unit : Size unit := fun _ => 1.
-  Lemma size_tt : CostModelCore.size tt = 1.
-  Proof. reflexivity. Qed.
 
   Global Instance Repr_arr {A CA B CB} (RA : Repr A CA) (RB : Repr B CB) :
     Repr (A -> B) (ℂI A CA -> ℂO CB) := arr_repr RA RB.
@@ -598,6 +556,7 @@ Module LCM <: CostModel.
   (** The complexity bounds ([Complexities]). The bounds of L are its
       complexities: realisability is monotone in the complexity. *)
   Include Complexities.
+  Include GroundTypes.
 
   Lemma complexity_bound_has {A CA} {R : Repr A CA} (f : A) (c : CA) :
     ComplexityBound f c -> has_complexity f c.
@@ -673,6 +632,9 @@ Module LBT <: BasicTimeCostModel LCM.
     exists (lam sb). intro k. pose proof (rl_proc (Hb 0)).
     Lfun. Lstep. apply Hb.
   Qed.
+
+  Global Instance Repr_unit : Repr unit unit :=
+    ground_repr (fun _ => unit_enc) (fun _ => unit_enc_proc).
 
   Lemma tt_complexity : ComplexityBound tt tt.
   Proof.
@@ -775,9 +737,9 @@ Module LNT <: NatTimeCostModel LCM LBT LCB.
   Global Instance Repr_nat : Repr nat unit := ground_repr nat_enc' nat_enc_proc.
 
   Global Instance Size_nat : Size nat := fun n => S n.
-  Lemma size_O : CostModelCore.size 0 = 1.
+  Lemma size_O : Bounds.size 0 = 1.
   Proof. reflexivity. Qed.
-  Lemma size_S : forall n, CostModelCore.size (S n) = 1 + CostModelCore.size n.
+  Lemma size_S : forall n, Bounds.size (S n) = 1 + Bounds.size n.
   Proof. reflexivity. Qed.
 
   Lemma nat_complexity : forall n : nat, ComplexityBound n tt.
@@ -823,7 +785,7 @@ Module LBO <: BoolTimeCostModel LCM LBT LCB.
   Global Instance Repr_bool : Repr bool unit := ground_repr bool_enc bool_enc_proc.
 
   Global Instance Size_bool : Size bool := fun _ => 1.
-  Lemma size_bool : forall b : bool, CostModelCore.size b = 1.
+  Lemma size_bool : forall b : bool, Bounds.size b = 1.
   Proof. reflexivity. Qed.
 
   Lemma bool_complexity : forall b : bool, ComplexityBound b tt.
@@ -859,10 +821,10 @@ Module LLM <: ListTimeCostModel LCM LBT LCB.
 
   Global Instance Size_list {A} (SA : Size A) : Size (list A) :=
     fix size_list l := match l with nil => 1 | a :: l => 1 + SA a + size_list l end.
-  Lemma size_nil : forall {A} `{Size A}, CostModelCore.size (@nil A) = 1.
+  Lemma size_nil : forall {A} `{Size A}, Bounds.size (@nil A) = 1.
   Proof. reflexivity. Qed.
   Lemma size_cons : forall {A} `{Size A} (a : A) l,
-    CostModelCore.size (a :: l) = 1 + CostModelCore.size a + CostModelCore.size l.
+    Bounds.size (a :: l) = 1 + Bounds.size a + Bounds.size l.
   Proof. reflexivity. Qed.
 
   Lemma bound_order_list : forall {A CA} `{Repr A CA} (c c' : list CA),
@@ -929,9 +891,9 @@ Module LOM <: OptionTimeCostModel LCM LBT LCB.
 
   Global Instance Size_option {A} (SA : Size A) : Size (option A) :=
     fun o => match o with None => 1 | Some a => 1 + SA a end.
-  Lemma size_None : forall {A} `{Size A}, CostModelCore.size (@None A) = 1.
+  Lemma size_None : forall {A} `{Size A}, Bounds.size (@None A) = 1.
   Proof. reflexivity. Qed.
-  Lemma size_Some : forall {A} `{Size A} (a : A), CostModelCore.size (Some a) = 1 + CostModelCore.size a.
+  Lemma size_Some : forall {A} `{Size A} (a : A), Bounds.size (Some a) = 1 + Bounds.size a.
   Proof. reflexivity. Qed.
 
   Lemma bound_order_option : forall {A CA} `{Repr A CA} (c c' : option CA),
@@ -990,7 +952,7 @@ Module LPM <: ProdTimeCostModel LCM LBT LCB.
   Global Instance Size_prod {A B} (SA : Size A) (SB : Size B) : Size (A * B) :=
     fun p => 1 + SA (fst p) + SB (snd p).
   Lemma size_pair : forall {A B} `{Size A} `{Size B} (a : A) (b : B),
-    CostModelCore.size (a, b) = 1 + CostModelCore.size a + CostModelCore.size b.
+    Bounds.size (a, b) = 1 + Bounds.size a + Bounds.size b.
   Proof. reflexivity. Qed.
 
   Lemma bound_order_prod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA * CB),
@@ -1046,10 +1008,10 @@ Module LSM <: SumTimeCostModel LCM LBT LCB.
   Global Instance Size_sum {A B} (SA : Size A) (SB : Size B) : Size (A + B) :=
     fun x => match x with inl a => 1 + SA a | inr b => 1 + SB b end.
   Lemma size_inl : forall {A B} `{Size A} `{Size B} (a : A),
-    CostModelCore.size (@inl A B a) = 1 + CostModelCore.size a.
+    Bounds.size (@inl A B a) = 1 + Bounds.size a.
   Proof. reflexivity. Qed.
   Lemma size_inr : forall {A B} `{Size A} `{Size B} (b : B),
-    CostModelCore.size (@inr A B b) = 1 + CostModelCore.size b.
+    Bounds.size (@inr A B b) = 1 + Bounds.size b.
   Proof. reflexivity. Qed.
 
   Lemma bound_order_sum : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA + CB),
@@ -1135,26 +1097,26 @@ Module LZM <: ZTimeCostModel LCM LBT LCB.
   Global Instance Size_Z : Size Z := fun z => match z with Z0 => 1 | Zpos p | Zneg p => S (Pos.size_nat p) end.
   Global Instance Size_Q : Size Q := fun q => S (Size_Z (Qnum q) + Pos.size_nat (Qden q)).
   Global Instance Size_comparison : Size comparison := fun _ => 1.
-  Lemma size_xH : (CostModelCore.size xH = 1)%nat.
+  Lemma size_xH : (Bounds.size xH = 1)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_xO : (forall p, CostModelCore.size (xO p) = 1 + CostModelCore.size p)%nat.
+  Lemma size_xO : (forall p, Bounds.size (xO p) = 1 + Bounds.size p)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_xI : (forall p, CostModelCore.size (xI p) = 1 + CostModelCore.size p)%nat.
+  Lemma size_xI : (forall p, Bounds.size (xI p) = 1 + Bounds.size p)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_N0 : (CostModelCore.size N0 = 1)%nat.
+  Lemma size_N0 : (Bounds.size N0 = 1)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_Npos : (forall p, CostModelCore.size (Npos p) = 1 + CostModelCore.size p)%nat.
+  Lemma size_Npos : (forall p, Bounds.size (Npos p) = 1 + Bounds.size p)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_Z0 : (CostModelCore.size Z0 = 1)%nat.
+  Lemma size_Z0 : (Bounds.size Z0 = 1)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_Zpos : (forall p, CostModelCore.size (Zpos p) = 1 + CostModelCore.size p)%nat.
+  Lemma size_Zpos : (forall p, Bounds.size (Zpos p) = 1 + Bounds.size p)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_Zneg : (forall p, CostModelCore.size (Zneg p) = 1 + CostModelCore.size p)%nat.
+  Lemma size_Zneg : (forall p, Bounds.size (Zneg p) = 1 + Bounds.size p)%nat.
   Proof. reflexivity. Qed.
   Lemma size_Qmake :
-    (forall n d, CostModelCore.size (Qmake n d) = 1 + CostModelCore.size n + CostModelCore.size d)%nat.
+    (forall n d, Bounds.size (Qmake n d) = 1 + Bounds.size n + Bounds.size d)%nat.
   Proof. reflexivity. Qed.
-  Lemma size_comparison : (forall c : comparison, CostModelCore.size c = 1)%nat.
+  Lemma size_comparison : (forall c : comparison, Bounds.size c = 1)%nat.
   Proof. reflexivity. Qed.
 
   Lemma positive_complexity : forall p : positive, ComplexityBound p tt.
@@ -1398,7 +1360,7 @@ Module LFX <: FixTimeCostModel LCM LBT LCB.
     pose proof (rl_proc (HF 0)) as HpF.
     exists (fix_r sF). intro k. unfold fix_r. Lfun.
     destruct (Hrec (a ⋊ c)) as [Hcost0 Hcomp0].
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hcost0, Hcomp0.
+    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost0, Hcomp0.
     set (cfe := res (cf (a ⋊ c))) in *.
     assert (HpG : proc (rho (fix_G sF s)))
       by (split; [apply rho_cls, proc_closed; unfold fix_G; Lproc | apply rho_lambda]).
@@ -1408,7 +1370,7 @@ Module LFX <: FixTimeCostModel LCM LBT LCB.
       apply arr_lam; [exact HpG |]. intros j' x c1 sx Hj' Hx Hc'.
       pose proof (rl_proc Hx).
       destruct (Hcomp0 (x ⋊ c1)) as [Hcost Hcomp].
-      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I ret bind] in Hcost, Hcomp.
+      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost, Hcomp.
       assert (IHj : rl (Repr_arr RA RB) (j' - 1) (f a) cfe (rho (fix_G sF s))) by (apply IH; Llia).
       assert (Hpair : rl (env_repr RE (Repr_arr RA RB)) (j' - 1) (ECons a (f a)) (c, cfe)
                         (lam (app (app (var 0) s) (rho (fix_G sF s))))).

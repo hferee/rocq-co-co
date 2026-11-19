@@ -3,22 +3,8 @@
     [ComplexityBound f c] is a property of the function [f], not of a
     particular program computing it: it reads "[f] is computable within
     [c]" (see [CostModel]). The examples below show this, and how the cost
-    model still accounts for the real running time of the programs it
-    analyses.
-
-    - Conversion: convertible terms have the same bounds.
-    - Extensionality: pointwise-equal functions have the same bounds, up to
-      a constant ([complexity_ext]). Hence [slow_id], which iterates the
-      identity [2 ^ n] times, has a constant bound.
-    - Every application is charged ([TimeCombinators]): [tower n] is
-      the identity, as [2 ^ n] compositions of the identity built with [n]
-      duplications, and its bound is exponential. With a free [compose],
-      it used to get a constant bound, far below its running time.
-    - Local fixpoints: a fixpoint inside a definition is a constant of the
-      compiled code; [cbound] reads its bound from the context, once it is
-      declared, as a hypothesis or as an instance.
-    - Well-founded recursion: a function defined with [Function] is
-      analysed from its unfolding equation. *)
+    model still accounts for the running time of the programs it
+    analyses. *)
 
 From Complexity Require Import TimeStdlib.
 From Stdlib Require Import List Recdef Lia.

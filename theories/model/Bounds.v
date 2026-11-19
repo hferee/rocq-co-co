@@ -1,29 +1,36 @@
 (** * Linear and polynomial bounds
 
-    [ComplexityBound f c] bounds the costs of [f] by any function [c] of its
-    inputs. The usual classes of complexity bound them by a function of the
-    sizes of the inputs only. [FirstOrderBound f g] states it for a first-order
-    function [f], with any number of arguments: each application of [f] to
-    its next argument costs at most [g ss], where [ss] are the sizes of the
-    arguments given so far. [PolynomialBound f], [LinearBound f] and
-    [ConstantBound f] state that [g] is a polynomial in these sizes ([poly],
-    from [Poly], where they are shown to be higher-order polynomials), of
-    degree at most [1] for [LinearBound], and [0] for [ConstantBound], as
-    classes.
+    [ComplexityBound f c] bounds the costs of [f] by any function [c] of
+    its inputs; the usual classes of complexity bound them by a function of
+    the sizes of the inputs only. This file defines these classes and the
+    tactics that prove them; it is included in [CostModel], so that they
+    are shared by all the analyses. *)
 
-    The sizes are those of the cost model ([Size], whose instances are
-    given by the models of the datatypes), so that the bounds speak of the
-    sizes of the representations of the arguments.
-
-    [Bounds] is included in the module type [CostModel], so that its classes
-    are shared by all the analyses over a cost model. *)
-
-From Complexity Require Import CostModelCore Poly.
+From Complexity Require Import CostModelCore GroundTypes Poly.
 From Complexity Require Export Advice.
 From Stdlib Require Import List.
 Import ListNotations.
 From Ltac2 Require Import Ltac2.
 Set Default Proof Mode "Classic".
+
+(** ** Sizes
+
+    The usual complexity bounds are in the sizes of the inputs. The size
+    of a value of a datatype is the length of its binary encoding, its
+    number of constructors: one bit per constructor for the
+    types with two constructors ([bool], [nat], [option], [list], [sum]),
+    the binary digits of a [positive] (with one more for the sign or the
+    zero of [N] and [Z]), and one for each pair. The models of the
+    datatypes state it as equations ([size_S], [size_cons], ...). *)
+Class Size (A : Type) := size : A -> nat.
+(** [#|x|]: the size of [x]. (The bar of [|x|] would also open a term:
+    [#|] is a distinct token, as in mathcomp.) *)
+Notation "#| x |" := (size x) (at level 0, x at level 99, format "#| x |").
+
+(** The size of [tt], the empty environment of closures. *)
+#[global] Instance Size_unit : Size unit := fun _ => 1.
+Lemma size_tt : size tt = 1.
+Proof. reflexivity. Qed.
 
 (** ** Facts on sizes
 
@@ -355,9 +362,24 @@ Ltac2 polynomial_constants () :=
     constr:(pmul (pconst $k) (ppow (padd (pconst 1) $s) $d))).
 
 
-Module Bounds (Import CM : CostModelCore).
+(** The constants of the costs, declared by the layers of the models
+    ([c_S], [c_cons], ...), and the functions that costs use ([czip]): the
+    tactics unfold them ([autounfold with costs]), so that a constant fixed
+    by a model becomes a number, and an abstract one stays an atom for
+    [lia]. The bounds themselves are instances of [ComplexityBound]. *)
+Create HintDb costs.
+
+Module Bounds (Import CM : GroundCostModel).
 
   (** ** First-order functions
+
+      [FirstOrderBound f g]: each application of the first-order function
+      [f] to its next argument costs at most [g ss], where [ss] are the
+      sizes of the arguments given so far, those of the cost model ([Size]:
+      the sizes of the representations). [PolynomialBound f],
+      [LinearBound f] and [ConstantBound f]: [g] is a polynomial ([Poly]),
+      of degree at most [1] for [LinearBound], and [0] for
+      [ConstantBound].
 
       [FirstOrder A CA]: [A] is a type of functions whose arguments and
       result are ground data, with sizes for the arguments, and [CA] the type
@@ -391,7 +413,7 @@ Module Bounds (Import CM : CostModelCore).
   (** ** Bounds *)
 
   Definition FirstOrderBound {A CA} `{fo : FirstOrder A CA} (f : A) (g : list nat -> nat) : Prop :=
-    @ComplexityBound A (repr_ctype (H := fo_repr fo)) (fo_repr fo) f (size_bound fo g []).
+    @ComplexityBound A (repr_ctype (R := fo_repr fo)) f (size_bound fo g []).
 
   Class PolynomialBound {A CA} `{FirstOrder A CA} (f : A) : Prop :=
     polynomial_bound : exists p, FirstOrderBound f (peval p).
@@ -433,15 +455,45 @@ Module Bounds (Import CM : CostModelCore).
       between the costs of the bound of [f] given by [tac] (typeclass search
       in [cost_split]) and [g], with the facts on the sizes of the arguments
       ([add_size_facts]) and the constants of the model unfolded ([costs]).
-      [cost_bound] proves them with [lia] or [nia].
 
       [cconstant], [clinear] and [cpolynomial] prove [ConstantBound f],
       [LinearBound f] and [PolynomialBound f] from the bound of [f] found by
       typeclass search, choosing the constants ([linear_constants]);
-      [cconstant_using H], [clinear_using H] and [cpolynomial_using H] from
-      the bound [H]. The inequalities that [lia]
+      [clinear_using H] from the bound [H]. The inequalities that [lia]
       and [nia] do not prove are left, for example when they need facts on
       the measures of the arguments. *)
+
+  (** Decompose [bound_order] goals into inequalities between costs. The
+      arguments of functions are named as in the right-hand side (usually
+      the claimed bound). *)
+  Ltac bo_split :=
+    repeat match goal with
+    | |- @bound_order _ (_ -> _) _ _ ?c =>
+        let c := eval hnf in c in
+        apply bound_order_arr;
+        lazymatch c with
+        | fun x => _ => let y := fresh x in intro y
+        | _ => intro
+        end;
+        split
+    | |- @bound_order _ _ _ _ _ => solve [apply ground_order]
+    end.
+
+  (** The inputs of ground data ([IsGround], found by typeclass search) are
+      replaced by their values, which keep the names of the inputs: their
+      complexities carry no information. *)
+  Ltac destr_inputs :=
+    repeat match goal with
+    | c : ℂI _ unit |- _ => let v := fresh "v" in destruct c as [v []]; rename v into c
+    | c : ℂI ?A ?C |- _ =>
+        let _ := constr:(_ : IsGround (_ : Repr A C)) in
+        let v := fresh "v" in let p := fresh "p" in destruct c as [v p]; rename v into c
+    end.
+
+  (** Replaces the complexity bound with an evar. The complexity bound goal
+      will eventually need to be taken from the shelf. *)
+  Ltac capply := eapply ComplexityBound_mono; [shelve|].
+
   Ltac cost_split_by tac :=
     unfold FirstOrderBound; cbn [fo_repr size_bound];
     eapply ComplexityBound_mono; [idtac | tac];
@@ -459,7 +511,6 @@ Module Bounds (Import CM : CostModelCore).
                        ": prove one first (Global Instance ..., or Existing Instance after a Lemma),"
                        "or prove this bound with cbound, which analyses" f "itself"
             end].
-  Ltac cost_bound := cost_split; first [solve [lia] | cnia].
 
   Ltac clinear_by tac :=
     unfold LinearBound; eexists; split; cycle 1;
@@ -489,7 +540,6 @@ Module Bounds (Import CM : CostModelCore).
     [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; constant_constants_any ()) in
       split ltac:(cinstance); cbn [peval nth]; ltac2:(csolve_degree 0 "constant"); cadvice
     | reflexivity ].
-  Ltac cconstant_using H := cconstant_by ltac:(exact H).
 
   Ltac cpolynomial_by tac :=
     unfold PolynomialBound; eexists;
@@ -498,7 +548,6 @@ Module Bounds (Import CM : CostModelCore).
     cbn [peval nth Nat.pow]; first [solve [lia] | solve [cmono_poly] | cnia_now].
   Ltac cpolynomial_core := cpolynomial_by ltac:(typeclasses eauto).
   Ltac cpolynomial_untimed := cpolynomial_by ltac:(cinstance); cadvice.
-  Ltac cpolynomial_using H := cpolynomial_by ltac:(exact H).
 
   (** Bounds without an instance are derived from the bounds of
       [ComplexityBound] found by typeclass search, when [cconstant],

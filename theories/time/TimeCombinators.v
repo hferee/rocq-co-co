@@ -7,7 +7,7 @@
     The combinators are higher-order constants: their complexities take the
     complexities of their (functional) arguments, so that typeclass search
     finds the complexity of a compiled term by following its structure
-    ([cbc]). *)
+    ([cbc_found]). *)
 
 From Complexity Require Export TimeBasic Compile.
 From Stdlib Require Import PArith.
@@ -16,47 +16,13 @@ From Complexity Require Poly.
 From Ltac2 Require Import Ltac2.
 Set Default Proof Mode "Classic".
 
-(** ** Constant bounds
-
-    [cst1 k], [cst2 k1 k2], ...: the complexity of a first-order function of
-    [1], [2], ... arguments whose applications cost [k1], [k2], ... A bound
-    [ComplexityBound f (cst2 _ _)] is proved by [cconst], which finds the
-    constants ([CombinatorTactics]). The constants are arguments, not
-    expressions under the binders of the complexity, so that they can be
-    left to [cconst]. *)
-    (* TODO: can we generalise this to an arbitrary arity? *)
-Definition cst1 {A CA} (k1 : nat) : ℂI A CA -> ℂO unit := fun _ => k1 >|.
-Definition cst2 {A CA B CB} (k1 k2 : nat) : ℂI A CA -> ℂO (ℂI B CB -> ℂO unit) :=
-  fun _ => k1 +> fun _ => k2 >|.
-Definition cst3 {A CA B CB C CC} (k1 k2 k3 : nat)
-  : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO unit)) :=
-  fun _ => k1 +> fun _ => k2 +> fun _ => k3 >|.
-Definition cst4 {A CA B CB C CC D CD} (k1 k2 k3 k4 : nat)
-  : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO (ℂI D CD -> ℂO unit))) :=
-  fun _ => k1 +> fun _ => k2 +> fun _ => k3 +> fun _ => k4 >|.
-Definition cst5 {A CA B CB C CC D CD E CE} (k1 k2 k3 k4 k5 : nat)
-  : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO (ℂI D CD -> ℂO (ℂI E CE -> ℂO unit)))) :=
-  fun _ => k1 +> fun _ => k2 +> fun _ => k3 +> fun _ => k4 +> fun _ => k5 >|.
-Definition cst6 {A CA B CB C CC D CD E CE F CF} (k1 k2 k3 k4 k5 k6 : nat)
-  : ℂI A CA -> ℂO (ℂI B CB -> ℂO (ℂI C CC -> ℂO (ℂI D CD -> ℂO (ℂI E CE -> ℂO
-    (ℂI F CF -> ℂO unit))))) :=
-  fun _ => k1 +> fun _ => k2 +> fun _ => k3 +> fun _ => k4 +> fun _ => k5 +> fun _ => k6 >|.
-#[global] Hint Unfold cst1 cst2 cst3 cst4 cst5 cst6 : costs.
-
-Ltac2 rec cst_update (r : constr) (k : int) (l : (constr * int) list) : (constr * int) list :=
-  match l with
-  | [] => [(r, k)]
-  | (r', k') :: l' =>
-      if Constr.equal r r' then (r, imax k k') :: l' else (r', k') :: cst_update r k l'
-  end.
-
 (** [cunit] destructs the closed subterms of type [unit] of the goal, other
     than [tt] (the complexities of ground values, given by potentials of
     functions as [res (..)]). The goal is traversed once for each destruct,
     without going into numerals: the goals of the costs are mostly
     inequalities between numerals ([S (S ..)]), and an Ltac1 [context]
-    match, which types each subterm, took most of the time of [cconst] on
-    large functions. *)
+    match, which types each subterm, took most of the time on large
+    functions. *)
 Ltac2 rec unit_subterms (acc : constr list ref) (t : constr) : unit :=
   match nat_value t with
   | Some _ => ()
@@ -93,25 +59,6 @@ Ltac2 rec cunit_goal () :=
   try_all (List.rev (Ref.get acc)).
 
 Ltac2 cunit () := Control.enter cunit_goal.
-
-(** In the goals [cost <= ?k], instantiates each [?k] with the largest
-    cost, which must be a numeral expression. *)
-Ltac2 cst_instantiate () :=
-  let tbl := Ref.ref [] in
-  Control.enter (fun () =>
-    lazy_match! goal with
-    | [ |- ?l <= ?r ] =>
-        if Constr.is_evar r then
-          let (k, d) := poly_of l in
-          if Int.lt 0 d then
-            Control.zero (Tactic_failure (Some (Message.concat
-              (Message.of_string "cconst: the cost is not constant: ") (Message.of_constr l))))
-          else Ref.set tbl (cst_update r k (Ref.get tbl))
-        else ()
-    | [ |- _ ] => ()
-    end);
-  Control.focus 1 1 (fun () =>
-    List.iter (fun (r, k) => Std.unify r (nat_constr k)) (Ref.get tbl)).
 
 (** The model of the combinators ([CombinatorTimeCostModel], at the end) is
     made of its axioms ([CombinatorTimeCostAxioms]) and of the tactics that
@@ -250,8 +197,7 @@ Module CombinatorTactics
 
   (** [csearch] searches for the complexity of the term of a goal
       [ComplexityBound f ?c], which instantiates [?c] with [found f].
-      [cbc_found] is [cbc] ([Compile]) with [csearch]: it compiles the
-      function first. *)
+      [cbc_found] compiles the function first ([compile_goal], [Compile]). *)
   Ltac csearch :=
     lazymatch goal with
     | |- ComplexityBound ?f _ => notypeclasses refine (@found_ok _ _ _ f _)
@@ -386,7 +332,7 @@ Module CombinatorTactics
       evaluated by value, each environment is computed once. *)
   Ltac csimpl :=
     cbv beta iota zeta delta [found found_bound found_apply found_compose
-                              app cost_add fmap ret_I ret bind cost res val pot fst snd
+                              app cost_add fmap ret_I cost res val pot fst snd
                               Lam ehd etl Kc Ic Sc Cc compose];
     autounfold with costs; unfold_comb.
 
@@ -483,12 +429,6 @@ Module CombinatorTactics
       before it, so that [cbound], and the hint below, use the most complete
       version for the model. *)
   Ltac2 mutable cbound_start : unit -> unit := fun () => ltac1:(cstart).
-
-  (** [cconst] proves [ComplexityBound f (cst2 _ _)] (or [cst1], ...), and
-      finds the constants: the largest costs of the applications of [f]. *)
-  Ltac cconst :=
-    ltac2:(cbound_start ()); csimpl; bo_split; destr_inputs; ccases; cunit;
-    ltac2:(cst_instantiate ()); cbn; lia.
 
   (** [cbound_constant], [cbound_linear] and [cbound_polynomial] prove
       [ConstantBound f], [LinearBound f] and [PolynomialBound f] by analysing
@@ -617,9 +557,9 @@ Module CombinatorTactics
       completely: [Instance : ComplexityBound f c := _]. A bound that they
       do not prove needs a proof script, [Proof. cbound.], which shows the
       inequalities left. Only the first complexity found by [cbound] is
-      tried ([once]): backtracking into the typeclass search of [cbc] would
+      tried ([once]): backtracking into the typeclass search of [cbc_found] would
       try the same inequalities many times. The hint only applies to bounds
-      without evars: the bounds of the subterms that [cbc] searches are
+      without evars: the bounds of the subterms that [cbc_found] searches are
       evars, so that the hint does not call [cbound] recursively.
 
       The proof is an auxiliary lemma ([abstract]), named after the
@@ -652,7 +592,7 @@ Module CombinatorTactics
                 | None => ltac1:(cbound_auto)
                 end).
 
-  #[global] Hint Extern 150 (@ComplexityBound _ _ _ _ ?c) =>
+  #[global] Hint Extern 150 (@ComplexityBound _ _ _ ?c) =>
     tryif has_evar c then fail else cbound_abstract : typeclass_instances.
 End CombinatorTactics.
 

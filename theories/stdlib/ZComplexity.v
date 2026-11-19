@@ -1,15 +1,8 @@
 (** * Complexity of functions over [Z] from the standard library
 
-    These bounds were axiomatised in [TimeDatatypes] (trusted base); they are
-    now proved from the case analyses of [TimeDatatypes], the generic fixpoint
-    axiom of [TimeFix], and [PosComplexity], as in [NatComplexity], with
-    the smallest constants for the shape of each bound. Sizes are bit sizes
-    ([zsize], in [BitSize]). Addition and subtraction get two bounds: a
-    quadratic one, from a direct analysis, and a linear one, from an
-    amortised analysis. The division, the modulo ([Z.div_eucl]), the gcd
-    ([Z.ggcd]) and the power ([Z.pow]) follow, from the sizes of their
-    intermediate results; [Pos.sub] gets the bound of an equal function,
-    as the model has no representation of its type [mask]. *)
+    Proved from the case analyses of [TimeDatatypes], the fixpoint axiom of
+    [TimeFix], and [PosComplexity], with the smallest constants for the
+    shape of each bound. Sizes are bit sizes ([zsize], in [BitSize]). *)
 
 From Complexity Require Export PosComplexity.
 From Complexity Require Import BitSize.
@@ -181,6 +174,10 @@ Module ZComplexity (Import Time : TimePos).
   (** ** Arithmetic *)
 
   (** Additions of numbers of different signs use [Z.pos_sub]. *)
+  (** Addition and subtraction get two bounds: a quadratic one, from this
+      direct analysis, and a linear one, from an amortised analysis (below).
+      [Pos.sub] gets the bound of an equal function, as the model has no
+      representation of its type [mask]. *)
   Global Instance Z_add_complexity : Time.ComplexityBound Z.add
     (fun cx => 1 +> fun cy =>
        (14 * (zsize (val cx) + zsize (val cy)) * (zsize (val cx) + zsize (val cy))) >|).

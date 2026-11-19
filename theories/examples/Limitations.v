@@ -1,15 +1,10 @@
 (** * Limitations of the analysis
 
     Functions that [cbound] cannot analyse, with the error that it reports
-    and the reason. Each example ends with [Abort]; the corresponding item
-    of [contributions_and_plan.md] is C2.
-
-    What is not a limitation: local fixpoints, whose bounds are declared
-    first and read from the context, and well-founded recursion, analysed
-    from the unfolding equation (see [Examples]); user inductives, since a
-    user datatype comes with its own axioms (its representation,
-    constructors and case combinator), as the datatypes of the model do
-    ([TimeDatatypes]). *)
+    and the reason; each example ends with [Abort] (item C2 of
+    [contributions_and_plan.md]). Local fixpoints, well-founded recursion
+    ([Examples]) and user inductives, which come with their own axioms as
+    the datatypes of the model do, are not limitations. *)
 
 From Complexity Require Import TimeStdlib.
 

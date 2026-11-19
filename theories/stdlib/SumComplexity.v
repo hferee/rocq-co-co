@@ -1,16 +1,8 @@
 (** * Complexity of the functions on sums
 
-    The standard library defines the sum [A + B] (with [inl] and [inr]) but
-    no function on it. The usual ones are defined here (Haskell's [isLeft],
-    [either], [lefts], ...), and [cbound] proves their bounds, as in
-    [NatComplexity], with the smallest constants.
-
-    Sums are of any data ([SumTimeCostModel] in [TimeDatatypes]): the
-    complexity of a sum is the sum of the complexities, and a bound reads
-    the element with its complexity ([czip_sum]). The functions on sums
-    alone are proved over the model without lists ([SumComplexity], over
-    [TimeCostModelBase]); those on lists of sums ([SumListComplexity]) read
-    the lists with their complexities ([czip]), as for lists of any data. *)
+    The standard library defines the sum [A + B] but no function on it. The
+    usual ones are defined here (Haskell's [isLeft], [either], [lefts],
+    ...), and [cbound] proves their bounds, with the smallest constants. *)
 
 From Complexity Require Export TimeCostModel HOListComplexity.
 From Stdlib Require Import List.
@@ -58,7 +50,11 @@ Definition czip_sum {A CA B CB} (da : CA) (db : CB) (c : ℂI (A + B) (CA + CB))
   end.
 #[global] Hint Unfold czip_sum : costs.
 
-(** ** Sums *)
+(** ** Sums
+
+    Sums are of any data: the complexity of a sum is the sum of the
+    complexities, and a bound reads the element with its complexity
+    ([czip_sum]). Over the model without lists ([TimeCostModelBase]). *)
 
 Module SumComplexity (Import Time : TimeCostModelBase).
 
@@ -97,7 +93,10 @@ Module SumComplexity (Import Time : TimeCostModelBase).
 
 End SumComplexity.
 
-(** ** Options and lists of sums *)
+(** ** Options and lists of sums
+
+    The lists are read with their complexities ([czip]), as for lists of
+    any data. *)
 
 Module SumListComplexity (Import Time : TimeCostModel).
 

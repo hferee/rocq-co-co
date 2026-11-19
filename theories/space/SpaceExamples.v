@@ -3,23 +3,9 @@
     Bounds on the allocations of standard functions in the space cost model
     ([SpaceCostModel]), proved by [cbound] as in the time cost model. They
     agree with the known space complexities, in the number of allocated
-    cells:
-    - [Nat.add n m] rebuilds the [n] successors of the result: linear in
-      [n]; [Nat.mul n m] adds [m] [n] times: [n * m];
-    - [app l m] copies [l]: linear in [|l|];
-    - [rev l] appends each element at the end of the reversed tail: the
-      [i]-th append copies [i] cells, quadratic in [|l|]; [rev_append],
-      with an accumulator, is linear;
-    - [map f l] builds [|l|] cells, plus the allocations of [f];
-    - [repeat x n] builds [n] cells; [length l] builds the [|l|]
-      successors of its result.
-
-    The constants also count the closures built by the compiled code
-    ([Compile]: partial applications, recursive functions) and the frame of
-    each recursive call ([c_fix]); a [match] allocates nothing, its
-    branches are code run in the environment of the closure. This is why
-    [Nat.eqb], which builds no data, still allocates linearly: one frame
-    and the closures of each step. *)
+    cells. The constants also count the closures built by the compiled code
+    and the frame of each recursive call ([c_fix]); a [match] allocates
+    nothing. *)
 
 From Complexity Require Export SpaceCostModel.
 From Stdlib Require Import List.
@@ -31,6 +17,10 @@ Import ListNotations.
 Module SpaceExamples (Import Space : SpaceCostModel).
 
   (** ** Natural numbers
+
+      [Nat.add n m] rebuilds the [n] successors of the result, [Nat.mul n m]
+      adds [m] [n] times. [Nat.eqb], which builds no data, still allocates
+      linearly: one frame and the closures of each step.
 
       The second argument of [Nat.add], [Nat.mul] and [app], and the first
       of [repeat], are passed unchanged by the recursive calls: they are in
@@ -52,7 +42,12 @@ Module SpaceExamples (Import Space : SpaceCostModel).
     (fun cn => 1 +> fun cm => (val cn * (3 * val cm + 6) + 3) >|).
   Proof. cbound. Qed.
 
-  (** ** Lists *)
+  (** ** Lists
+
+      [app l m] copies [l]; [rev l] appends each element at the end of the
+      reversed tail, quadratic in [|l|], and [rev_append], with an
+      accumulator, is linear; [map f l] builds [|l|] cells, plus the
+      allocations of [f]. *)
 
   Global Instance length_space {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Space.ComplexityBound (@length A)
     (fun cl => (3 * length (val cl) + 2) >|).

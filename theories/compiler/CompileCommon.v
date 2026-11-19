@@ -72,10 +72,6 @@ Ltac2 case_comb_of (i : inductive) : constr :=
   | _ => fail_msg (String.app "compile: no case combinator: " name)
   end.
 
-(** The largest free [Rel] of [t]. *)
-Ltac2 max_rel (t : constr) : int :=
-  let rec go n := if closedn n t then n else go (Int.add n 1) in go 0.
-
 (** The [n] binders of a branch, eta-expanded if needed, and its body. *)
 Ltac2 rec peel_b (n : int) (t : constr) : binder list * constr :=
   if Int.equal n 0 then ([], t)
@@ -229,7 +225,7 @@ Ltac2 replace_goal_arg (i : int) (y : constr) :=
   | _ => fail_msg "replace_goal_arg: the goal is not an application"
   end.
 
-(** In a goal `@ComplexityBound A CA R f c`, replace [f] (the argument before
+(** In a goal `@ComplexityBound A I f c`, replace [f] (the argument before
     last) by [compile f], convertible to it. *)
 Ltac2 compile_goal_with (compile : constr -> constr) :=
   match kind (Control.goal ()) with
@@ -351,7 +347,7 @@ Ltac2 fix_functional (f : constr) : constr * int * int :=
         (* the recursive argument is one of those the fixpoint is applied to
            (a worker applied to its initial arguments): the recursive calls
            change them, and the function is not a fixpoint of its own; it is
-           a local fixpoint, analysed as a constant by [cbc] *)
+           a local fixpoint, analysed as a constant by [cbc_found] *)
         if Int.lt (Array.get structs 0) p then
           fail_msg "fix_equation: a local fixpoint applied to its initial arguments"
         else

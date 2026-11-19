@@ -73,9 +73,6 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
 
   (** [tt]: the empty environment of closures, to which closed code is
       applied (see [Combinators]). *)
+  #[global] Declare Instance Repr_unit : Repr unit unit.
   #[global] Declare Instance tt_complexity : ComplexityBound tt tt.
-
-  (* Simple tactic that will be used to prove ComplexityBound goals.
-    Maybe elaborated later. *)
-  Ltac ctac := typeclasses eauto.
 End BasicTimeCostModel.

@@ -1,30 +1,25 @@
 (** * Advice on the inequalities left by the proofs of bounds
 
-    The tactics that prove bounds ([cbound], [clinear], ...) reduce a claimed
-    bound to inequalities `found <= claimed` between costs, and leave those
-    that [lia] and [nia] do not prove. For each of them, [cadvice] looks for
-    a counterexample: small values of its variables (natural numbers,
-    booleans, binary numbers) that satisfy the hypotheses of its case, and
-    for which it is false. A counterexample means that the claimed bound is
-    too small; the message gives the cost found and the bound for these
-    values. [cbound] calls [cadvice] on the inequalities it leaves.
-
-    The inequalities without a small counterexample may hold, but need facts
-    that [lia] and [nia] do not know. [cexplain] suggests some, from the
-    shape of the inequality (sizes, powers, values of functions, costs of
-    functional arguments).
-
-    [cadvice_level] is [0] for no advice, [1] (the default) for the
-    counterexamples, and [2] for the suggestions of [cexplain] too. The
-    proofs tried by typeclass search (the hints for [Instance .. := _]) use
-    the tactics without advice. *)
+    The tactics that prove bounds ([cbound], [clinear], ...) reduce a
+    claimed bound to inequalities `found <= claimed` between costs, and
+    leave those that [lia] and [nia] do not prove, with advice: a
+    counterexample, or the facts that may be missing. *)
 
 From Ltac2 Require Import Ltac2 Message.
 From Stdlib Require Import PArith NArith ZArith Lia.
 Import Constr.Unsafe.
 
 Ltac2 mutable cadvice_level : int := 1.
-(** ** Counterexamples *)
+(** ** Counterexamples
+
+    Small values of the variables (numbers, booleans, binary numbers) that
+    satisfy the hypotheses of the case of an inequality and for which it is
+    false: the claimed bound is too small, and the message gives the cost
+    found and the bound for these values. [cbound] looks for one on each
+    inequality it leaves ([cadvice]). [cadvice_level] is [0] for no
+    advice, [1] (the default) for the counterexamples, and [2] for the
+    suggestions too; the proofs tried by typeclass search give no
+    advice. *)
 
 (** Small values of the types whose values can be enumerated. They are
     small: the inequalities are computed with unary numbers, and may have
@@ -176,7 +171,12 @@ Ltac2 counterexample () : ((ident * constr) list * constr * constr) option :=
       end
   end.
 
-(** ** Suggestions *)
+(** ** Suggestions
+
+    The inequalities without a small counterexample may hold, but need
+    facts that [lia] and [nia] do not know: [cexplain] suggests some, from
+    the shape of the inequality (sizes, powers, values of functions, costs
+    of functional arguments). *)
 
 Ltac2 suggestions (g : constr) : message list :=
   let s := fun str => of_string str in
