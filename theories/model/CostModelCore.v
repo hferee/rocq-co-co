@@ -98,7 +98,6 @@ Module Type CostModelAxioms.
   (** ** Complexity bounds and their order
 
       [has_complexity f c] states that [c] is a complexity measure for [f]. *)
-  (* The relation between terms and complexity bounds. *)
   Parameter has_complexity : forall {A CA} `{Repr A CA}, A -> CA -> Prop.
 
 (* There is an ordering on complexity measures. *)
@@ -106,26 +105,30 @@ Module Type CostModelAxioms.
   #[global] Declare Instance bound_order_po :
     forall {A CA} `{Repr A CA}, PreOrder (@bound_order A CA _).
 
-  (** ** Shapes
+  (** ** Well-formedness of complexity bounds
 
-      [wf x c]: the complexity [c] has the shape of the value [x]. A
-      complexity of a list has one complexity, of its shape, for each
-      element ([wf_list]); any complexity of a function has its shape. The
-      complexities of the realised values have their shape, at any budget
-      (in L, the instance): [wf] cannot be [has_complexity], since the
-      instance applies the realiser of the body of a recursive function to
-      the function itself, before it is known to have its complexity
-      ([fix_complexity]). *)
+
+      [wf x c]: the complexity [c] is well-formed with respect to the value [x].
+      Mostly used for now for lists, where the complexity of a list is a list
+      with the same complexity.
+
+      This could be avoided by making CA dependent on the input of type A,
+      but this approach is probably simpler.
+
+      Ideally, `wf` could be `has_complexity` but this gets in the way when
+      handling recursive functions.
+      
+      TODO: we may want to ensure that `ComplexityBound` entails `wf`? *)
   Parameter wf : forall {A CA} `{Repr A CA}, A -> CA -> Prop.
 
-  (** The order on the complexities of functions is pointwise, at the
-      inputs whose complexity has the shape of the value, and
-      hereditarily compares costs. *)
+  (** The order on the complexities of functions is pointwise, at the inputs 
+    whose complexity is well-formed, and hereditarily compares costs. *)
   Parameter bound_order_arr : forall {A CA B CB} `{Repr A CA} `{Repr B CB}
     (c c' : ℂI A CA -> ℂO CB),
     (forall ca, wf (val ca) (pot ca) ->
        cost (c ca) <= cost (c' ca) /\ bound_order (res (c ca)) (res (c' ca))) ->
     bound_order c c'.
+    
 
   (** TODO: this might not belong here.
       The complexity type of a representable type is inhabited. *)
@@ -139,42 +142,29 @@ End CostModelAxioms.
     them. *)
 Module Complexities (Import CM : CostModelAxioms).
 
+(** As Forster & Künze, we record complexity types and results using
+  typeclasses. *)
+
+  (** First, we record the type of complexity bounds of a given term type.
+    This will allow us to compute (via typeclass search) `CA` from `A` and
+    avoid heavy type annotations. *)
+  Class CType (A : Type) := { ctype : Type; crepr : Repr A ctype }.
+  Arguments ctype A {_}.
+  Arguments crepr A {_}.
+  Global Instance repr_ctype {A CA} {R : Repr A CA} : CType A := {| ctype := CA; crepr := R |}.
   (** ** Bounds *)
 
-  (* As Forster & Künze, we record complexity results using typeclasses. *)
-  (** [ComplexityBound f c] is a property of the function [f], not of a
-    program: it reads "[f] is computable within [c]". This is unavoidable.
-    [f] is a Rocq value, so the predicate cannot inspect its syntax: it is
-    invariant under conversion, and, under functional extensionality (which
-    we do not want to contradict), pointwise-equal functions are equal and
-    have the same bounds. For instance, [Nat.iter (2 ^ n) (fun x => x) n]
-    has the bound of the identity (see [Examples]). [fix_complexity]
-    ([TimeFix]) makes this extensionality provable without assuming
-    functional extensionality.
+  
+  (** [ComplexityBound f c] states that the complexity of the object (say, function) that `f` realises is bounded by `c`.
+  
+     It reads "[f] is computable within (time/space/...) [c]". 
+     This is unavoidable: [f] is a Rocq value, so the predicate cannot inspect its syntax: it is invariant under conversion, and, under functional extensionality (which we do not want to contradict), pointwise-equal functions are equal and have the same bounds.
 
     Forster & Künze's approach is extensional in the same way:
     [computableTime f T] states that some L term computes [f] within [T],
     and their lemma [computableTimeExt] transports it along extensional
     equality. *)
 
-  (** [ctype A]: the type of the complexities of the values of [A], with
-      their representation ([crepr]). [Repr A CA] is the representation of
-      the model, indexed by the type [CA] of the complexities, so that the
-      statements quantify over [CA] and the representations of functions
-      build it ([Repr_arr]). [CType] computes [CA] from [A] during
-      elaboration: a bound [ComplexityBound f c] has the type [ctype A],
-      determined by the type of [f] before [c] is elaborated, so that the
-      binders of [c] need no type annotation. A record, not a definitional
-      class, so that [ctype A] is stuck until the instance is found; [crepr]
-      is not an instance, which would loop with [repr_ctype]. *)
-  Class CType (A : Type) := { ctype : Type; crepr : Repr A ctype }.
-  Arguments ctype A {_}.
-  Arguments crepr A {_}.
-
-  Global Instance repr_ctype {A CA} {R : Repr A CA} : CType A := {| ctype := CA; crepr := R |}.
-
-  (** "Within [c]": [f] has a complexity below [c], for the representation
-      that gives the type of [c]. *)
   Class ComplexityBound {A} {I : CType A} (f : A) (c : ctype A) : Prop :=
     { bound_below : exists c0, @bound_order A (ctype A) (crepr A) c0 c /\
                                @has_complexity A (ctype A) (crepr A) f c0 }.

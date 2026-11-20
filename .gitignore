@@ -60,3 +60,6 @@ html/
 # Python bytecode, and the HTML table of make show-bounds-table (tools/bounds)
 __pycache__/
 bounds-comparison.html
+
+# Experiments, kept out of the repository
+experiments/
