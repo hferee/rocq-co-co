@@ -1,0 +1,2 @@
+Copy of https://github.com/coq-community/coqdocjs at commit 9b57a3a09283a8b9787262611b470be652e05c53 (files LICENSE, README.md, Makefile.doc, extra/).
+One change: the import of the Open Sans font from Google Fonts is removed from extra/resources/coqdoc.css (no external request; the font is used if installed, sans-serif otherwise).
