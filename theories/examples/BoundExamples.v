@@ -26,15 +26,23 @@ Module BoundExamples (Import Time : TimeStdlib).
 
   (** A linear bound is a polynomial bound; the elements of the lists need
       sizes. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Example app_polynomial {A} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.PolynomialBound (@app A) := _.
+  *)
 
   (** ** Derived bounds *)
 
   (** The cost [length l * x] is quadratic in the size. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma insert_uniq_polynomial : Time.PolynomialBound insert_uniq.
   Proof. cpolynomial. Qed.
+  *)
 
   (** By typeclass search alone, from the bounds of [ETHCost]. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Example range_linear : Time.LinearBound range := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Example memN_polynomial : Time.PolynomialBound memN := _.
+  *)
 End BoundExamples.

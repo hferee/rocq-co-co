@@ -105,7 +105,7 @@ Module FixRules
     { apply (fix_complexity ar (fun _ => f) F cF (fun _ => c_clo +> cf) Hpos).
       - intros []. exact Hfix.
       - exact HF.
-      - apply bound_order_arr. intros [[] []]. split; [apply Nat.le_refl | exact Hrec]. }
+      - apply bound_order_arr. intros [[] []] _. split; [apply Nat.le_refl | exact Hrec]. }
     exact (apply_complexity _ tt_complexity H).
   Qed.
 End FixRules.
@@ -270,7 +270,7 @@ Module FixTactics
     | n :: [] => Std.rename [(h, n)]
     | nk :: rest_rev =>
         let h' := Fresh.in_goal @ce in
-        ltac1:(h h' nk |- revert h; apply env_input_split; intros h' nk)
+        ltac1:(h h' nk |- revert h; refine (env_input_split _ _); intros h' nk)
           (Ltac1.of_ident h) (Ltac1.of_ident h') (Ltac1.of_ident nk);
         split_env_input h' (List.rev rest_rev)
     end.
@@ -313,7 +313,7 @@ Module FixTactics
                let ce := Fresh.in_goal @ce in
                ltac1:(ce |- apply bound_order_arr; intro ce) (Ltac1.of_ident ce);
                split_env_input ce names;
-               ltac1:(split)));
+               ltac1:(let w := fresh "Hwf" in intro w; split)));
           (* the bound of [h], from the one of [f] *)
           let n := Control.numgoals () in
           Control.focus n n (fun () =>

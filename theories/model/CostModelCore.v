@@ -106,11 +106,25 @@ Module Type CostModelAxioms.
   #[global] Declare Instance bound_order_po :
     forall {A CA} `{Repr A CA}, PreOrder (@bound_order A CA _).
 
-  (** The order on the complexities of functions is pointwise, and 
-  heriditarily compares costs. *)
+  (** ** Shapes
+
+      [wf x c]: the complexity [c] has the shape of the value [x]. A
+      complexity of a list has one complexity, of its shape, for each
+      element ([wf_list]); any complexity of a function has its shape. The
+      complexities of the realised values have their shape, at any budget
+      (in L, the instance): [wf] cannot be [has_complexity], since the
+      instance applies the realiser of the body of a recursive function to
+      the function itself, before it is known to have its complexity
+      ([fix_complexity]). *)
+  Parameter wf : forall {A CA} `{Repr A CA}, A -> CA -> Prop.
+
+  (** The order on the complexities of functions is pointwise, at the
+      inputs whose complexity has the shape of the value, and
+      hereditarily compares costs. *)
   Parameter bound_order_arr : forall {A CA B CB} `{Repr A CA} `{Repr B CB}
     (c c' : ℂI A CA -> ℂO CB),
-    (forall ca, cost (c ca) <= cost (c' ca) /\ bound_order (res (c ca)) (res (c' ca))) ->
+    (forall ca, wf (val ca) (pot ca) ->
+       cost (c ca) <= cost (c' ca) /\ bound_order (res (c ca)) (res (c' ca))) ->
     bound_order c c'.
 
   (** TODO: this might not belong here.

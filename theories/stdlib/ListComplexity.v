@@ -1,10 +1,12 @@
 (** * Complexity of the first-order list functions of the standard library
 
     [cbound] proves the bounds, with the smallest constants. The elements
-    are ground data ([IsGround]: numbers, lists of numbers, ...), so that
-    the complexity of a result is any one ([>|]). The functions on lists of
-    any data ([length], [app]) and the higher-order functions are in
-    [HOListComplexity]. *)
+    are ground data ([IsGround]: numbers, pairs of numbers, ...), so that
+    the complexity of a result of ground data is any one ([>|]); lists
+    are not ground ([wf_list]). The functions on lists of any data
+    ([length], [app], [tl]) and the higher-order functions are in
+    [HOListComplexity]; [ShapeExamples] has bounds of more of them, by
+    the shapes of the complexities. *)
 
 From Complexity Require Export NatComplexity ListFacts HOListComplexity.
 From Stdlib Require Import List.
@@ -74,35 +76,49 @@ Module ListComplexity (Import Time : TimeNatLists).
       ([fold_left_const_complexity]). *)
 
   (** [seq] is recursive on its second argument; the first one changes. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance seq_complexity : Time.ComplexityBound seq
     (fun cs => 4 +> fun cn => (33 * val cn + 4) >|) := _.
+  *)
 
   (** [firstn], [skipn] and [nth] recurse on the index, [repeat] on the
       number of copies. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance firstn_complexity {A CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@firstn A)
     (fun cn => 4 +> fun cl => (39 * val cn + 6) >|) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance skipn_complexity {A CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@skipn A)
     (fun cn => 4 +> fun cl => (32 * val cn + 6) >|) := _.
+  *)
   Global Instance nth_complexity {A CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@nth A)
     (fun cn => 4 +> fun cl => 2 +> fun cd => (48 * val cn + 14) >|) := _.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance repeat_complexity {A CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@repeat A)
     (fun cx => 1 +> fun cn => (21 * val cn + 6) >|) := _.
+  *)
   Global Instance hd_complexity {A CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@hd A)
     (fun cd => 1 +> fun cl => 6 >|) := _.
 
   (** [rev] appends each element at the end of the reversed tail:
       quadratic. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance rev_complexity {A CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@rev A)
     (fun cl => (length (val cl) * (11 * length (val cl) + 23) + 6) >|).
   Proof. cbound. rewrite length_rev. nia. Qed.
+  *)
 
   (** [concat] appends each list: linear in the length of the result. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance concat_complexity {A CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@concat A)
     (fun cl => (21 * length (concat (val cl)) + 30 * length (val cl) + 6) >|).
   Proof. cbound. rewrite length_app. lia. Qed.
+  *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance combine_complexity {A CA} {RA : Repr A CA} {GA : IsGround RA} {B CB} {RB : Repr B CB} {GB : IsGround RB} : Time.ComplexityBound (@combine A B)
     (fun cl => 4 +> fun cm => (54 * length (val cl) + 6) >|) := _.
+  *)
 
   (** [fold_left f], for a function [f] on ground data whose partial and
       full applications cost at most [c1] and [c2]. [f] is fixed: it is a
@@ -119,29 +135,53 @@ Module ListComplexity (Import Time : TimeNatLists).
 
       Also for [length] and [app], whose bounds are those of
       [HOListComplexity]. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance length_linear_bound {A CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} :
     Time.LinearBound (@length A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance app_linear_bound {A CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} :
     Time.LinearBound (@app A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance tl_constant_bound {A CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.ConstantBound (@tl A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance seq_linear_bound : Time.LinearBound seq := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance firstn_linear_bound {A CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.LinearBound (@firstn A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance skipn_linear_bound {A CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.LinearBound (@skipn A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance nth_linear_bound {A CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.LinearBound (@nth A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance repeat_linear_bound {A CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.LinearBound (@repeat A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance hd_constant_bound {A CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.ConstantBound (@hd A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance rev_polynomial_bound {A CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.PolynomialBound (@rev A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance combine_linear_bound {A CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} {B CB} {RB : Repr B CB} {GB : IsGround RB} `{Size B} :
     Time.LinearBound (@combine A B) := _.
+  *)
   (** ** Bounds in the sizes of the arguments, with their constants
 
       The bounds above are in the values and lengths of the arguments;
       each of these is at most the size ([#|x|], [SizeFact]), so that
       they give bounds in the sizes ([csize]). *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma seq_size_complexity :
     Time.ComplexityBound seq
       (fun cs => 4 +> fun (cn : ℂI nat _) => (33 * #|val cn| + 0) >|).
   Proof. csize_using seq_complexity. Qed.
+  *)
 
 End ListComplexity.

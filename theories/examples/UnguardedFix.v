@@ -35,8 +35,8 @@ Module UnguardedFix (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
                (fun ce => c_ehd +> snd (pot ce)) (fun _ => c_clo +> cf)).
       - intros e a. exact eq_refl.
       - exact ehd_complexity.
-      - apply bound_order_arr. intro ce. split; [apply Nat.le_refl |].
-        apply bound_order_arr. intro ca. cbn. rewrite Hc, Hs. split; [lia | reflexivity]. }
+      - apply bound_order_arr. intros ce _. split; [apply Nat.le_refl |].
+        apply bound_order_arr. intros ca _. cbn. rewrite Hc, Hs. split; [lia | reflexivity]. }
     exact (apply_complexity _ tt_complexity H).
   Qed.
 End UnguardedFix.

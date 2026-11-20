@@ -97,6 +97,10 @@ Module Type CombinatorTimeCostAxioms
   #[global] Declare Instance Repr_env :
     forall {E CE A CA}, Repr E CE -> Repr A CA -> Repr (env E A) (CE * CA).
 
+  (** The shape of an environment: the shapes of its values. *)
+  Parameter wf_env : forall {E CE A CA} `{Repr E CE} `{Repr A CA} (e : env E A) (c : CE * CA),
+    wf e c <-> wf (etl e) (fst c) /\ wf (ehd e) (snd c).
+
   #[global] Declare Instance ehd_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@ehd E A) (fun ce => c_ehd +> snd (pot ce)).
 

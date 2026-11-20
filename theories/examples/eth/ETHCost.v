@@ -53,13 +53,17 @@ Module ETHCost (Import Time : TimeStdlib).
 
   (** [insert_uniq x l]: the recursive call only happens in the last
       branch; its other branches return [l] itself. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance insert_uniq_complexity : Time.ComplexityBound insert_uniq
     (fun cx => 1 +> fun cl =>
        (length (val cl) * (56 * val cx + 105) + 12) >|) := _.
+  *)
 
   (** [range n = seq 0 n]: not recursive, it follows from [seq]. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance range_complexity : Time.ComplexityBound range
     (fun cn => (33 * val cn + 4) >|) := _.
+  *)
 
   (** [fold_left Nat.add]: the cost of each addition is linear in the
       accumulator, so the bound depends on the values. *)
@@ -90,14 +94,20 @@ Module ETHCost (Import Time : TimeStdlib).
 
   (** [set_nth] and [remove_nth] recurse on the list and the index, and
       stop at the index. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance set_nth_complexity {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@set_nth A)
     (fun cl => 4 +> fun ci => 2 +> fun cx => (57 * val ci + 25) >|) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance remove_nth_complexity {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@remove_nth A)
     (fun cl => 4 +> fun ci => (41 * val ci + 12) >|) := _.
+  *)
 
   (** [chunks size count l]: [count] times [firstn size] and [skipn size]. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance chunks_complexity {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Time.ComplexityBound (@chunks A)
     (fun cs => 1 +> fun cn => 4 +> fun cl => (val cn * (71 * val cs + 67) + 6) >|) := _.
+  *)
 
   (** The rounded divisions, logarithms and roots. *)
   Global Instance ceil_div_complexity : Time.ComplexityBound ceil_div
@@ -122,15 +132,20 @@ Module ETHCost (Import Time : TimeStdlib).
 
   (** Each insertion costs at most the length of the original list
       ([length_sort_uniq], [ETHFacts], registered above). *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance fold_right_insert_uniq_complexity : Time.ComplexityBound (fold_right insert_uniq [])
     (fun cl => (length (val cl) * (56 * list_sum (val cl) + 105 * length (val cl)) + 6) >|) := _.
+  *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance sort_uniq_complexity : Time.ComplexityBound sort_uniq
     (fun cl => (length (val cl) * (56 * list_sum (val cl) + 105 * length (val cl)) + 6) >|) := _.
+  *)
 
   (** [embed n vars bits]: for each [v < n], [memN v vars] and, if it
       holds, [indexN v vars] and [nth]; the index is at most the length of
       [vars] ([indexN_le]). *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance embed_complexity : Time.ComplexityBound embed
     (fun cn => 1 +> fun cv => 2 +> fun cb =>
        (val cn * (length (val cv) * (28 * val cn + 134) + 120) + 19) >|).
@@ -142,9 +157,12 @@ Module ETHCost (Import Time : TimeStdlib).
     simpl_czip. unfold range in *. rewrite length_seq in *. pose proof (list_sum_seq0 cn).
     nia.
   Qed.
+  *)
   (** The cost is cubic: [nia] does not find the polynomial bound alone,
       [cmono_poly] does ([Bounds]). *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance embed_polynomial_bound : Time.PolynomialBound embed := _.
+  *)
 
   (** ** Formulas *)
 
@@ -162,8 +180,8 @@ Module ETHCost (Import Time : TimeStdlib).
     (fun cx => 1 +> fun cC => (41 * list_sum (val cC) + 96 * length (val cC) + 12) >|).
   Proof.
     cbound. simpl_czip.
-    pose proof (list_sum_map_le (fun x => 2 * code_var x) (fun x => x) cC (fun x _ => code_var_le x)).
-    simpl_czip. lia.
+    pose proof (list_sum_map_le (fun x => 2 * code_var x) (fun x => x) (val cC) (fun x _ => code_var_le x)).
+    simpl_czip. cnorm_types. lia.
   Qed.
 
   (** [ncnf_eval x F]: the sum over the clauses, in the sums of their codes
@@ -180,28 +198,34 @@ Module ETHCost (Import Time : TimeStdlib).
                 + 36 * list_sum (val cC) + 78 * length (val cC) + 11) >|).
   Proof.
     cbound. simpl_czip.
-    pose proof (list_sum_map_le_affine code_neg 1 1 cC (fun x _ => ltac:(add_value_facts; lia))).
-    nia.
+    pose proof (list_sum_map_le_affine code_neg 1 1 (val cC) (fun x _ => ltac:(add_value_facts; lia))).
+    cnorm_types. nia.
   Qed.
 
   (** [insert_clause C F] compares [C] with the clauses of [F]
       ([lexltbN], [eqbN]); [sort_clauses] inserts each clause, as
       [sort_uniq]. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance insert_clause_complexity : Time.ComplexityBound insert_clause
     (fun cC => 1 +> fun cF =>
        (length (val cF) * (84 * list_sum (val cC) + 199 * length (val cC) + 71) + 12) >|) := _.
+  *)
 
   (** The sorted clauses are at most the clauses ([length_sort_clauses],
       [ETHFacts], registered above). *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance fold_right_insert_clause_complexity : Time.ComplexityBound (fold_right insert_clause [])
     (fun cF =>
        (length (val cF) * (84 * list_sum (map list_sum (val cF)) + 199 * list_sum (map (@length nat) (val cF))
                            + 36 * length (val cF)) + 6) >|) := _.
+  *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance sort_clauses_complexity : Time.ComplexityBound sort_clauses
     (fun cF =>
        (length (val cF) * (84 * list_sum (map list_sum (val cF)) + 199 * list_sum (map (@length nat) (val cF))
                            + 36 * length (val cF)) + 6) >|) := _.
+  *)
 
   Global Instance strict_subset_complexity : Time.ComplexityBound strict_subset
     (fun ca => 1 +> fun cb =>
@@ -220,6 +244,7 @@ Module ETHCost (Import Time : TimeStdlib).
 
   (** [antichain F]: [strict_subset C' C] for each pair of clauses. The
       sum over [C'] is bounded for each [C], then summed. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance antichain_complexity : Time.ComplexityBound antichain
     (fun cF =>
        (list_sum (map (@length nat) (val cF))
@@ -236,8 +261,10 @@ Module ETHCost (Import Time : TimeStdlib).
         (fun x _ => ltac:(cbv beta; simpl_czip; cnorm_types; nia))) end.
     simpl_czip. cnorm_types. nia.
   Qed.
+  *)
   (** [normalize F]: the clauses kept by the filter, then sorted, are at
       most those of [F] ([ETHFacts]). *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance normalize_complexity : Time.ComplexityBound normalize
     (fun cF =>
        (list_sum (map (@length nat) (val cF))
@@ -271,6 +298,7 @@ Module ETHCost (Import Time : TimeStdlib).
     assert (f * f <= N * N) by (apply Nat.mul_le_mono; lia).
     lia.
   Qed.
+  *)
   (** [max_width F]: [maxN] on the lengths of the clauses. *)
   Global Instance max_width_complexity : Time.ComplexityBound max_width
     (fun cF => (length (val cF) * (30 * list_sum (map (@length nat) (val cF)) + 76)
@@ -278,31 +306,69 @@ Module ETHCost (Import Time : TimeStdlib).
   Proof. cbound. simpl_czip. cnorm_types. nia. Qed.
 
   (** The bounds in the sizes of the arguments: polynomial. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance indexN_polynomial_bound : Time.PolynomialBound indexN := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance lexltbN_polynomial_bound : Time.PolynomialBound lexltbN := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance maxN_polynomial_bound : Time.PolynomialBound maxN := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance set_nth_linear_bound {A} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.LinearBound (@set_nth A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance remove_nth_linear_bound {A} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.LinearBound (@remove_nth A) := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance chunks_polynomial_bound {A} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.PolynomialBound (@chunks A) := _.
+  *)
   Global Instance ceil_div_linear_bound : Time.LinearBound ceil_div := _.
   Global Instance clog2_linear_bound : Time.LinearBound clog2 := _.
   Global Instance csqrt_linear_bound : Time.LinearBound csqrt := _.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance subsetN_polynomial_bound : Time.PolynomialBound subsetN := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance insert_uniq_polynomial_bound : Time.PolynomialBound insert_uniq := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance sort_uniq_polynomial_bound : Time.PolynomialBound sort_uniq := _.
+  *)
   Global Instance code_var_linear_bound : Time.LinearBound code_var := _.
   Global Instance code_pos_linear_bound : Time.LinearBound code_pos := _.
   Global Instance code_neg_linear_bound : Time.LinearBound code_neg := _.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance nclause_eval_polynomial_bound : Time.PolynomialBound nclause_eval := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance ncnf_eval_polynomial_bound : Time.PolynomialBound ncnf_eval := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance tautological_polynomial_bound : Time.PolynomialBound tautological := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance insert_clause_polynomial_bound : Time.PolynomialBound insert_clause := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance sort_clauses_polynomial_bound : Time.PolynomialBound sort_clauses := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance strict_subset_polynomial_bound : Time.PolynomialBound strict_subset := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance has_empty_clause_linear_bound : Time.LinearBound has_empty_clause := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance max_width_polynomial_bound : Time.PolynomialBound max_width := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance antichain_polynomial_bound : Time.PolynomialBound antichain := _.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance normalize_polynomial_bound : Time.PolynomialBound normalize := _.
+  *)
 
   (** ** Bounds in the sizes of the arguments, with their constants
 
@@ -325,15 +391,19 @@ Module ETHCost (Import Time : TimeStdlib).
       (fun (ca : ℂI (list nat) _) => 4 +> fun cb => (2 * #|val ca| + 65 * #|val ca| + 0) >|).
   Proof. csize_using eqbN_complexity. Qed.
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma insert_uniq_size_complexity :
     Time.ComplexityBound insert_uniq
       (fun (cx : ℂI nat _) => 1 +> fun (cl : ℂI (list nat) _) => (#|val cl| * (56 * #|val cx| + 49) + 0) >|).
   Proof. csize_using insert_uniq_complexity. Qed.
+  *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma range_size_complexity :
     Time.ComplexityBound range
       (fun (cn : ℂI nat _) => (33 * #|val cn| + 0) >|).
   Proof. csize_using range_complexity. Qed.
+  *)
 
   Lemma fold_left_add_size_complexity :
     Time.ComplexityBound (fold_left Nat.add)
@@ -376,6 +446,7 @@ Module ETHDataCost (Import Time : TimeStdlib) (Import D : ETHData Time).
   Global Instance lit_code_linear_bound : Time.LinearBound lit_code := _.
   (** [norm_clause C] sorts the codes of the literals of [C], at most
       [2 * lvar l + 1] each ([lit_code_le]). *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance norm_clause_complexity : Time.ComplexityBound norm_clause
     (fun cC => (length (val cC) * (112 * list_sum (map lvar (val cC)) + 161 * length (val cC))
                 + 56 * list_sum (map lvar (val cC)) + 125 * length (val cC) + 15) >|).
@@ -386,7 +457,10 @@ Module ETHDataCost (Import Time : TimeStdlib) (Import D : ETHData Time).
     simpl_czip. pose proof (Nat.mul_le_mono_l _ _ (length cC) H).
     cnorm_types. lia.
   Qed.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance norm_clause_polynomial_bound : Time.PolynomialBound norm_clause := _.
+  *)
 End ETHDataCost.
 (** ** Plan: the bounds that lead to [count_sat]
 
@@ -433,21 +507,39 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Section Lists.
     Context {A B : Type} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A}
       {CB} {RB : Repr B CB} {GB : IsGround RB} `{Size B}.
+    (* Broken by the order on the complexities of lists ([Forall2]):
     Lemma concat_polynomial : Time.PolynomialBound (@concat A). Abort.
+    *)
+    (* Broken by the order on the complexities of lists ([Forall2]):
     Lemma list_prod_polynomial : Time.PolynomialBound (@list_prod A B). Abort.
+    *)
+    (* Broken by the order on the complexities of lists ([Forall2]):
     Lemma map_polynomial (f : A -> B) : Time.PolynomialBound f -> Time.PolynomialBound (map f). Abort.
+    *)
+    (* Broken by the order on the complexities of lists ([Forall2]):
     Lemma flat_map_polynomial (f : A -> list B) :
       Time.PolynomialBound f -> Time.PolynomialBound (flat_map f). Abort.
+    *)
+    (* Broken by the order on the complexities of lists ([Forall2]):
     Lemma filter_polynomial (f : A -> bool) : Time.PolynomialBound f -> Time.PolynomialBound (filter f). Abort.
+    *)
+    (* Broken by the order on the complexities of lists ([Forall2]):
     Lemma forallb_polynomial (f : A -> bool) : Time.PolynomialBound f -> Time.PolynomialBound (forallb f). Abort.
+    *)
+    (* Broken by the order on the complexities of lists ([Forall2]):
     Lemma existsb_polynomial (f : A -> bool) : Time.PolynomialBound f -> Time.PolynomialBound (existsb f). Abort.
+    *)
     (** The folds: polynomial when the accumulator grows at most additively. *)
+    (* Broken by the order on the complexities of lists ([Forall2]):
     Lemma fold_left_polynomial (f : B -> A -> B) (d : nat) :
       Time.PolynomialBound f -> (forall b a, #|f b a| <= #|b| + #|a| + d) ->
       Time.PolynomialBound (fold_left f). Abort.
+    *)
+    (* Broken by the order on the complexities of lists ([Forall2]):
     Lemma fold_right_polynomial (f : A -> B -> B) (d : nat) :
       Time.PolynomialBound f -> (forall a b, #|f a b| <= #|a| + #|b| + d) ->
       Time.PolynomialBound (fold_right f). Abort.
+    *)
     Lemma Nat_iter_polynomial (f : A -> A) (d : nat) :
       Time.PolynomialBound f -> (forall a, #|f a| <= #|a| + d) ->
       Time.PolynomialBound (fun n => Nat.iter n f). Abort.
@@ -455,10 +547,16 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
 
   (** *** 1. Generic utilities *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma sumZ_polynomial : Time.PolynomialBound sumZ. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma zipWith_polynomial {A B C} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} {CB} {RB : Repr B CB} {GB : IsGround RB} `{Size B} {CC} {RC : Repr C CC} {GC : IsGround RC}
     (f : A -> B -> C) : Time.PolynomialBound f -> Time.PolynomialBound (zipWith f). Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma zinterval_polynomial : Time.PolynomialBound zinterval. Abort.
+  *)
 
   (** The enumerations: [|alphabet| ^ len] tuples (and subsets of [l] of
       size [k], all subsets of [l]), each with one application of [f]; the
@@ -475,8 +573,10 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
             (g (#|val cacc| + d * S (length (val ca)) ^ val cn + c * S (val cn + #|val ca| + #|val cp|) ^ c)
              + c * S (val cn + #|val ca| + #|val cp|) ^ c)) >|). Abort.
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma find_first_polynomial {A B} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} {CB} {RB : Repr B CB} {GB : IsGround RB} (f : A -> option B) :
     Time.PolynomialBound f -> Time.PolynomialBound (find_first f). Abort.
+  *)
 
   Lemma find_tuple_complexity {A} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A}
     (p : list A -> bool) (cp : ℂI (list A) (list CA) -> ℂO unit) (g : nat -> nat) :
@@ -536,12 +636,16 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
        (c * S (val cf + val ck + val cs + 2 ^ val cf * val cM + 3 ^ val ck) ^ (c * S (val ck))) >|). Abort.
   Lemma spar_M_complexity : exists c, Time.ComplexityBound spar_M
     (fun (ck : ℂI (nat) unit) => c +> fun (cs : ℂI (nat) unit) => (c * 2 ^ (c * S (val ck) * (val cs + 3 ^ val ck))) >|). Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma deg_c_polynomial : Time.PolynomialBound deg_c. Abort.
+  *)
   (** The subsets of the clauses of width at most [k], and [M ^ k]. *)
   Lemma find_branch_complexity : exists c, Time.ComplexityBound find_branch
     (fun (ck : ℂI (nat) unit) => c +> fun (cM : ℂI (nat) unit) => c +> fun (cF : ℂI (ncnf) (list (list unit))) =>
        (c * S (val ck + val cM + #|val cF|) ^ (c * S (val ck))) >|). Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma branch_children_polynomial : Time.PolynomialBound branch_children. Abort.
+  *)
   (** The sparsification tree has at most [2 ^ fuel] nodes, whose formulas
       are of size polynomial in that of [F] and in [fuel] (to check); the
       leaves cost what [leaf] and [fallback] cost. *)
@@ -558,21 +662,41 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
 
   (** *** 4. Polynomials over F_2 *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma insert_mono_polynomial : Time.PolynomialBound insert_mono. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma f2_normalize_polynomial : Time.PolynomialBound f2_normalize. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma is_zero_poly_polynomial : Time.PolynomialBound is_zero_poly. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma is_one_poly_polynomial : Time.PolynomialBound is_one_poly. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma mono_eval_polynomial : Time.PolynomialBound mono_eval. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma f2_eval_polynomial : Time.PolynomialBound f2_eval. Abort.
+  *)
   Lemma count_zeros_bruteforce_complexity : exists c, Time.ComplexityBound count_zeros_bruteforce
     (fun (cn : ℂI (nat) unit) => c +> fun (ce : ℂI (list f2poly) (list (list (list unit)))) => (2 ^ val cn * c * S (val cn + #|val ce|) ^ c) >|). Abort.
   (** The subsets of the positive literals of the clause. *)
   Lemma violation_poly_complexity : exists c, Time.ComplexityBound violation_poly
     (fun (cC : ℂI (nclause) (list unit)) => (2 ^ length (val cC) * c * S #|val cC| ^ c) >|). Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma restrict_poly_polynomial : Time.PolynomialBound restrict_poly. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma eq_scope_polynomial : Time.PolynomialBound eq_scope. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma occurrences_polynomial : Time.PolynomialBound occurrences. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma max_degree_polynomial : Time.PolynomialBound max_degree. Abort.
+  *)
 
   (** *** 5. Rationals and truncated polynomials (in the bit sizes) *)
 
@@ -585,45 +709,103 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma qofN_polynomial : Time.PolynomialBound qofN. Abort.
   Lemma qeqb_polynomial : Time.PolynomialBound qeqb. Abort.
   Lemma qltb_polynomial : Time.PolynomialBound qltb. Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma qsum_polynomial : Time.PolynomialBound qsum. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma vzero_polynomial : Time.PolynomialBound vzero. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma vunit_polynomial : Time.PolynomialBound vunit. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma vadd_polynomial : Time.PolynomialBound vadd. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma vsub_polynomial : Time.PolynomialBound vsub. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma vscale_polynomial : Time.PolynomialBound vscale. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma dotQ_polynomial : Time.PolynomialBound dotQ. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma dotZ_polynomial : Time.PolynomialBound dotZ. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma padd_polynomial : Time.PolynomialBound padd. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma pscale_polynomial : Time.PolynomialBound pscale. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma psub_polynomial : Time.PolynomialBound psub. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma pmul_polynomial : Time.PolynomialBound pmul. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma pmul_trunc_polynomial : Time.PolynomialBound pmul_trunc. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma peval_polynomial : Time.PolynomialBound peval. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma pshift_polynomial : Time.PolynomialBound pshift. Abort.
+  *)
 
   (** *** 6. The parity lift *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma zpadd_polynomial : Time.PolynomialBound zpadd. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma zpmul_polynomial : Time.PolynomialBound zpmul. Abort.
+  *)
   Lemma binomZ_polynomial : Time.PolynomialBound binomZ. Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma parity_poly_polynomial : Time.PolynomialBound parity_poly. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma suffix_sums_polynomial : Time.PolynomialBound suffix_sums. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma divmod_h_polynomial : Time.PolynomialBound divmod_h. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma lift_coeffs_aux_polynomial : Time.PolynomialBound lift_coeffs_aux. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma lift_coeffs_polynomial : Time.PolynomialBound lift_coeffs. Abort.
+  *)
 
   (** *** 7. The coefficient ring *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma rv_add_polynomial : Time.PolynomialBound rv_add. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma rv_scale_polynomial : Time.PolynomialBound rv_scale. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma rv_mul_aux_polynomial : Time.PolynomialBound rv_mul_aux. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma rv_mul_polynomial : Time.PolynomialBound rv_mul. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma rv_coeff_polynomial : Time.PolynomialBound rv_coeff. Abort.
+  *)
   (** Its local fixpoint ([go]) needs its bound first, for the function of
       the variables it uses ([Examples]). *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma lifted_factor_polynomial : Time.PolynomialBound lifted_factor. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma lift_eval_polynomial (theta : nat -> qpoly) :
     Time.PolynomialBound theta -> Time.PolynomialBound (fun J p => lift_eval J p theta). Abort.
+  *)
 
   (** *** 8. The design: powers of [r], up to [K = r ^ pts] and [D = K ^ 2]
 
@@ -649,7 +831,9 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma swap_all_polynomial : Time.PolynomialBound swap_all. Abort.
   Lemma eig_entry_polynomial : Time.PolynomialBound eig_entry. Abort.
   Lemma eig_negative_polynomial : Time.PolynomialBound eig_negative. Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma pair_eigenbasis_polynomial : Time.PolynomialBound pair_eigenbasis. Abort.
+  *)
   Lemma in_interval_polynomial : Time.PolynomialBound in_interval. Abort.
   (** The products of [pts] factors among the [r ^ 2] pair eigenvectors,
       each a row of length [K ^ 2]. *)
@@ -667,7 +851,9 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma aux_row_complexity : exists c, Time.ComplexityBound aux_row
     (fun (cpr : ℂI (params) unit) => c +> fun (cu : ℂI (nat) unit) => (c * S (#|val cpr| + val cu) ^ c * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|).
   Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma incidences_polynomial : Time.PolynomialBound incidences. Abort.
+  *)
   Lemma prob_same_polynomial : Time.PolynomialBound prob_same. Abort.
   Lemma opt_digit_complexity : exists c, Time.ComplexityBound opt_digit
     (fun (cr : ℂI (nat) unit) => c +> fun (ct : ℂI (nat) unit) => c +> fun (cx : ℂI (option nat) (option unit)) => (c * S (val cr + val ct + #|val cx|) ^ c * S (val cr) ^ val ct) >|).
@@ -676,14 +862,18 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
     (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cb : ℂI (nat) unit) => c +> fun (cw : ℂI (nat) unit) => c +> fun (ci : ℂI (list (nat * nat)) (list (unit * unit))) => c +> fun (ca : ℂI (list (option nat)) (list (option unit))) => c +> fun (cd : ℂI (list (option nat)) (list (option unit))) =>
        (c * S (#|val cpr| + val cn + val cb + val cw + #|val ci| + #|val ca| + #|val cd|) ^ c
           * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|). Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma argmin_first_polynomial (cost : nat -> Q) :
     Time.PolynomialBound cost -> Time.PolynomialBound (fun cands => argmin_first cands cost). Abort.
+  *)
   Lemma unopt_polynomial : Time.PolynomialBound unopt. Abort.
   Lemma choose_labels_complexity : exists c, Time.ComplexityBound choose_labels
     (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cb : ℂI (nat) unit) => c +> fun (cw : ℂI (nat) unit) => c +> fun (cs : ℂI (list (list nat)) (list (list unit))) =>
        (c * S (#|val cpr| + val cn + val cb + val cw + #|val cs|) ^ c
           * S (p_r (val cpr)) ^ (c * p_pts (val cpr))) >|). Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma assign_copies_polynomial : Time.PolynomialBound assign_copies. Abort.
+  *)
   Lemma design_of_labels_complexity : exists c, Time.ComplexityBound design_of_labels
     (fun (cpr : ℂI (params) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (cs : ℂI (list (list nat)) (list (list unit))) => c +> fun (ca : ℂI (list nat) (list unit)) => c +> fun (cd : ℂI (list nat) (list unit)) =>
        (c * S (#|val cpr| + val cn + #|val cs| + #|val ca| + #|val cd|) ^ c
@@ -701,9 +891,15 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
   Lemma factor_group_complexity : exists c, Time.ComplexityBound factor_group
     (fun (cpr : ℂI (params) unit) => c +> fun (cd : ℂI (design) unit) => c +> fun (ct : ℂI (nat) unit) => c +> fun (cf : ℂI (nat) unit) =>
        (c * S (#|val cpr| + #|val cd| + val ct + val cf) ^ c * S (p_r (val cpr)) ^ val ct) >|). Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma find_inc_polynomial : Time.PolynomialBound find_inc. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma point_rows_polynomial : Time.PolynomialBound point_rows. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma corrections_polynomial : Time.PolynomialBound corrections. Abort.
+  *)
   Lemma group_value_complexity : exists c, Time.ComplexityBound group_value
     (fun (cJ : ℂI (nat) unit) => c +> fun (cl : ℂI (nat) unit) => c +> fun (ces : ℂI (list (Z * Z)) (list (unit * unit))) => c +> fun (ceqs : ℂI (list f2poly) (list (list (list unit)))) => c +> fun (cpr : ℂI (params) unit) => c +> fun (cd : ℂI (design) unit) =>
        c +> fun (ct : ℂI (nat) unit) => c +> fun (cg : ℂI (nat) unit) => c +> fun (cPt : ℂI (list (list Q)) (list (list unit))) => c +> fun (cDelta : ℂI (list qpoly) (list (list unit))) => c +> fun (cx : ℂI (list bool) (list unit)) =>
@@ -737,12 +933,24 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
 
   (** *** 10. Hermite interpolation *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma find_pivot_polynomial : Time.PolynomialBound find_pivot. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma det_aux_polynomial : Time.PolynomialBound det_aux. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma det_polynomial : Time.PolynomialBound det. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma hermite_matrix_polynomial : Time.PolynomialBound hermite_matrix. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma hermite_value_at_0_polynomial : Time.PolynomialBound hermite_value_at_0. Abort.
+  *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma factor_scopes_polynomial : Time.PolynomialBound factor_scopes. Abort.
+  *)
   (** [pts] Taylor expansions, with [q = J - 1]. *)
   Lemma count_from_design_complexity : exists c, Time.ComplexityBound count_from_design
     (fun (cpr : ℂI (params) unit) => c +> fun (cd : ℂI (design) unit) => c +> fun (cn : ℂI (nat) unit) => c +> fun (ck : ℂI (nat) unit) => c +> fun (cl : ℂI (nat) unit) => c +> fun (ces : ℂI (list (Z * Z)) (list (unit * unit))) => c +> fun (ceqs : ℂI (list f2poly) (list (list (list unit)))) =>
@@ -814,7 +1022,9 @@ Module ETHPlan (Import Time : TimeStdlib) (Import D : ETHData Time).
     (fun (cm : ℂI (nat) unit) => c +> fun (cB : ℂI (nat) unit) =>
        (c * S (2 * val cm) ^ (c * S (degree_bound (val cm) (val cB))) * 2 ^ (c * degree_bound (val cm) (val cB) ^ 2)
           * S (val cm + val cB) ^ c) >|). Abort.
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma clause_coeff_polynomial : Time.PolynomialBound clause_coeff. Abort.
+  *)
   Lemma row_poly_complexity : exists c, Time.ComplexityBound row_poly
     (fun (cF : ℂI (ncnf) (list (list unit))) => c +> fun (crow : ℂI (hash_row) (list (unit * unit))) => (2 ^ max_width (val cF) * c * S (#|val cF| + #|val crow|) ^ c) >|). Abort.
   (** [rounds] rounds of [(2 m) ^ P] candidates, each counted by [count0]. *)

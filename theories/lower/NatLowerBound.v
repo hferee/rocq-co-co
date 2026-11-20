@@ -171,7 +171,7 @@ Lemma L_succ_not_free : forall c : ℂI nat unit -> ℂO unit,
   L.ComplexityBound S c -> forall cn, 1 <= cost (c cn).
 Proof.
   intros c [(c0 & Hbo & s & Hs)] cn.
-  destruct (Hbo cn) as [Hle _].
+  destruct (Hbo cn Logic.I) as [Hle _].
   enough (1 <= cost (c0 cn)) by lia.
   destruct (cost (c0 cn)) eqn:E; [exfalso | lia].
   assert (E' : cost (c0 (val cn ⋊ pot cn)) = 0) by exact E.
@@ -315,7 +315,7 @@ Proof.
   intros [(c0 & Hbo & s & Hs)].
   set (D := Nat.max (vdepth s) 2).
   exists (1 + tdepth s + D * LInstance.K). intro cn.
-  destruct (Hbo cn) as [Hle _].
+  destruct (Hbo cn Logic.I) as [Hle _].
   set (C := cost (c0 cn)) in *.
   assert (E : cost (c0 (val cn ⋊ pot cn)) = C) by reflexivity.
   destruct (Hs C) as [Hp H].

@@ -283,7 +283,7 @@ Module ZComplexity (Import Time : TimePos).
     intros Hfg Hg.
     eapply (fix_closed_complexity ar f (fun _ => g) (fun _ => 1 +> cg));
       [cfix_pos | exact Hfg | apply constant_complexity, Hg |].
-    apply bound_order_arr. intro ca. cbn. split; [autounfold with costs; lia | reflexivity].
+    apply bound_order_arr. intros ca _. cbn. split; [autounfold with costs; lia | reflexivity].
   Qed.
 
   Global Instance Z_to_pos_complexity : Time.ComplexityBound Z.to_pos (fun cz => 10 >|).

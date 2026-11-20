@@ -28,7 +28,7 @@ End NatArithTimeCostModel.
 Module Type ParamArithTimeCostModel := CostModel.CostModel <+ BasicTimeCostModel
   <+ CombinatorTimeCostModel <+ BoolTimeCostModel
   <+ NatData <+ NatCtorTimeCostModel <+ NatArithTimeCostModel
-  <+ ListTimeCostModel <+ ListGround <+ FixTimeCostModel.
+  <+ ListTimeCostModel <+ ListShapes <+ FixTimeCostModel.
 
 (** Only the arithmetic operations are charged: an addition [c_add], a
     multiplication [c_mul], an unfolding [c_fix]; everything else is free.

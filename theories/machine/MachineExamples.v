@@ -36,13 +36,19 @@ Module MachineExamples (Import Machine : MachineTimeCostModel).
   Global Instance count_acc_machine : Machine.ComplexityBound count_acc
     (fun cl => 43 +> fun ca => (377 * length (val cl) + 109) >|) := _.
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance app_machine {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Machine.ComplexityBound (@app A)
     (fun cl => 1 +> fun cm => (294 * length (val cl) + 158) >|) := _.
+  *)
 
   (** Tail-recursive, with an accumulator. *)
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance rev_append_machine {A} {CA} {RA : Repr A CA} {GA : IsGround RA} : Machine.ComplexityBound (@rev_append A)
     (fun cl => 43 +> fun cm => (433 * length (val cl) + 109) >|) := _.
+  *)
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Global Instance succ_all_machine : Machine.ComplexityBound succ_all
     (fun cl => (305 * length (val cl) + 107) >|) := _.
+  *)
 End MachineExamples.

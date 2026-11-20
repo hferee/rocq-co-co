@@ -430,7 +430,7 @@ Module Bounds (Import CM : GroundCostModel).
   Proof.
     intro Hg. revert s. induction fo as [B CB RB GB | A CA B CB RA GA SA fo IH]; intro s; cbn.
     - apply ground_order.
-    - apply bound_order_arr. intro ca. cbn. split; [apply Hg | apply IH].
+    - apply bound_order_arr. intros ca _. cbn. split; [apply Hg | apply IH].
   Qed.
 
   Lemma FirstOrderBound_mono {A CA} `{FirstOrder A CA} (f : A) (g g' : list nat -> nat) :
@@ -475,6 +475,7 @@ Module Bounds (Import CM : GroundCostModel).
         | fun x => _ => let y := fresh x in intro y
         | _ => intro
         end;
+        let w := fresh "Hwf" in intro w;
         split
     | |- @bound_order _ _ _ _ _ => solve [apply ground_order]
     end.

@@ -30,10 +30,11 @@ Module Type TimeCostModelBase := ParamTimeCostModelBase
   with Definition c_fix := 1.
 
 (** With lists, options and pairs of any data, functions included; ground
-    data (numbers, lists of numbers, ...) are those whose complexities
-    carry no information ([IsGround]). *)
+    data (numbers, pairs of numbers, ...) are those whose complexities
+    carry no information ([IsGround]). Lists are not ground: their
+    complexities have their lengths ([wf_list]). *)
 Module Type ParamTimeCostModel := ParamTimeCostModelBase
-  <+ ListTimeCostModel <+ ListGround <+ OptionTimeCostModel <+ OptionGround
+  <+ ListTimeCostModel <+ ListShapes <+ OptionTimeCostModel <+ OptionGround
   <+ ProdTimeCostModel <+ ProdGround.
 
 (** Every constant is [1]: each application is a β-step of L

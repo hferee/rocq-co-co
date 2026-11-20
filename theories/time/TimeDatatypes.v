@@ -247,6 +247,10 @@ Module Type ProdData (Import CM : CostModel).
 
   Parameter bound_order_prod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA * CB),
     bound_order (fst c) (fst c') -> bound_order (snd c) (snd c') -> bound_order c c'.
+
+  (** The shape of a pair: the shapes of its elements. *)
+  Parameter wf_prod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (p : A * B) (c : CA * CB),
+    wf p c <-> wf (fst p) (fst c) /\ wf (snd p) (snd c).
 End ProdData.
 
 (** Pairs of ground data are ground. *)

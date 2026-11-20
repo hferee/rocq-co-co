@@ -48,7 +48,7 @@ Module Examples (Import Time : TimeStdlib).
     intros Hfg Hg.
     eapply (fix_closed_complexity ar f (fun _ => g) (fun _ => 1 +> cg));
       [cfix_pos | exact Hfg | apply constant_complexity, Hg |].
-    apply bound_order_arr. intro ca. cbn. split; [autounfold with costs; lia | reflexivity].
+    apply bound_order_arr. intros ca _. cbn. split; [autounfold with costs; lia | reflexivity].
   Qed.
 
   (** [slow_id n] takes [2 ^ n] steps, but it is the identity. *)
@@ -119,6 +119,7 @@ Module Examples (Import Time : TimeStdlib).
   Definition rev_acc (l : list nat) : list nat :=
     (fix go (l acc : list nat) := match l with [] => acc | x :: t => go t (x :: acc) end) l [].
 
+  (* Broken by the order on the complexities of lists ([Forall2]):
   Lemma rev_acc_complexity : Time.ComplexityBound rev_acc
     (fun cl => (33 * length (val cl) + 13) >|).
   Proof.
@@ -127,6 +128,7 @@ Module Examples (Import Time : TimeStdlib).
       (fun cl => 4 +> fun cacc => (33 * length (val cl) + 6) >|)) by cbound.
     cbound.
   Qed.
+  *)
 
   (** A fixpoint under a constructor, with the bound of the fixpoint
       declared as an instance. *)

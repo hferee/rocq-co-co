@@ -154,13 +154,11 @@ Module HOListComplexity (Import Time : TimeBool).
   Proof. cbound. Qed.
 
   (** The tail keeps the complexities of the elements: those of the list
-      after the first. A [match], since the complexities of the empty list
-      may be longer than it, and the tail of the empty list is built. *)
+      after the first. The tail of the empty list is built, with the
+      complexity [[]]: that of the empty list, of its shape ([wf_nil]). *)
   Global Instance tl_complexity {A CA} `{Repr A CA} :
-    Time.ComplexityBound (@tl A)
-      (fun cl : ℂI (list A) (list CA) =>
-         3 +> match val cl with [] => [] | _ :: _ => tl (pot cl) end).
-  Proof. cbound. Qed.
+    Time.ComplexityBound (@tl A) (fun cl : ℂI (list A) (list CA) => 3 +> tl (pot cl)).
+  Proof. cbound. rewrite E in Hwf. apply wf_nil in Hwf. rewrite Hwf. reflexivity. Qed.
 
   (** ** Higher-order functions *)
 
