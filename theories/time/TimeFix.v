@@ -52,13 +52,13 @@ Module Type FixTimeCostAxioms
 
   (** For a recursive function [f e] with the environment [e], the values
       of its free variables, as for any closure ([Combinators]): it
-      satisfies `f e a = F (ECons e (f e)) a`, pointwise in all the
+      satisfies [f e a = F (ECons e (f e)) a], pointwise in all the
       arguments, where the functional [F] is the code of the body, run in
       [e] extended with the function itself, which the recursive calls read.
       A candidate complexity [cf] is a bound as soon as it bounds the cost
       of building the closure [f e] ([c_clo]) and of one unfolding plus
       [c_fix], where the recursive calls cost what [cf] says. A fixpoint
-      under `fun f`, as [fold_left], has `f` in the environment: the
+      under [fun f], as [fold_left], has [f] in the environment: the
       recursive calls do not pass it again.
 
       Since the axiom holds for every function satisfying the equation,
@@ -119,9 +119,9 @@ Module FixTactics
   (Import CB : CombinatorTimeCostModel CM BT) (Import FX : FixTimeCostRules CM BT CB).
 
   (** In a goal [ComplexityBound f cf] where [f] is a recursive function,
-      [crec] leaves the goals `ComplexityBound F ?cF` (to be solved by
+      [crec] leaves the goals [ComplexityBound F ?cF] (to be solved by
       [cbc_found]) and the recurrence on [cf]. [fix_equation] gives the
-      functional `FF` of [f], over the recursive function: `F` is `FF`
+      functional [FF] of [f], over the recursive function: [F] is [FF]
       reading it in the environment ([ehd]), beta-reduced, so that each
       recursive call reads it. [crec_mutual] does the same for
       [fun b => if b then f1 else f2], where [f1] and [f2] are mutually

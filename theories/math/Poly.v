@@ -67,3 +67,21 @@ Proof.
     + assert (Hp : pdeg p = 0) by nia.
       exists (peval p [0] ^ S (S d)). intro x. rewrite (peval_deg0 p [x] [0] Hp). nia.
 Qed.
+
+(** ** Sums of variables
+
+    [psum_from i n]: the sum of the [n] variables from [i]. *)
+Fixpoint psum_from (i n : nat) : poly :=
+  match n with 0 => pconst 0 | S n => padd (pvar i) (psum_from (S i) n) end.
+
+Lemma nth_skipn_hd i ss : nth i ss 0 = hd 0 (skipn i ss).
+Proof. revert ss; induction i; intros [|x ss]; cbn; auto. Qed.
+
+Lemma skipn_S_tl {A} i (ss : list A) : skipn (S i) ss = tl (skipn i ss).
+Proof. revert ss; induction i as [|i IH]; intros [|x ss]; [reflexivity.. | exact (IH ss)]. Qed.
+
+Lemma peval_psum_from i n ss : peval (psum_from i n) ss = list_sum (firstn n (skipn i ss)).
+Proof.
+  revert i; induction n as [|n IH]; intro i; cbn [psum_from peval]; [reflexivity|].
+  rewrite IH, nth_skipn_hd, skipn_S_tl. destruct (skipn i ss) as [|y t]; cbn; [now rewrite firstn_nil | reflexivity].
+Qed.

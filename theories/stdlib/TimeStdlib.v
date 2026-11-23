@@ -1,11 +1,11 @@
 (** * The time cost model with the analyses of the standard library
 
-    The analyses of the standard library are layers over the time cost model,
-    each one a functor over the previous ones ([TimeBoolPair], [TimeNat],
-    [TimePos]); an application that uses them is a functor over
-    [TimeStdlib], which finds their bounds by typeclass search. *)
+    Each analysis is a functor over the model with the previous ones
+    ([TimeBoolPair], [TimeNat], [TimePos], ...). An application is a
+    functor over [TimeStdlib], whose bounds typeclass search finds. *)
 
-From Complexity Require Export HOListComplexity ListComplexity ZComplexity SumComplexity.
+From Complexity Require Export HOOptionComplexity HOListComplexity ListComplexity ZComplexity
+  SumComplexity.
 
-Module Type TimeStdlib := TimePos <+ HOListComplexity <+ ListComplexity <+ ZComplexity
-  <+ SumComplexity.
+Module Type TimeStdlib := TimePos <+ HOOptionComplexity <+ HOListComplexity <+ ListComplexity
+  <+ ZComplexity <+ SumComplexity.

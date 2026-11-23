@@ -17,14 +17,14 @@ From Stdlib Require Import Program.Basics.
     first: an [env] of an environment and a value, or the empty environment
     [tt]. The combinators are those of the categorical abstract machine:
 
-    - `Lam c e a = c (ECons e a)`: the closure of code [c] and environment
+    - [Lam c e a = c (ECons e a)]: the closure of code [c] and environment
       [e] (the currying Λ of the CAM);
     - [ehd] and [etl]: the projections of an environment, which give access
       to the variables;
     - [Sc f g e = f e (g e)]: an application, both parts computed in the
       environment [e] (S); [compose f g e = f (g e)] (B) and
-      `Cc f a e = f e a` (C) when one part does not use [e];
-    - `Kc a e = a`: a term that does not use the environment (K).
+      [Cc f a e = f e a] (C) when one part does not use [e];
+    - [Kc a e = a]: a term that does not use the environment (K).
 
     The suffix [c] avoids the [S] and [I] of the standard library.
 
@@ -56,10 +56,10 @@ Create HintDb comb.
 
 (** ** Case analysis
 
-    The case combinator of an inductive type `I` is named `I_case` and is
-    defined with the cost model of `I` (e.g. [nat_case] in
+    The case combinator of an inductive type [I] is named [I_case] and is
+    defined with the cost model of [I] (e.g. [nat_case] in
     [TimeDatatypes]). It works on environments, as the code of closures:
-    its arguments are the type parameters of `I`, the type [E] of the
+    its arguments are the type parameters of [I], the type [E] of the
     environment and the type of the result, the code of the branches in the
     order of the constructors, the code of the matched value, and the
     environment. The branch of a constructor with arguments runs in the

@@ -2,9 +2,9 @@
 
     The axioms ([CostModelCore]), the ground types ([GroundTypes]) and the
     bounds in the sizes of the inputs that they define ([Bounds],
-    [HOBounds]): these bounds are shared by all the analyses over a cost
-    model. *)
+    [HOBounds]), with their tactics ([BoundsTactics]): these bounds are
+    shared by all the analyses over a cost model. *)
 
-From Complexity Require Export CostModelCore GroundTypes Bounds HOBounds.
+From Complexity Require Export CostModelCore GroundTypes Bounds BoundsTactics HOBounds.
 
-Module Type CostModel := GroundCostModel <+ Bounds <+ HOBounds.
+Module Type CostModel := GroundCostModel <+ Bounds <+ BoundsTactics <+ HOBounds.

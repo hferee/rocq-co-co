@@ -15,9 +15,9 @@ From Complexity Require Export BasicClasses.
     part of a complexity, as it is determined by the function.
 
 
-  More precisely, if types `A` and `B` have respective complexity types `CA` and
-  `CB`, then the type of complexity bounds for functions of type `A -> B` will
-  be `(ℂI A CA -> ℂO CB)`.
+  More precisely, if types [A] and [B] have respective complexity types [CA] and
+  [CB], then the type of complexity bounds for functions of type [A -> B] will
+  be [(ℂI A CA -> ℂO CB)].
 *)
 
 (** ** Complexity types and operations *)
@@ -55,9 +55,9 @@ Infix "⊕" := cost_add (at level 60, right associativity).
 Definition fmap {C D} (f : C -> D) (m : ℂO C) : ℂO D := cost m +> f (res m).
 Infix "<$>" := fmap (at level 55, right associativity).
 
-(** If `cf` is the complexity of an arbitrary  term `f` of function type,
-  and `cx` is the complexity of an argument term `x`, then
-  `(f ⋊ cf) · (x ⋊ cx)` the application term `f x` together with its
+(** If [cf] is the complexity of an arbitrary  term [f] of function type,
+  and [cx] is the complexity of an argument term [x], then
+  [(f ⋊ cf) · (x ⋊ cx)] the application term [f x] together with its
   complexity, in a call-by-value setting.*)
 
 Definition app {A B CA CB} (f : ℂO (ℂI (A -> B) (ℂI A CA -> ℂO CB))) (x : ℂO (ℂI A CA))
@@ -115,10 +115,10 @@ Module Type CostModelAxioms.
       This could be avoided by making CA dependent on the input of type A,
       but this approach is probably simpler.
 
-      Ideally, `wf` could be `has_complexity` but this gets in the way when
+      Ideally, [wf] could be [has_complexity] but this gets in the way when
       handling recursive functions.
       
-      TODO: we may want to ensure that `ComplexityBound` entails `wf`? *)
+      TODO: we may want to ensure that [ComplexityBound] entails [wf]? *)
   Parameter wf : forall {A CA} `{Repr A CA}, A -> CA -> Prop.
 
   (** The order on the complexities of functions is pointwise, at the inputs 
@@ -146,7 +146,7 @@ Module Complexities (Import CM : CostModelAxioms).
   typeclasses. *)
 
   (** First, we record the type of complexity bounds of a given term type.
-    This will allow us to compute (via typeclass search) `CA` from `A` and
+    This will allow us to compute (via typeclass search) [CA] from [A] and
     avoid heavy type annotations. *)
   Class CType (A : Type) := { ctype : Type; crepr : Repr A ctype }.
   Arguments ctype A {_}.
@@ -155,15 +155,11 @@ Module Complexities (Import CM : CostModelAxioms).
   (** ** Bounds *)
 
   
-  (** [ComplexityBound f c] states that the complexity of the object (say, function) that `f` realises is bounded by `c`.
+  (** [ComplexityBound f c] states that the complexity of the object (say, function) that [f] realises is bounded by [c].
   
-     It reads "[f] is computable within (time/space/...) [c]". 
-     This is unavoidable: [f] is a Rocq value, so the predicate cannot inspect its syntax: it is invariant under conversion, and, under functional extensionality (which we do not want to contradict), pointwise-equal functions are equal and have the same bounds.
-
-    Forster & Künze's approach is extensional in the same way:
-    [computableTime f T] states that some L term computes [f] within [T],
-    and their lemma [computableTimeExt] transports it along extensional
-    equality. *)
+     It reads "[f] is computable within (time/space/...) [c]" and not
+     "the term [f] computes within (time/space/...) [c]". 
+     This is unavoidable: [f] is a Rocq value, so the predicate cannot inspect its syntax: it is invariant under conversion, and, under functional extensionality (which we do not want to contradict), pointwise-equal functions are equal and have the same bounds. *)
 
   Class ComplexityBound {A} {I : CType A} (f : A) (c : ctype A) : Prop :=
     { bound_below : exists c0, @bound_order A (ctype A) (crepr A) c0 c /\
@@ -177,8 +173,7 @@ Module Complexities (Import CM : CostModelAxioms).
       compare the complexity found for a function with the claimed one. *)
   Global Instance ComplexityBound_mono : forall {A CA} `{Repr A CA} (f : A),
     Proper (@bound_order A CA _ ==> impl) (ComplexityBound f).
-  Proof.
-    intros A CA R f c c' Hc [(c0 & H0 & H)]. constructor.
+  Proof. intros ??????? [(c0 & H0 & H)]. constructor.
     exists c0. split; [etransitivity; eassumption | exact H].
   Qed.
 End Complexities.

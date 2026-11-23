@@ -9,13 +9,12 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   higher-order polynomial bounds, sizes of functionals (`HOBounds`), together
   in `CostModel`.
 - `time/`: the time cost model, as one signature gathering the costs of
-  application (`TimeBasic`), of the combinators (`TimeCombinators`), of the
+  application and of the combinators (`TimeCombinators`), of the
   datatypes (`TimeDatatypes`, with separate layers for the data, the
   constructors and the case analysis of each datatype; lists in `TimeLists`)
   and of fixpoints (`TimeFix`). The data are of any type: the complexity of
-  a list is the list of the complexities of its elements, the value giving
-  the shape (the missing complexities are a default one); ground data
-  (numbers, lists of numbers, ...) are those whose complexities carry no
+  a list is the list of the complexities of its elements, one for each
+  (it is well-formed, `wf`); ground data (numbers, pairs of numbers, ...) are those whose complexities carry no
   information (`IsGround`), and a bound with a ground result ends with `>|`.
   The costs are constants: `ParamTimeCostModel` leaves them abstract,
   `TimeCostModel` sets them all to 1. The size of a value is
@@ -43,10 +42,10 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   `TimeCostModel` (`TimeBoolPair`, `TimeNat`, `TimePos`, `TimeStdlib`;
   booleans and pairs first, then numbers and lists: the first-order
   functions of lists and the higher-order ones on lists of numbers
-  (`ListComplexity`), the higher-order functions on lists and options of
-  any data (`map`, `filter`, `find`, the folds, `option_map`, ...;
-  `HOListComplexity`), and the usual functions on sums and on lists of
-  sums (`SumComplexity`)).
+  (`ListComplexity`), the higher-order functions on options and on lists
+  of any data (`option_map`, `HOOptionComplexity`; `map`, `filter`,
+  `find`, the folds, ..., `HOListComplexity`), and the usual functions on
+  sums and on lists of sums (`SumComplexity`)).
 - `bff/`: the basic feasible functionals (PV^ω), their complexity, their
   higher-order polynomial bounds, and Irwin, Kapron and Royer's type-3
   example.
@@ -55,11 +54,11 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
   frames for the evaluations in non-tail position, so that tail calls are
   cheaper), and running times on it (`MachineExamples`). The machine is an
   instance of the whole time model (`instances/LMachine`: `LM`).
-- `lower/`: lower bounds. A cost model with elements compared at cost 1,
-  and the axiom that lower bounds need: a function with a bound is a
-  comparison tree (`ComparisonModel`); the counting argument
-  (`DecisionTrees`); the `log2 (n!)` and `n log n` lower bounds for sorting
-  (`SortingLowerBound`).
+- `lower/`: lower bounds, from axioms with negative content (what a bound
+  implies). An application of `S` costs at least 1, and the output of a
+  function on numbers exceeds its input by at most a constant times the
+  cost (`NatLowerBound`); likewise for lists of numbers, with a linear
+  lower bound for sorting (`ListLowerBound`); both proved in L.
 - `instances/`: the call-by-value λ-calculus L as an instance of
   `TimeCostModel` (`LInstance`), with the bounds of the higher-order
   functions on lists (`LHOLists`), and of the arithmetic signature

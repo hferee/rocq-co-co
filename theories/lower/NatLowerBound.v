@@ -3,7 +3,7 @@
     Two axioms with negative content on the functions from [nat] to [nat],
     what follows from them, and their proofs in L. *)
 
-From Complexity Require Export TimeCostModel TimeArith OracleModel Poly.
+From Complexity Require Export TimeCostModel TimeArith Poly.
 From Stdlib Require Import List Lia.
 Import ListNotations.
 Unset Implicit Arguments.
@@ -33,9 +33,9 @@ End NatGrowthAxiom.
 
 Module Type NatLowerTimeCostModel := ParamTimeCostModel <+ SuccAxiom <+ NatGrowthAxiom.
 
-(** ** The counting models contradict [succ_not_free]
+(** ** The counting model contradicts [succ_not_free]
 
-    [S] is free in them. *)
+    [S] is free in it. *)
 
 Module Type ArithOpsSucc := ArithOpsTimeCostModel <+ SuccAxiom.
 
@@ -46,16 +46,6 @@ Module ArithOpsNotSucc (Import M : ArithOpsSucc).
     autounfold with costs in H. cbn in H. lia.
   Qed.
 End ArithOpsNotSucc.
-
-Module Type OracleCountSucc := OracleCountModel <+ SuccAxiom.
-
-Module OracleCountNotSucc (Import M : OracleCountSucc).
-  Lemma inconsistent : False.
-  Proof.
-    pose proof (succ_not_free _ S_complexity (0 ⋊ tt)) as H.
-    autounfold with costs in H. cbn in H. lia.
-  Qed.
-End OracleCountNotSucc.
 
 (** ** Consequences *)
 
@@ -132,18 +122,21 @@ Module NatLowerBounds (Import M : NatLowerTimeCostModel).
 
   Lemma double_not_constant : ~ ConstantBound (fun n : nat => n + n).
   Proof.
-    intros [p [Hd Hb]]. destruct (nat_growth_diff _ _ Hb) as [a Ha].
-    set (k := peval p [0]).
-    specialize (Ha (S (a * (1 + k)) ⋊ tt)). cbn in Ha.
-    rewrite (peval_deg0 p _ [0] Hd) in Ha. fold k in Ha. lia.
+    intros [p [Hd (c & Hb & Hs)]]. destruct (nat_growth_diff _ _ Hb) as [a Ha].
+    set (k := peval p [0]). set (n := S (a * (1 + k))).
+    specialize (Ha (n ⋊ tt)). destruct (Hs (n ⋊ tt)) as [Hc _]. cbn in Ha, Hc.
+    rewrite (peval_deg0 p _ [0] Hd) in Hc. fold k in Hc.
+    assert (a * (1 + cost (c (n ⋊ tt))) <= a * (1 + k)) by (apply Nat.mul_le_mono_l; lia).
+    unfold n in *. lia.
   Qed.
 
   Lemma square_not_linear : ~ LinearBound (fun n : nat => n * n).
   Proof.
-    intros [p [Hd Hb]]. destruct (nat_growth_diff _ _ Hb) as [a Ha].
+    intros [p [Hd (c & Hb & Hs)]]. destruct (nat_growth_diff _ _ Hb) as [a Ha].
     destruct (peval_deg1 p Hd) as [k Hk].
     set (n := a * k + a * (1 + 2 * k) + 2).
-    specialize (Ha (n ⋊ tt)). cbn in Ha. rewrite size_nat in Ha.
+    specialize (Ha (n ⋊ tt)). destruct (Hs (n ⋊ tt)) as [Hc _]. cbn in Ha, Hc. rewrite size_nat in Hc.
+    assert (a * (1 + cost (c (n ⋊ tt))) <= a * (1 + peval p [S n])) by (apply Nat.mul_le_mono_l; lia).
     specialize (Hk (S n)).
     assert (a * (1 + peval p [S n]) <= a * (1 + k * (1 + S n))) by (apply Nat.mul_le_mono_l; lia).
     assert (n * n = n * (a * k) + n * (a * (1 + 2 * k)) + 2 * n) by (unfold n; ring).

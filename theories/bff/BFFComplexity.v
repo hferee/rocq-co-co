@@ -3,8 +3,8 @@
     The bounds of the constants of PV^ω, as defined in [BFF], proved by
     [cbound] with the smallest constants for their shape: linear in the
     sizes of their arguments, except [smash] (polynomial). The bound of the
-    recursor `R` is higher-order: its cost ([R_cost]) is a function of the
-    costs of the applications of `F` and `h`. *)
+    recursor [R] is higher-order: its cost ([R_cost]) is a function of the
+    costs of the applications of [F] and [h]. *)
 
 From Complexity Require Export TimeCostModel BFF.
 From Stdlib Require Import NArith.
@@ -21,9 +21,9 @@ Abbreviation rec_len := 28 (only parsing).
 Abbreviation rec_last := 61 (only parsing).
 Abbreviation rec_step := 75 (only parsing).
 
-(** The cost of `rec_pos a F h q`, from the potentials `pF` and `ph` of `F`
-    and `h`: at each bit of [q], from the last one, the applications of `F`
-    and `h`, and the comparison of the lengths of their values ([bnd]). *)
+(** The cost of [rec_pos a F h q], from the potentials [pF] and [ph] of [F]
+    and [h]: at each bit of [q], from the last one, the applications of [F]
+    and [h], and the comparison of the lengths of their values ([bnd]). *)
 Fixpoint rec_cost (a : N) (F : N -> N -> N) (h : N -> N)
   (pF : ℂI N unit -> ℂO (ℂI N unit -> ℂO unit)) (ph : ℂI N unit -> ℂO unit)
   (q : positive) : nat :=
@@ -32,20 +32,20 @@ Fixpoint rec_cost (a : N) (F : N -> N -> N) (h : N -> N)
   + rec_len * Nat.min (N.size_nat (F (Npos q) r)) (N.size_nat (h (Npos q)))
   + match q with xH => rec_last | xO q' | xI q' => rec_step + rec_cost a F h pF ph q' end.
 
-(** The cost of `R a F h w`. *)
+(** The cost of [R a F h w]. *)
 Definition R_cost (a : N) (F : N -> N -> N) (h : N -> N)
   (pF : ℂI N unit -> ℂO (ℂI N unit -> ℂO unit)) (ph : ℂI N unit -> ℂO unit) (w : N) : nat :=
   match w with N0 => 0 | Npos q => rec_cost a F h pF ph q end.
 
 (** ** Feasibility of the recursion
 
-    When the costs of `F` and `h` are bounded by monotone functions `bF` and
-    `bh` of the lengths of their arguments, and the lengths of the values of
-    `h` by a monotone function `lh`, the cost of `R a F h w` is bounded by
-    [|w| * step_bound |w|], a second-order polynomial in `bF`, `bh` and
-    `lh`. The values of the recursion are bounded by the length of `h`
-    ([R_size]), so that `F` is only applied to arguments of bounded length:
-    this is why `R` preserves feasibility. *)
+    When the costs of [F] and [h] are bounded by monotone functions [bF] and
+    [bh] of the lengths of their arguments, and the lengths of the values of
+    [h] by a monotone function [lh], the cost of [R a F h w] is bounded by
+    [|w| * step_bound |w|], a second-order polynomial in [bF], [bh] and
+    [lh]. The values of the recursion are bounded by the length of [h]
+    ([R_size]), so that [F] is only applied to arguments of bounded length:
+    this is why [R] preserves feasibility. *)
 Section Feasibility.
   Variables (a : N) (F : N -> N -> N) (h : N -> N)
     (pF : ℂI N unit -> ℂO (ℂI N unit -> ℂO unit)) (ph : ℂI N unit -> ℂO unit)

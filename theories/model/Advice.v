@@ -1,7 +1,7 @@
 (** * Advice on the inequalities left by the proofs of bounds
 
     The tactics that prove bounds ([cbound], [clinear], ...) reduce a
-    claimed bound to inequalities `found <= claimed` between costs, and
+    claimed bound to inequalities [found <= claimed] between costs, and
     leave those that [lia] and [nia] do not prove, with advice: a
     counterexample, or the facts that may be missing. *)
 

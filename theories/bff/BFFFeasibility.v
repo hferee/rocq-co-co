@@ -47,7 +47,7 @@ Module BFFFeasibility (Import Time : TimeCostModel).
       is [N], whose size is the length [N.size_nat]. *)
   Fixpoint bits (σ : ty) : HigherOrder σ (den σ) (cty σ) :=
     match σ return HigherOrder σ (den σ) (cty σ) with
-    | tN => ho_ground Repr_N (unit_ground _) N.size_nat
+    | tN => ho_ground Repr_N N.size_nat
     | σ ⇒ τ => ho_arr (bits σ) (bits τ)
     end.
 
@@ -168,7 +168,7 @@ Module BFFFeasibility (Import Time : TimeCostModel).
       The proof is by induction on the terms, in an environment of
       majorized values ([interp_hpoly]): the majorant of a term is the term
       itself, with each constant replaced by its majorant ([BFFComplexity];
-      for the recursion `R`, the bound of [R_cost_bound]), and the costs of
+      for the recursion [R], the bound of [R_cost_bound]), and the costs of
       the combinators added ([plus_t]).
 
       The denotation of a term [t] in the context [Γ] is a function of the
@@ -314,11 +314,11 @@ Module BFFFeasibility (Import Time : TimeCostModel).
     intro x. exact (J x tt (N.size_nat x) (le_n _) (le_n _)).
   Qed.
 
-  (** At type [(N ⇒ N) ⇒ N ⇒ N]: let `a` be a monotone bound on the costs
+  (** At type [(N ⇒ N) ⇒ N ⇒ N]: let [a] be a monotone bound on the costs
       of the argument [f] (with complexity [cf]) and on the lengths of its
       values, in the length of their arguments. The cost of [⟦t⟧ f x] (the
       application to [f], then to [x]) and the length of its value are
-      bounded by a higher-order polynomial of type 2 in `a` and the length
+      bounded by a higher-order polynomial of type 2 in [a] and the length
       of [x].
 
       The higher-order polynomial is bounded by a second-order polynomial
@@ -348,10 +348,10 @@ Module BFFFeasibility (Import Time : TimeCostModel).
     eapply Nat.le_trans; [exact (Nat.add_le_mono _ _ _ _ Hc Hx) | lia].
   Qed.
 
-  (** The same bound with a second-order polynomial in `a` and the length
+  (** The same bound with a second-order polynomial in [a] and the length
       of [x], as Kapron and Cook's: [p] is a second-order polynomial
       ([hpoly_sopoly]). Their bound is in the
-      length function of [f] only, with oracle calls cheap, whereas `a`
+      length function of [f] only, with oracle calls cheap, whereas [a]
       also bounds the cost of [f]. *)
   Corollary BFF2_sopoly_bound (t : term pv [] ((tN ⇒ tN) ⇒ tN ⇒ tN)) :
     exists c (q : sopoly), CBound _ ⟦t⟧ c /\

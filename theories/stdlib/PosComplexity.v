@@ -1,19 +1,16 @@
-(** * Complexity of functions over [positive] from the standard library
+(** * Functions on [positive]
 
-    As in [NatComplexity]: each function is analysed as defined, with
-    [cbound] (or [cbound_mutual] for [Pos.add] and [Pos.add_carry]) and the
-    smallest constants for the shape of the bound. Costs are linear in the
-    bit size [Pos.size_nat] ([BitSize]). *)
+    As in [NatComplexity], with the bit sizes ([Pos.size_nat],
+    [BitSize]). *)
 
 From Complexity Require Export NatComplexity.
 From Complexity Require Import BitSize.
 From Stdlib Require Import PArith.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+(** No timeout in the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
 Module PosComplexity (Import Time : TimeNat).
-
 
   (** ** Sizes *)
   Lemma size_nat_le_size (p : positive) : Pos.size_nat p <= size p.
@@ -41,9 +38,9 @@ Module PosComplexity (Import Time : TimeNat).
     (fun cr => 4 +> fun cp => 2 +>
      fun cq => (42 * Pos.size_nat (val cq)) >|) := _.
 
-  (** [Pos.add] and [Pos.add_carry] are mutually recursive: the recursion is
-      analysed on the function [fun b => if b then Pos.add else
-      Pos.add_carry], from which both bounds follow ([cproject]). *)
+  (** [Pos.add] and [Pos.add_carry] are mutually recursive: both bounds
+      follow from that of [fun b => if b then Pos.add else Pos.add_carry]
+      ([cbound_mutual], [cproject]). *)
   Lemma Pos_add_mutual_complexity :
     Time.ComplexityBound (fun b : bool => if b then Pos.add else Pos.add_carry)
       (fun cb => 6 +> fun cx => 2 +>
@@ -66,8 +63,8 @@ Module PosComplexity (Import Time : TimeNat).
     (fun cx => 2 +> fun cy =>
        (42 * Pos.size_nat (val cy)) >|) := _.
 
-  (** The recursive step of [Pos.mul] adds [y] to the doubled product: its
-      cost depends on the size of the product. *)
+  (** The step of [Pos.mul] adds [y] to the doubled product: in the size
+      of the product. *)
   Global Instance Pos_mul_complexity : Time.ComplexityBound Pos.mul
     (fun cx => 1 +> fun cy =>
        (Pos.size_nat (val cx) *
@@ -89,9 +86,8 @@ Module PosComplexity (Import Time : TimeNat).
     pose proof (size_nat_pos (Pos.of_nat (S cn))). cbn [Pos.of_nat] in *. nia.
   Qed.
 
-  (** [Pos.to_nat] is [Pos.iter_op Nat.add p 1]: on unary numbers, the
-      accumulator doubles at each step, and so does the cost of the
-      additions. *)
+  (** [Pos.to_nat] is [Pos.iter_op Nat.add p 1]: the accumulator, unary,
+      doubles at each step, and so does the cost of the additions. *)
   Global Instance Pos_iter_op_add_complexity : Time.ComplexityBound (Pos.iter_op Nat.add)
     (fun cp => 4 +> fun ca =>
        (14 * (Pos.to_nat (val cp) - 1) * val ca + 54 * Pos.size_nat (val cp)) >|).
@@ -105,10 +101,10 @@ Module PosComplexity (Import Time : TimeNat).
        (14 * Pos.to_nat (val cp) + 54 * Pos.size_nat (val cp)) >|).
   Proof. cbound. all: pose proof (Pos2Nat.is_pos cp); lia. Qed.
 
-  (** ** Bounds in the size of the arguments
+  (** ** Bounds in the sizes
 
-      [Pos.iter_op Nat.add] and [Pos.to_nat] are exponential in the size of
-      their argument: their results are unary numbers. *)
+      [Pos.iter_op Nat.add] and [Pos.to_nat] are exponential: their results
+      are unary. *)
   Global Instance Pos_succ_linear_bound : Time.LinearBound Pos.succ := _.
   Global Instance Pos_pred_double_linear_bound : Time.LinearBound Pos.pred_double := _.
   Global Instance Pos_eqb_linear_bound : Time.LinearBound Pos.eqb := _.
@@ -118,7 +114,7 @@ Module PosComplexity (Import Time : TimeNat).
   Global Instance Pos_compare_linear_bound : Time.LinearBound Pos.compare := _.
   Global Instance Pos_mul_polynomial_bound : Time.PolynomialBound Pos.mul := _.
 
-  (** The size of the result is bounded by the argument. *)
+  (** The size of the result is at most the argument. *)
   Global Instance Pos_of_succ_nat_polynomial_bound : Time.PolynomialBound Pos.of_succ_nat.
   Proof.
     cpolynomial.
@@ -131,11 +127,10 @@ Module PosComplexity (Import Time : TimeNat).
     all: match goal with |- context [Pos.of_nat ?n] => pose proof (size_nat_of_nat n) end.
     all: nia.
   Qed.
-  (** ** Bounds in the sizes of the arguments, with their constants
 
-      The bounds above are in the values and lengths of the arguments;
-      each of these is at most the size ([#|x|], [SizeFact]), so that
-      they give bounds in the sizes ([csize]). *)
+  (** ** Bounds in the sizes, with their constants
+
+      From the bounds above: a bit size is at most the size ([SizeFact]). *)
 
   Lemma Pos_succ_size_complexity :
     Time.ComplexityBound Pos.succ
@@ -159,17 +154,20 @@ Module PosComplexity (Import Time : TimeNat).
 
   Lemma Pos_add_mutual_size_complexity :
     Time.ComplexityBound (fun b : bool => if b then Pos.add else Pos.add_carry)
-      (fun cb => 6 +> fun (cx : ℂI positive _) => 2 +> fun (cy : ℂI positive _) => (19 * (#|val cx| + #|val cy|)) >|).
+      (fun cb => 6 +> fun (cx : ℂI positive _) => 2 +> fun (cy : ℂI positive _) =>
+         (19 * (#|val cx| + #|val cy|)) >|).
   Proof. csize_using Pos_add_mutual_complexity. Qed.
 
   Lemma Pos_add_size_complexity :
     Time.ComplexityBound Pos.add
-      (fun (cx : ℂI positive _) => 2 +> fun (cy : ℂI positive _) => (19 * (#|val cx| + #|val cy|)) >|).
+      (fun (cx : ℂI positive _) => 2 +> fun (cy : ℂI positive _) =>
+         (19 * (#|val cx| + #|val cy|)) >|).
   Proof. csize_using Pos_add_complexity. Qed.
 
   Lemma Pos_add_carry_size_complexity :
     Time.ComplexityBound Pos.add_carry
-      (fun (cx : ℂI positive _) => 2 +> fun (cy : ℂI positive _) => (19 * (#|val cx| + #|val cy|)) >|).
+      (fun (cx : ℂI positive _) => 2 +> fun (cy : ℂI positive _) =>
+         (19 * (#|val cx| + #|val cy|)) >|).
   Proof. csize_using Pos_add_carry_complexity. Qed.
 
   Lemma Pos_compare_size_complexity :
@@ -179,10 +177,11 @@ Module PosComplexity (Import Time : TimeNat).
 
   Lemma Pos_mul_size_complexity :
     Time.ComplexityBound Pos.mul
-      (fun (cx : ℂI positive _) => 1 +> fun (cy : ℂI positive _) => (#|val cx| * (38 * (#|val cx| + #|val cy|))) >|).
+      (fun (cx : ℂI positive _) => 1 +> fun (cy : ℂI positive _) =>
+         (#|val cx| * (38 * (#|val cx| + #|val cy|))) >|).
   Proof. csize_using Pos_mul_complexity. Qed.
 
 End PosComplexity.
 
-(** The time cost model with the analyses of [nat] and [positive]. *)
+(** The model with the analyses of [nat] and [positive]. *)
 Module Type TimePos := TimeNat <+ PosComplexity.

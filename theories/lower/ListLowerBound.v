@@ -23,8 +23,7 @@ Unset Implicit Arguments.
     would not suffice: the rules that compose functions add costs of their
     own, so that it would not reach the other functions.
 
-    It holds at the inputs whose complexity has the shape of the list
-    ([wf]): a bound may say anything at the others, which the realisers of
+    It holds at the well-formed inputs ([wf]): a bound may say anything at the others, which the realisers of
     the function are never applied to. *)
 
 Module Type ListGrowthAxiom (Import CM : CostModel) (Import ND : NatData CM) (Import LD : ListData CM).
@@ -132,7 +131,7 @@ Fixpoint lenc (l : list nat) : term :=
   | x :: l => lam (lam (app (app (var 0) (nat_enc' x)) (lenc l)))
   end.
 
-(** [lenc l] realises [l] at the complexities of its shape. *)
+(** [lenc l] realises [l] at its well-formed complexities. *)
 Lemma rl_lenc j (l : list nat) (c : list unit) :
   @L.wf _ _ (L.Repr_list L.Repr_nat) l c -> rl (L.Repr_list L.Repr_nat) j l c (lenc l).
 Proof.

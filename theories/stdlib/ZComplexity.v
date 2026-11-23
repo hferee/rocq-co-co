@@ -1,14 +1,14 @@
-(** * Complexity of functions over [Z] from the standard library
+(** * Functions on [Z]
 
-    Proved from the case analyses of [TimeDatatypes], the fixpoint axiom of
-    [TimeFix], and [PosComplexity], with the smallest constants for the
-    shape of each bound. Sizes are bit sizes ([zsize], in [BitSize]). *)
+    As in [PosComplexity], with the bit sizes ([zsize], [BitSize]). The
+    constants of the division, the gcd and the power are not the smallest
+    ones. *)
 
 From Complexity Require Export PosComplexity.
 From Complexity Require Import BitSize.
 From Stdlib Require Import PArith ZArith.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+(** No timeout in the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
 (** ** Trailing zeros
@@ -40,11 +40,9 @@ Proof. destruct z; cbn; try apply ptz_pred_double; reflexivity. Qed.
 
 (** ** Sizes of intermediate results
 
-    The costs of the division, the gcd and the power depend on the sizes of
-    their intermediate results: the quotient and the remainder of
-    [Z.pos_div_eucl] (for any divisor, also negative ones, for which the
-    remainder grows), the cofactors of [Pos.ggcdn], and the powers computed
-    by [Pos.iter (Z.mul z)]. *)
+    Those of the division, the gcd and the power: the quotient and the
+    remainder of [Z.pos_div_eucl] (which grows for a negative divisor), the
+    cofactors of [Pos.ggcdn], and the powers of [Pos.iter (Z.mul z)]. *)
 Section Intermediate.
   Local Open Scope Z_scope.
 
@@ -130,21 +128,19 @@ Definition iter_mul (z : Z) : Z -> positive -> Z := Pos.iter (Z.mul z).
 
 Module ZComplexity (Import Time : TimePos).
 
-
   (** ** Sizes *)
   Lemma zsize_le_size (z : Z) : zsize z <= size z.
   Proof.
-    destruct z as [|p|p]; cbn; [pose proof size_Z0 | pose proof (size_Zpos p) | pose proof (size_Zneg p)];
+    destruct z as [|p|p]; cbn;
+      [pose proof size_Z0 | pose proof (size_Zpos p) | pose proof (size_Zneg p)];
       try pose proof (size_nat_le_size p); lia.
   Qed.
   Global Instance Z_size_fact (z : Z) : SizeFact z (zsize z <= size z) := zsize_le_size z.
 
-  (** ** Bounds *)
-
-  (** Facts on the sizes of the goal. *)
+  (** The facts on the sizes of the goal. *)
   Ltac zfacts := rewrite ?zsize_opp in *; size_facts.
 
-  (** ** Constant-time functions *)
+  (** ** Opposite, absolute value, doubling *)
 
   Global Instance Z_opp_complexity : Time.ComplexityBound Z.opp (fun cz => 5 >|) := _.
 
@@ -173,11 +169,8 @@ Module ZComplexity (Import Time : TimePos).
 
   (** ** Arithmetic *)
 
-  (** Additions of numbers of different signs use [Z.pos_sub]. *)
-  (** Addition and subtraction get two bounds: a quadratic one, from this
-      direct analysis, and a linear one, from an amortised analysis (below).
-      [Pos.sub] gets the bound of an equal function, as the model has no
-      representation of its type [mask]. *)
+  (** Additions of numbers of different signs use [Z.pos_sub]: quadratic,
+      and linear by an amortised analysis (below). *)
   Global Instance Z_add_complexity : Time.ComplexityBound Z.add
     (fun cx => 1 +> fun cy =>
        (14 * (zsize (val cx) + zsize (val cy)) * (zsize (val cx) + zsize (val cy))) >|).
@@ -206,8 +199,7 @@ Module ZComplexity (Import Time : TimePos).
     (fun cx => 1 +> fun cy => (28 * zsize (val cx) + 17) >|).
   Proof. cbound. all: zfacts; lia. Qed.
 
-  (** The cost of the case analysis of the result of the comparison depends
-      on its value. *)
+  (** The case analysis of the comparison costs according to its result. *)
   Global Instance Z_ltb_complexity : Time.ComplexityBound Z.ltb
     (fun cx => 1 +> fun cy => (42 * zsize (val cy) + 27) >|) := _.
 
@@ -226,15 +218,11 @@ Module ZComplexity (Import Time : TimePos).
 
   (** ** Linear bounds for addition and subtraction (amortised)
 
-      The bounds of [pos_sub], [add] and [sub] above are quadratic: each
-      step of [Z.pos_sub] applies [Z.succ_double] or [Z.pred_double] to the
-      result of the recursive call, at a cost bounded by its size. The real
-      cost is linear: these functions call [Pos.pred_double], which only
-      walks over the trailing zeros of the result, and each of these zeros
-      was produced by an earlier step ([Z.double]) and is consumed once.
-      The bound of [Z.pos_sub] below is the classical potential argument:
-      its cost plus [15] times the number of trailing zeros of its result is
-      linear. These bounds are preferred by typeclass search (priority 0). *)
+      [Z.succ_double] and [Z.pred_double] call [Pos.pred_double], which only
+      walks over the trailing zeros of the result of the recursive call of
+      [Z.pos_sub]; each of them was produced by an earlier step and is
+      consumed once. The potential is [15] times the trailing zeros of the
+      result. Typeclass search prefers these bounds (priority [0]). *)
 
   Global Instance Pos_pred_double_tz_complexity : Time.ComplexityBound Pos.pred_double
     (fun cp => (14 * ptz (val cp) + 10) >|) | 0 := _.
@@ -269,12 +257,11 @@ Module ZComplexity (Import Time : TimePos).
 
   (** ** Division, gcd and power
 
-      Their costs depend on the sizes of their intermediate results
-      (above): the facts are given to [lia] and [nia] (in a few seconds:
-      [timeout]). The constants are not minimised. *)
+      In the sizes of their intermediate results (above), with constants
+      that are not the smallest ones. *)
 
-  (** Pointwise-equal functions have the same bounds, up to [2] ([complexity_ext]
-      in [Examples]). *)
+  (** Pointwise-equal functions have the same bounds, up to [2]: [Pos.sub]
+      gets that of [pos_sub_pos]. *)
   Lemma complexity_pw {A B CA CB} `{Repr A CA} {RB : Repr B CB} (ar : Arity B) `{!PwExt RB ar}
     (f g : A -> B) (cg : ℂI A CA -> ℂO CB) :
     (forall a, pw_eq ar (f a) (g a)) -> Time.ComplexityBound g cg ->
@@ -298,8 +285,7 @@ Module ZComplexity (Import Time : TimePos).
 
   (** *** Division *)
 
-  (** The facts on the sizes of the quotient and the remainder of the
-      recursive call ([E : Z.pos_div_eucl a b = (q, r)]). *)
+  (** The sizes of the quotient and of the remainder of the recursive call. *)
   Local Ltac div_facts :=
     repeat match goal with
     | E : Z.pos_div_eucl ?a ?b = (?q, ?r) |- _ =>
@@ -310,14 +296,14 @@ Module ZComplexity (Import Time : TimePos).
         cbn [zsize Pos.size_nat] in *; unfold Z.double in *; clear E
     end; size_facts.
 
-  (** The inequalities left are only given to [lia] and [nia]: they are
-      not simplified ([csimplify], [Advice]), which would take seconds
-      with these constants. *)
+  (** The inequalities left are not simplified ([csimplify]): it would
+      take seconds. *)
   #[local] Ltac2 Set csimplify := Init.false.
 
   Global Instance Z_pos_div_eucl_complexity : Time.ComplexityBound Z.pos_div_eucl
     (fun ca => 4 +> fun cb =>
-       (Pos.size_nat (val ca) * (100 * Pos.size_nat (val ca) + 200 * zsize (val cb) + 500) + 100) >|).
+       (Pos.size_nat (val ca) * (100 * Pos.size_nat (val ca) + 200 * zsize (val cb) + 500)
+        + 100) >|).
   Proof. cbound. all: div_facts; timeout 5 lia. Qed.
 
   Global Instance Z_div_eucl_complexity : Time.ComplexityBound Z.div_eucl
@@ -353,15 +339,17 @@ Module ZComplexity (Import Time : TimePos).
              (fun x y => pos_sub_to_pos x y) pos_sub_pos_complexity).
   Qed.
 
-  (** The facts on the sizes of the cofactors of the recursive call, and
-      of the difference that it receives. *)
+  (** The sizes of the cofactors of the recursive call, and of the
+      difference that it receives. *)
   Local Ltac ggcd_facts :=
     repeat match goal with
     | E : Pos.ggcdn ?n ?a ?b = (?g, (?u, ?v)) |- _ =>
-        let H := fresh "Hs" in pose proof (ggcdn_size n a b) as H; rewrite E in H; cbn [fst snd] in H; clear E
+        let H := fresh "Hs" in
+        pose proof (ggcdn_size n a b) as H; rewrite E in H; cbn [fst snd] in H; clear E
     | E : Pos.ggcdn ?n ?a ?b = (?g, ?p) |- _ => clear E
     end;
-    try match goal with |- context [Pos.size_nat (Pos.sub ?x ?y)] => pose proof (size_nat_sub x y) end;
+    try match goal with
+        |- context [Pos.size_nat (Pos.sub ?x ?y)] => pose proof (size_nat_sub x y) end;
     cbn [Pos.size_nat] in *.
 
   #[local] Ltac2 Set csimplify := Init.false.
@@ -383,7 +371,8 @@ Module ZComplexity (Import Time : TimePos).
 
   Global Instance Z_ggcd_complexity : Time.ComplexityBound Z.ggcd
     (fun ca => 10 +> fun cb =>
-       ((zsize (val ca) + zsize (val cb)) * (200 * (zsize (val ca) + zsize (val cb)) + 400) + 200) >|).
+       ((zsize (val ca) + zsize (val cb)) * (200 * (zsize (val ca) + zsize (val cb)) + 400)
+        + 200) >|).
   Proof. cbound. all: timeout 5 nia. Qed.
 
   (** *** Power
@@ -398,7 +387,8 @@ Module ZComplexity (Import Time : TimePos).
     | |- context [zsize (?F ?x ?n)] =>
         lazymatch goal with H : (zsize (F x n) <= _)%nat |- _ => fail | _ => idtac end;
         let H := fresh "Hw" in
-        assert (H : (zsize (F x n) <= zsize x + Pos.to_nat n * zsize z)%nat) by exact (iter_mul_size z x n)
+        assert (H : (zsize (F x n) <= zsize x + Pos.to_nat n * zsize z)%nat)
+          by exact (iter_mul_size z x n)
     end;
     try match goal with |- context [Pos.to_nat ?n] => pose proof (Pos2Nat.is_pos n) end;
     try pose proof (zsize_pos z).
@@ -412,7 +402,8 @@ Module ZComplexity (Import Time : TimePos).
 
   Global Instance Z_pow_pos_complexity : Time.ComplexityBound Z.pow_pos
     (fun cz => 23 +> fun cn =>
-       (Pos.to_nat (val cn) * (100 * zsize (val cz) * (1 + Pos.to_nat (val cn) * zsize (val cz)) + 100)
+       (Pos.to_nat (val cn)
+          * (100 * zsize (val cz) * (1 + Pos.to_nat (val cn) * zsize (val cz)) + 100)
         + 20) >|).
   Proof. change Z.pow_pos with (fun z => iter_mul z 1). cbound. all: timeout 5 lia. Qed.
 
@@ -422,12 +413,10 @@ Module ZComplexity (Import Time : TimePos).
         + 60) >|).
   Proof. cbound. all: timeout 5 lia. Qed.
 
-  (** ** Bounds in the size of the arguments
+  (** ** Bounds in the sizes
 
-      From the linear bounds of [Z.pos_sub], [Z.add] and [Z.sub], and from
-      the bounds of [Z.succ_double] and [Z.pred_double] in the size (not in
-      the trailing zeros). [Z.to_nat] is exponential in the size of its
-      argument: its result is a unary number. *)
+      From the linear bounds of [Z.pos_sub], [Z.add] and [Z.sub]. [Z.to_nat]
+      is exponential: its result is unary. *)
   Global Instance Z_opp_linear_bound : Time.LinearBound Z.opp := _.
   Global Instance Z_abs_linear_bound : Time.LinearBound Z.abs := _.
   Global Instance Z_double_linear_bound : Time.LinearBound Z.double := _.
@@ -451,11 +440,10 @@ Module ZComplexity (Import Time : TimePos).
     all: match goal with |- context [Z.of_nat ?n] => pose proof (zsize_of_nat n) end.
     all: nia.
   Qed.
-  (** ** Bounds in the sizes of the arguments, with their constants
 
-      The bounds above are in the values and lengths of the arguments;
-      each of these is at most the size ([#|x|], [SizeFact]), so that
-      they give bounds in the sizes ([csize]). *)
+  (** ** Bounds in the sizes, with their constants
+
+      From the bounds above: a bit size is at most the size ([SizeFact]). *)
 
   Lemma Z_succ_double_size_complexity :
     Time.ComplexityBound Z.succ_double
@@ -469,22 +457,26 @@ Module ZComplexity (Import Time : TimePos).
 
   Lemma Z_pos_sub_size_complexity :
     Time.ComplexityBound Z.pos_sub
-      (fun (cx : ℂI positive _) => 4 +> fun (cy : ℂI positive _) => (#|val cy| * (14 * (#|val cx| + #|val cy|))) >|).
+      (fun (cx : ℂI positive _) => 4 +> fun (cy : ℂI positive _) =>
+         (#|val cy| * (14 * (#|val cx| + #|val cy|))) >|).
   Proof. csize_using Z_pos_sub_complexity. Qed.
 
   Lemma Z_add_size_complexity :
     Time.ComplexityBound Z.add
-      (fun (cx : ℂI Z _) => 1 +> fun (cy : ℂI Z _) => (14 * (#|val cx| + #|val cy|) * (#|val cx| + #|val cy|)) >|).
+      (fun (cx : ℂI Z _) => 1 +> fun (cy : ℂI Z _) =>
+         (14 * (#|val cx| + #|val cy|) * (#|val cx| + #|val cy|)) >|).
   Proof. csize_using Z_add_complexity. Qed.
 
   Lemma Z_sub_size_complexity :
     Time.ComplexityBound Z.sub
-      (fun (cx : ℂI Z _) => 1 +> fun (cy : ℂI Z _) => (14 * (#|val cx| + #|val cy|) * (#|val cx| + #|val cy|) + 12) >|).
+      (fun (cx : ℂI Z _) => 1 +> fun (cy : ℂI Z _) =>
+         (14 * (#|val cx| + #|val cy|) * (#|val cx| + #|val cy|) + 12) >|).
   Proof. csize_using Z_sub_complexity. Qed.
 
   Lemma Z_mul_size_complexity :
     Time.ComplexityBound Z.mul
-      (fun (cx : ℂI Z _) => 1 +> fun (cy : ℂI Z _) => (#|val cx| * (38 * (#|val cx| + #|val cy|)) + 16) >|).
+      (fun (cx : ℂI Z _) => 1 +> fun (cy : ℂI Z _) =>
+         (#|val cx| * (38 * (#|val cx| + #|val cy|)) + 16) >|).
   Proof. csize_using Z_mul_complexity. Qed.
 
   Lemma Z_compare_size_complexity :

@@ -19,7 +19,7 @@ Infix "⇒" := tArr (at level 60, right associativity).
 Definition ty_eq_dec (σ τ : ty) : {σ = τ} + {σ <> τ}.
 Proof. decide equality. Defined.
 
-(** The functionals of type [σ] over base type `B`. *)
+(** The functionals of type [σ] over base type [B]. *)
 Fixpoint sem (B : Type) (σ : ty) : Type :=
   match σ with tN => B | σ ⇒ τ => sem B σ -> sem B τ end.
 
@@ -62,7 +62,7 @@ Arguments tapp {C Γ σ τ}.
     so that the cost model gives its complexity ([BFFFeasibility]). On a
     closed term, it computes to the expected functional ([⟦ t ⟧]). *)
 
-(** The interpretation of the constants of `C` as functionals over `B`. *)
+(** The interpretation of the constants of [C] as functionals over [B]. *)
 Class Interp (C : ty -> Type) (B : Type) := cinterp : forall σ, C σ -> sem B σ.
 #[global] Hint Mode Interp + - : typeclass_instances.
 
@@ -126,7 +126,7 @@ Fixpoint csubst {C D} (s : forall σ, C σ -> term D [] σ) {Γ σ} (t : term C 
 
 (** ** Logical relations
 
-    A relation `R` between functionals, defined at arrow types from its
+    A relation [R] between functionals, defined at arrow types from its
     values at the argument and result types, relates the denotations of a
     term in related environments, when it relates the constants to
     themselves ([rel_interp]), and the denotation of a closed term to its
@@ -206,8 +206,8 @@ Qed.
     [db]): A. Chlipala, Parametric higher-order abstract syntax for
     mechanized semantics, ICFP 2008.
 
-    `pterm C V σ`: the terms whose variables are Rocq variables of types
-    `V σ`. A closed term is a term for every `V` ([PTerm]). *)
+    [pterm C V σ]: the terms whose variables are Rocq variables of types
+    [V σ]. A closed term is a term for every [V] ([PTerm]). *)
 Section PTerms.
   Variables (C : ty -> Type) (V : ty -> Type).
 

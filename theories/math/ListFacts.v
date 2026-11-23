@@ -74,6 +74,22 @@ Proof.
   induction n as [|n IH]; [reflexivity|].
   rewrite seq_S, list_sum_app. cbn [list_sum fold_right]. nia.
 Qed.
+
+(** ** [filter_map]
+
+    [filter_map f l]: the [y] such that [f x = Some y], for the elements
+    [x] of [l], in order. (The [filter_map] of the standard library is a
+    lemma on [filter] and [map].) *)
+Fixpoint filter_map {A B} (f : A -> option B) (l : list A) : list B :=
+  match l with
+  | nil => nil
+  | x :: l => match f x with Some y => y :: filter_map f l | None => filter_map f l end
+  end.
+
+Lemma filter_map_filter {A B} (p : A -> bool) (g : A -> B) l :
+  filter_map (fun x => if p x then Some (g x) else None) l = map g (filter p l).
+Proof. induction l as [| x l IH]; cbn; [reflexivity | destruct (p x); cbn; rewrite IH; reflexivity]. Qed.
+
 (** [simpl_list_sum] distributes the sums [list_sum (map f l)] of the goal
     and of the hypotheses over the constants, the successors, the sums and
     the products by factors that do not depend on the element, and computes

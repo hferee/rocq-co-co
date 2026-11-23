@@ -9,7 +9,7 @@ From Complexity Require Export TimeDatatypes TimeLists TimeFix.
     application, the coefficients of a linear bound for [Nat.add] in its
     first argument, and those of a bilinear bound for [Nat.mul]. *)
 Module Type NatArithTimeCostModel (Import CM : CostModel) (Import ND : NatData CM).
-
+  (* TODO: simplify this much more: only one constant parameter per addition. *)
   Parameter c_add_clo c_add_n c_add : nat.
   Parameter c_mul_clo c_mul_nm c_mul_n c_mul : nat.
   #[global] Hint Unfold c_add_clo c_add_n c_add c_mul_clo c_mul_nm c_mul_n c_mul : costs.
@@ -28,7 +28,7 @@ End NatArithTimeCostModel.
 Module Type ParamArithTimeCostModel := CostModel.CostModel <+ BasicTimeCostModel
   <+ CombinatorTimeCostModel <+ BoolTimeCostModel
   <+ NatData <+ NatCtorTimeCostModel <+ NatArithTimeCostModel
-  <+ ListTimeCostModel <+ ListShapes <+ FixTimeCostModel.
+  <+ ListTimeCostModel <+ ListWf <+ FixTimeCostModel.
 
 (** Only the arithmetic operations are charged: an addition [c_add], a
     multiplication [c_mul], an unfolding [c_fix]; everything else is free.

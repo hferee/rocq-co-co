@@ -7,7 +7,19 @@
 
 From Complexity Require Export TimeCombinators.
 From Stdlib Require Import List.
+From Ltac2 Require Import Ltac2.
+Set Default Proof Mode "Classic".
 Local Open Scope nat_scope.
+
+(** The sums of lists as the computation leaves them ([list_sum (x :: l)]
+    into [x + fold_right Nat.add 0 l]), folded back for [lia]
+    ([cnorm_types]). *)
+Ltac2 Set cnorm_hook as previous := fun () =>
+  previous ();
+  ltac1:(repeat match goal with
+         | |- context [fold_right Nat.add 0 ?l] => change (fold_right Nat.add 0 l) with (list_sum l)
+         | H : context [fold_right Nat.add 0 ?l] |- _ => change (fold_right Nat.add 0 l) with (list_sum l) in H
+         end).
 
 (** Case combinator (see [Combinators]). *)
 
@@ -30,14 +42,14 @@ Definition list_case {X E A : Type} (z : E -> A) (c : env (env E X) (list X) -> 
     functions of the complexities of its elements: the costs of their
     applications for a list of functions ([HOListComplexity]).
 
-    The complexity of a list has one complexity, of its shape, for each
-    element ([wf_list]; in L, the instance, a list is realised by the
+    A well-formed complexity of a list has one well-formed complexity for
+    each element ([wf_list]; in L, the instance, a list is realised by the
     realisers of its elements, with these complexities). Since the
-    complexities of functions are compared at the inputs of their shape
+    complexities of functions are compared at the well-formed inputs
     ([bound_order_arr]), the bounds of the functions of lists may ignore
     the others, for instance [tl (pot cl)] for [tl]. The case analysis
     gives the default complexity to a missing head ([cdefault]), which only
-    happens at the inputs that are not of their shape. *)
+    happens at the inputs that are not well-formed. *)
 
 (** The order on the complexities of lists ([Forall2]). *)
 Section ListOrder.
@@ -63,7 +75,8 @@ Module Type ListData (Import CM : CostModel).
   Parameter size_nil : forall {A} `{Size A}, size (@nil A) = 1.
   Parameter size_cons : forall {A} `{Size A} (a : A) l, size (a :: l) = 1 + size a + size l.
 
-  (** The shape of a list: one complexity, of its shape, for each element. *)
+  (** A complexity of a list is well-formed when it has one well-formed
+      complexity for each element. *)
   Parameter wf_list : forall {A CA} `{Repr A CA} (l : list A) (c : list CA),
     wf l c <-> Forall2 wf l c.
 
@@ -75,8 +88,8 @@ Module Type ListData (Import CM : CostModel).
     ComplexityBound (@nil A) (@nil CA).
 End ListData.
 
-(** The shapes of the empty and non-empty lists. *)
-Module ListShapes (Import CM : CostModel) (Import LD : ListData CM).
+(** The well-formed complexities of the empty and non-empty lists. *)
+Module ListWf (Import CM : CostModel) (Import LD : ListData CM).
   Lemma wf_nil {A CA} `{Repr A CA} (c : list CA) : wf (@nil A) c -> c = nil.
   Proof. intro Hw. apply wf_list in Hw. inversion Hw. reflexivity. Qed.
 
@@ -89,7 +102,7 @@ Module ListShapes (Import CM : CostModel) (Import LD : ListData CM).
 
   Lemma wf_length {A CA} `{Repr A CA} (l : list A) (c : list CA) : wf l c -> length c = length l.
   Proof. intro Hw. apply wf_list in Hw. symmetry. exact (Forall2_length Hw). Qed.
-End ListShapes.
+End ListWf.
 
 (* Broken by the order on the complexities of lists ([Forall2]):
    [[tt] ≤ []] is not derivable, so lists of ground data are not ground.

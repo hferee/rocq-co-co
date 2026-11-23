@@ -1,18 +1,16 @@
-(** * Complexity of functions over [nat] from the standard library
+(** * Functions on [nat]
 
     Each function is analysed as defined in the standard library, by
-    [cbound] ([TimeFix]), with the smallest constants for the shape of each
-    bound. *)
+    [cbound], with the smallest constants. *)
 
 From Complexity Require Export TimeCostModel BoolComplexity PairComplexity.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+(** No timeout in the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
-(** The time cost model with the analyses of the booleans and of the
-    projections of pairs, which those of [nat] use: [Nat.odd] is [negb
-    (Nat.even n)], [Nat.div] and [Nat.modulo] project the pair of
-    [Nat.divmod]. *)
+(** The model with the booleans ([Nat.odd] is [negb (Nat.even n)]) and the
+    projections of pairs ([Nat.div] and [Nat.modulo] project
+    [Nat.divmod]). *)
 Module Type TimeBoolPair := TimeCostModel.TimeCostModel <+ BoolComplexity <+ PairComplexity.
 
 Module NatComplexity (Import Time : TimeBoolPair).
@@ -24,12 +22,8 @@ Module NatComplexity (Import Time : TimeBoolPair).
 
   (** ** Bounds
 
-      The constants were found by stating the bound with abstract
-      constants, which [cbound] turns into the inequalities that the
-      recurrence requires. The first cost ([5] for [Nat.add]) is that of the
-      partial application to the first argument; the cost of a step of the
-      recursion includes it, since the recursive call is a partial
-      application too. *)
+      The first cost of a bound is that of the partial application to the
+      first argument. *)
 
   Global Instance Nat_add_complexity : Time.ComplexityBound Nat.add
     (fun cn => 1 +> fun cm => (14 * val cn + 10) >|) := _.
@@ -82,8 +76,7 @@ Module NatComplexity (Import Time : TimeBoolPair).
     (fun cn => (8 * val cn + 12) >|) := _.
 
   (** [Nat.log2], [Nat.sqrt] and [Nat.div] are loops ([log2_iter],
-      [sqrt_iter], [divmod]) on their first argument, with accumulators that
-      are only matched or incremented. *)
+      [sqrt_iter], [divmod]) on their first argument. *)
   Global Instance Nat_log2_iter_complexity : Time.ComplexityBound Nat.log2_iter
     (fun ck => 4 +> fun cp => 2 +> fun cq => 2 +> fun cr => (60 * val ck + 14) >|) := _.
   Global Instance Nat_log2_complexity : Time.ComplexityBound Nat.log2
@@ -106,7 +99,7 @@ Module NatComplexity (Import Time : TimeBoolPair).
     (fun ca => 4 +> fun cn => (val cn * (9 * val ca + 29) + 8 * val ca + 19) >|).
   Proof. cbound. pose proof (Nat.div2_decr ca ca ltac:(lia)). nia. Qed.
 
-  (** ** Bounds in the size of the arguments
+  (** ** Bounds in the sizes
 
       [Nat.pow] is exponential in the size of its second argument. *)
   Global Instance Nat_add_linear_bound : Time.LinearBound Nat.add := _.
@@ -126,11 +119,10 @@ Module NatComplexity (Import Time : TimeBoolPair).
   Global Instance Nat_div_linear_bound : Time.LinearBound Nat.div := _.
   Global Instance Nat_modulo_linear_bound : Time.LinearBound Nat.modulo := _.
   Global Instance Nat_testbit_polynomial_bound : Time.PolynomialBound Nat.testbit := _.
-  (** ** Bounds in the sizes of the arguments, with their constants
 
-      The bounds above are in the values and lengths of the arguments;
-      each of these is at most the size ([#|x|], [SizeFact]), so that
-      they give bounds in the sizes ([csize]). *)
+  (** ** Bounds in the sizes, with their constants
+
+      From the bounds above: a value is at most its size ([SizeFact]). *)
 
   Lemma Nat_add_size_complexity :
     Time.ComplexityBound Nat.add
@@ -159,10 +151,11 @@ Module NatComplexity (Import Time : TimeBoolPair).
 
   Lemma Nat_mul_size_complexity :
     Time.ComplexityBound Nat.mul
-      (fun (cn : ℂI nat _) => 1 +> fun (cm : ℂI nat _) => (#|val cn| * (17 * #|val cm| + 13) + 0) >|).
+      (fun (cn : ℂI nat _) => 1 +> fun (cm : ℂI nat _) =>
+         (#|val cn| * (17 * #|val cm| + 13) + 0) >|).
   Proof. csize_using Nat_mul_complexity. Qed.
 
 End NatComplexity.
 
-(** The time cost model with the analyses of [nat]. *)
+(** The model with the analyses of [nat]. *)
 Module Type TimeNat := TimeBoolPair <+ NatComplexity.

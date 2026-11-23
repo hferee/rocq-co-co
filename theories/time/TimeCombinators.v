@@ -1,20 +1,102 @@
-(** * Cost model for the combinators of [Combinators]
+(** * Time cost model: application, basic functions and combinators
 
-    [Compile.compile] turns every lambda-term (and [match], through the case
-    combinators of the datatype models) into a convertible term built from
-    the closure combinators [Lam], [ehd], [etl], [Kc], [Sc], [Cc] and
-    [compose] ([Ic] is only used by bracket abstraction, [BracketCompile]).
-    The combinators are higher-order constants: their complexities take the
-    complexities of their (functional) arguments, so that typeclass search
-    finds the complexity of a compiled term by following its structure
-    ([cbc_found]). *)
+    The first layers of the time cost model ([TimeCostModel]), heavily
+    inspired by Forster & Künze's coq-library-complexity. The complexities
+    ([ℂI], [ℂO]) and the application [·] are defined in [CostModel],
+    independently of the resource.
 
-From Complexity Require Export TimeBasic Compile.
+    - [BasicTimeCostModel]: the costs of the identity, of application, of
+      composition and of constant functions.
+    - [CombinatorTimeCostModel]: the costs of the combinators of
+      [Combinators]. [Compile.compile] turns every lambda-term (and
+      [match], through the case combinators of the datatype models) into a
+      convertible term built from the closure combinators [Lam], [ehd],
+      [etl], [Kc], [Sc], [Cc] and [compose] ([Ic] is only used by bracket
+      abstraction, [BracketCompile]). The combinators are higher-order
+      constants: their complexities take the complexities of their
+      (functional) arguments, so that typeclass search finds the complexity
+      of a compiled term by following its structure ([cbc_found]). *)
+
+From Complexity Require Export CostModel Compile.
 From Stdlib Require Import PArith.
 From Stdlib Require List.
 From Complexity Require Poly.
 From Ltac2 Require Import Ltac2.
 Set Default Proof Mode "Classic".
+
+(** ** Application and basic functions *)
+
+Module Type BasicTimeCostModel (Import CM : CostModel).
+
+  (** ** Constants
+
+      The costs of the primitives are constants, fixed by each cost model:
+      [TimeCostModel] sets them all to [1]. [c_clo] is the cost of a partial
+      application (building a closure). A full application of a combinator
+      ([CombinatorTimeCostAxioms], below) has a cost of its own: the projections of an
+      environment [c_ehd] and [c_etl], the call of a closure [c_Lam], the
+      constants [c_Kc] (also for [fun _ => b]), the identity [c_Ic] (also for
+      [fun x => x]), the composition [c_compose], and [c_Cc] and [c_Sc].
+      They are equal in the models of L, and differ on a machine
+      ([MachineCostModel]). The models of the datatypes and of fixpoints
+      have their own constants. *)
+  Parameter c_clo : nat.
+  Parameter c_ehd c_etl c_Lam c_Kc c_Ic c_compose c_Cc c_Sc : nat.
+  #[global] Hint Unfold c_clo c_ehd c_etl c_Lam c_Kc c_Ic c_compose c_Cc c_Sc : costs.
+
+  (** [c_frame]: the cost of an evaluation that is not in tail position,
+      whose value is used afterwards (a frame on the stack of a machine,
+      pushed and popped). It is charged by the combinators that evaluate a
+      subterm before using its value: the argument of [compose], the two
+      subterms of [Sc], the function of [Cc], and the matched value of a
+      case analysis. A call in tail position does not pay it. [0] in the
+      models whose instance has no stack ([TimeCostModel]: L reduces terms). *)
+  Parameter c_frame : nat.
+  #[global] Hint Unfold c_frame : costs.
+
+  (* Assume we know the cost of some basic functions *)
+  (* General idea: we define a (complete) set of primitives and axiomatize their
+  cost. These axioms are now the trust base, and users may not cheat,
+  or make mistakes anymore *)
+
+  (* The complexity of the application function, i.e. identity on function types. *)
+  (* We can give a general, polymorphic bound!
+    A priori, this is not the case for coq-library-complexity. *)
+  (* Note that the complexity of the identity is roughly the identity *)
+  #[global] Declare Instance id_complexity : forall {A CA} `{Repr A CA},
+    ComplexityBound (fun (x : A) => x) (fun ca => (c_Ic +> pot ca) : ℂO CA).
+
+  (* Note : we are using the unfolding of [@id A] here so that typeclass
+    resolution works *)
+
+  (* Complexity of the application of a function to an argument *)
+  Parameter apply_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB}
+    {v : A} {f : A -> B} {cv : CA} (cf : ℂI A CA -> ℂO CB),
+    ComplexityBound v cv ->
+    ComplexityBound f cf ->
+    ComplexityBound (f v: B) (res (cf (v ⋊ cv))).
+
+  (* More convenient: the instantiation direct application of compose. *)
+  #[global] Declare Instance compose_complexity : forall {A B C CA CB CC}
+    `{Repr A CA} `{Repr B CB} `{Repr C CC}
+    (f : B -> C) (cf : ℂI B CB -> ℂO CC) (g : A -> B) (cg : ℂI A CA -> ℂO CB),
+    ComplexityBound f cf ->
+    ComplexityBound g cg ->
+    ComplexityBound (compose f g : A -> C)
+                    (fun ca => c_compose ⊕ pot <$> (f ⋊ cf) · (c_frame ⊕ (g ⋊ cg) · ca)).
+
+  #[global] Declare Instance constant_complexity :
+    forall {A B CA CB} `{Repr A CA} `{Repr B CB} b {cb},
+    ComplexityBound (b : B) (cb : CB) ->
+    ComplexityBound (fun (_ : A) => b) (fun _ => c_Kc +> cb).
+
+  (** [tt]: the empty environment of closures, to which closed code is
+      applied (see [Combinators]). *)
+  #[global] Declare Instance Repr_unit : Repr unit unit.
+  #[global] Declare Instance tt_complexity : ComplexityBound tt tt.
+End BasicTimeCostModel.
+
+(** ** Combinators *)
 
 (** [cunit] destructs the closed subterms of type [unit] of the goal, other
     than [tt] (the complexities of ground values, given by potentials of
@@ -97,7 +179,8 @@ Module Type CombinatorTimeCostAxioms
   #[global] Declare Instance Repr_env :
     forall {E CE A CA}, Repr E CE -> Repr A CA -> Repr (env E A) (CE * CA).
 
-  (** The shape of an environment: the shapes of its values. *)
+  (** A complexity of an environment is well-formed when those of its
+      values are. *)
   Parameter wf_env : forall {E CE A CA} `{Repr E CE} `{Repr A CA} (e : env E A) (c : CE * CA),
     wf e c <-> wf (etl e) (fst c) /\ wf (ehd e) (snd c).
 
@@ -110,7 +193,7 @@ Module Type CombinatorTimeCostAxioms
   (** ** Closures *)
 
   (** [Lam c e] is the closure of code [c] and environment [e]; applying it
-      to `a` runs [c] in the environment [e] extended with `a`. *)
+      to [a] runs [c] in the environment [e] extended with [a]. *)
   #[global] Declare Instance Lam_complexity :
     forall {E CE A CA B CB} `{Repr E CE} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Lam E A B)
@@ -136,7 +219,7 @@ Module Type CombinatorTimeCostAxioms
        fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => c_clo +>
        fun ca : ℂI A CA => c_compose ⊕ pot <$> cf · (c_frame ⊕ cg · ca)).
 
-  (** `Cc f a x = f x a`. *)
+  (** [Cc f a x = f x a]. *)
   #[global] Declare Instance Cc_complexity :
     forall {X A B CX CA CB} `{Repr X CX} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Cc X A B)
@@ -387,10 +470,10 @@ Module CombinatorTactics
       left instead, with the arithmetic hypotheses, and admit them. The
       minimiser of the constants ([tools/bounds/minimise.py]) makes the
       constants of a bound variables, and solves these inequalities for
-      them. Each one is printed as `#G (<= a b)` (or [<], [=]), after its
-      hypotheses `#H ...`, between `#CGOAL` and `#END`; the terms are
-      s-expressions over [+], [*] and [-], numerals and atoms `{t}`. A goal
-      of another form is printed as `#X t` ([Advice]). *)
+      them. Each one is printed as [#G (<= a b)] (or [<], [=]), after its
+      hypotheses [#H ...], between [#CGOAL] and [#END]; the terms are
+      s-expressions over [+], [*] and [-], numerals and atoms [{t}]. A goal
+      of another form is printed as [#X t] ([Advice]). *)
   (** The tests of the case analyses ([ccases]) as facts on numbers: a
       comparison [Nat.eqb], [Nat.leb] or [Nat.ltb] that is [true] or
       [false] ([x =? 0] false: [0 < x]). [lia] and [nia] do not read them
@@ -440,10 +523,14 @@ Module CombinatorTactics
       (unlike [cconstant], [clinear] and [cpolynomial]): [cbound_split]
       reduces [FirstOrderBound f (peval ?p)] to inequalities [cost <= peval
       ?p ss], and the polynomial [?p] is chosen from the costs as in
-      [Bounds]. The inequalities that [lia] and [nia] do not prove are left,
-      for example when they need facts on the sizes of the arguments. *)
+      [BoundsTactics]. It analyses [f] against [size_bound]
+      ([size_bound_costs]), whose results have the default complexity: they
+      must be ground data. The inequalities that [lia] and [nia] do not
+      prove are left, for example when they need facts on the sizes of the
+      arguments. *)
   Ltac cbound_split :=
-    unfold FirstOrderBound; cbn [fo_repr size_bound];
+    unfold FirstOrderBound; cbn [fo_repr];
+    eexists; split; [| apply size_bound_costs]; cbn [size_bound];
     ltac2:(cbound_start ()); csimpl; bo_split; destr_inputs; ccases; cunit;
     add_size_facts.
 

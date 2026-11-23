@@ -1,14 +1,14 @@
-(** * Complexity of the functions on sums
+(** * Functions on sums
 
-    The standard library defines the sum [A + B] but no function on it. The
-    usual ones are defined here (Haskell's [isLeft], [either], [lefts],
-    ...), and [cbound] proves their bounds, with the smallest constants. *)
+    The standard library has no function on [A + B]: the usual ones are
+    defined here (Haskell's [isLeft], [either], [lefts], ...). [cbound]
+    proves their bounds, with the smallest constants. *)
 
-From Complexity Require Export TimeCostModel HOListComplexity.
+From Complexity Require Export HOListComplexity.
 From Stdlib Require Import List.
 Import ListNotations.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
+(** No timeout in the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
 (** ** The functions *)
@@ -37,11 +37,10 @@ Fixpoint lefts {A B} (l : list (A + B)) : list A :=
 Fixpoint rights {A B} (l : list (A + B)) : list B :=
   match l with [] => [] | inl _ :: l => rights l | inr b :: l => b :: rights l end.
 
-(** A sum with its complexity, as the case analysis reads it: its element
-    with its complexity, or with the default [da] or [db] when the
-    complexity is of the other side (which does not happen; the models use
-    [cdefault]). *)
-Definition czip_sum {A CA B CB} (da : CA) (db : CB) (c : ℂI (A + B) (CA + CB)) : ℂI A CA + ℂI B CB :=
+(** The element of a sum, with its complexity, or [da] or [db] when the
+    complexity is of the other side. *)
+Definition czip_sum {A CA B CB} (da : CA) (db : CB) (c : ℂI (A + B) (CA + CB)) :
+  ℂI A CA + ℂI B CB :=
   match val c, pot c with
   | inl a, inl ca => inl (a ⋊ ca)
   | inl a, inr _ => inl (a ⋊ da)
@@ -52,9 +51,9 @@ Definition czip_sum {A CA B CB} (da : CA) (db : CB) (c : ℂI (A + B) (CA + CB))
 
 (** ** Sums
 
-    Sums are of any data: the complexity of a sum is the sum of the
-    complexities, and a bound reads the element with its complexity
-    ([czip_sum]). Over the model without lists ([TimeCostModelBase]). *)
+    Of any data: the bounds are in the complexity of the element
+    ([czip_sum]). Over the model without lists and options
+    ([TimeCostModelBase]). *)
 
 Module SumComplexity (Import Time : TimeCostModelBase).
 
@@ -95,10 +94,9 @@ End SumComplexity.
 
 (** ** Options and lists of sums
 
-    The lists are read with their complexities ([czip]), as for lists of
-    any data. *)
+    The lists are read with their complexities ([ccombine]). *)
 
-Module SumListComplexity (Import Time : TimeCostModel).
+Module SumListComplexity (Import Time : TimeHOLists).
 
   Global Instance get_inl_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@get_inl A B)
@@ -115,17 +113,16 @@ Module SumListComplexity (Import Time : TimeCostModel).
                       end).
   Proof. cbound. Qed.
 
-  (** An element [inl] costs [27], an element [inr] [22] (it builds no
-      cell). *)
+  (** An element [inl] costs [27], an element [inr] [22]. *)
   Global Instance lefts_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@lefts A B)
       (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (27 * length (val cl) + 6)
-                 +> map (@pot A CA) (lefts (map (czip_sum cdefault cdefault) (czip cdefault cl)))).
-  Proof. cbound. Qed.
+                 +> map (@pot A CA) (lefts (map (czip_sum cdefault cdefault) (ccombine cl)))).
+  Proof. cbound; ccombine_case; cbn [lefts rights map]; first [reflexivity | lia]. Qed.
   Global Instance rights_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@rights A B)
       (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (27 * length (val cl) + 6)
-                 +> map (@pot B CB) (rights (map (czip_sum cdefault cdefault) (czip cdefault cl)))).
-  Proof. cbound. Qed.
+                 +> map (@pot B CB) (rights (map (czip_sum cdefault cdefault) (ccombine cl)))).
+  Proof. cbound; ccombine_case; cbn [lefts rights map]; first [reflexivity | lia]. Qed.
 
 End SumListComplexity.

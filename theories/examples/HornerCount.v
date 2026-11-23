@@ -44,4 +44,6 @@ Module HornerCount (Import Time : ArithOpsTimeCostModel).
 
   (** Matches on numbers have no known cost. *)
   Fail Definition pred_complexity : Time.ComplexityBound Nat.pred (fun cn => 0 >|) := _.
+
+  (* TODO: use list fold to define horner as well. *)
 End HornerCount.

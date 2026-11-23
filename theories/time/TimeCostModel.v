@@ -34,7 +34,7 @@ Module Type TimeCostModelBase := ParamTimeCostModelBase
     carry no information ([IsGround]). Lists are not ground: their
     complexities have their lengths ([wf_list]). *)
 Module Type ParamTimeCostModel := ParamTimeCostModelBase
-  <+ ListTimeCostModel <+ ListShapes <+ OptionTimeCostModel <+ OptionGround
+  <+ ListTimeCostModel <+ ListWf <+ OptionTimeCostModel <+ OptionGround
   <+ ProdTimeCostModel <+ ProdGround.
 
 (** Every constant is [1]: each application is a β-step of L

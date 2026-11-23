@@ -26,9 +26,7 @@ Module BoundExamples (Import Time : TimeStdlib).
 
   (** A linear bound is a polynomial bound; the elements of the lists need
       sizes. *)
-  (* Broken by the order on the complexities of lists ([Forall2]):
   Example app_polynomial {A} {CA} {RA : Repr A CA} {GA : IsGround RA} `{Size A} : Time.PolynomialBound (@app A) := _.
-  *)
 
   (** ** Derived bounds *)
 
@@ -42,7 +40,5 @@ Module BoundExamples (Import Time : TimeStdlib).
   (* Broken by the order on the complexities of lists ([Forall2]):
   Example range_linear : Time.LinearBound range := _.
   *)
-  (* Broken by the order on the complexities of lists ([Forall2]):
   Example memN_polynomial : Time.PolynomialBound memN := _.
-  *)
 End BoundExamples.

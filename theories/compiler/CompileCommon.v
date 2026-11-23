@@ -225,7 +225,7 @@ Ltac2 replace_goal_arg (i : int) (y : constr) :=
   | _ => fail_msg "replace_goal_arg: the goal is not an application"
   end.
 
-(** In a goal `@ComplexityBound A I f c`, replace [f] (the argument before
+(** In a goal [@ComplexityBound A I f c], replace [f] (the argument before
     last) by [compile f], convertible to it. *)
 Ltac2 compile_goal_with (compile : constr -> constr) :=
   match kind (Control.goal ()) with
@@ -238,8 +238,8 @@ Ltac2 compile_goal_with (compile : constr -> constr) :=
 (** ** Fixpoints
 
     [fix_equation], in a goal [ComplexityBound f c] where [f] is a recursive
-    function, proves the unfolding equation `is_fixpoint ar F f` of [f], for
-    its functional `F` (the body of the fixpoint, abstracted over the
+    function, proves the unfolding equation [is_fixpoint ar F f] of [f], for
+    its functional [F] (the body of the fixpoint, abstracted over the
     recursive calls, with its case analyses lifted by [lift_cases]), and
     adds it as a premise of the goal. It is proved by case analysis of the
     recursive argument and of the matched values. [f] may be a
@@ -368,11 +368,11 @@ Ltac2 fix_functional (f : constr) : constr * int * int :=
   | _ => fail_msg "fix_equation: not a fixpoint"
   end.
 
-(** Prove `pw_eq ar (f a) (F' f a)` (for all `a`), where [F'] is
-    `lift_cases F`, for [n] arguments, recursive on argument [k]: the
-    equation `f a = F f a` holds by case analysis of the recursive argument
-    and conversion, and `F f a = F' f a` by case analysis of the values
-    matched by `F`. [pre] are the arguments given before (for mutual
+(** Prove [pw_eq ar (f a) (F' f a)] (for all [a]), where [F'] is
+    [lift_cases F], for [n] arguments, recursive on argument [k]: the
+    equation [f a = F f a] holds by case analysis of the recursive argument
+    and conversion, and [F f a = F' f a] by case analysis of the values
+    matched by [F]. [pre] are the arguments given before (for mutual
     recursion). *)
 Ltac2 prove_unfolding (ff : constr) (f : constr) (pre : constr list) (n : int) (k : int) :=
   ltac1:(intro; cbn [pw_eq]; intros);
@@ -609,7 +609,7 @@ Ltac2 env_fix (h : constr) : env_fix :=
     ef_m := m; ef_s := s'; ef_swap := swap }.
 
 (** [fix_equation_env ef] proves the unfolding equation
-    `forall e, is_fixpoint ar (fun g => F (ECons e g)) (f e)` of [ef]
+    [forall e, is_fixpoint ar (fun g => F (ECons e g)) (f e)] of [ef]
     ([lift_cases] applied to [F]) and adds it as a premise of the goal. *)
 Ltac2 fix_equation_env (ef : env_fix) :=
   let e_ty := ef.(ef_E) in

@@ -1,419 +1,78 @@
-(** * Linear and polynomial bounds
+(** * Bounds in the sizes of the inputs
 
-    [ComplexityBound f c] bounds the costs of [f] by any function [c] of
-    its inputs; the usual classes of complexity bound them by a function of
-    the sizes of the inputs only. This file defines these classes and the
-    tactics that prove them; it is included in [CostModel], so that they
-    are shared by all the analyses. *)
+    [ComplexityBound f c] bounds the costs of [f] by a function [c] of its
+    inputs; the usual classes of complexity bound them by a function of the
+    sizes of the inputs only. The tactics are in [BoundsTactics]. *)
 
-From Complexity Require Import CostModelCore GroundTypes Poly.
-From Complexity Require Export Advice.
+From Complexity Require Import CostModelCore Poly.
 From Stdlib Require Import List.
 Import ListNotations.
-From Ltac2 Require Import Ltac2.
-Set Default Proof Mode "Classic".
 
 (** ** Sizes
 
-    The usual complexity bounds are in the sizes of the inputs. The size
-    of a value of a datatype is the length of its binary encoding, its
-    number of constructors: one bit per constructor for the
-    types with two constructors ([bool], [nat], [option], [list], [sum]),
-    the binary digits of a [positive] (with one more for the sign or the
-    zero of [N] and [Z]), and one for each pair. The models of the
-    datatypes state it as equations ([size_S], [size_cons], ...). *)
+    The size of a value: the length of its binary encoding. *)
 Class Size (A : Type) := size : A -> nat.
-(** [#|x|]: the size of [x]. (The bar of [|x|] would also open a term:
-    [#|] is a distinct token, as in mathcomp.) *)
 Notation "#| x |" := (size x) (at level 0, x at level 99, format "#| x |").
 
-(** The size of [tt], the empty environment of closures. *)
 #[global] Instance Size_unit : Size unit := fun _ => 1.
 Lemma size_tt : size tt = 1.
 Proof. reflexivity. Qed.
 
-(** ** Facts on sizes
-
-    [SizeFact x P]: [P] is a fact on the size of [x], typically a lower
-    bound by the measure of [x] that costs use ([x < size x] for [nat],
-    [length l < size l] for lists). The facts are derived from the axioms
-    on sizes of the models, where they are needed (for example in
-    [NatComplexity]), and [add_size_facts] adds the facts on the values whose
-    sizes appear in the goal. *)
-Class SizeFact {A} (x : A) (P : Prop) := size_fact : P.
-
-(** Type aliases ([Definition clause := list nat]) appear in the implicit
-    arguments of the measures and of the sizes, depending on where they come
-    from: the type of the function or of the bound ([@length clause l]), or
-    an instance ([@length (list nat) l]). [lia] and [nia] compare their
-    atoms syntactically: [cnorm_types] unfolds these arguments, in the goal
-    and in the hypotheses, so that the same atoms compare equal. It also
-    folds back the sums of lists that the computation of a bound on [x ::
-    l] unfolds ([fold_right Nat.add 0 l] into [list_sum l]), and unfolds
-    the projections [val] and [pot]: they are primitive, with two forms
-    that print the same ([val x] as computed or as written), which [lia]
-    would take for distinct atoms. *)
-Ltac cnorm_type T :=
-  let U := eval cbv in T in
-  tryif constr_eq T U then fail else (progress (change T with U in *)).
-
-(** A size is normalised with its instance, whose arguments may be aliases
-    too ([@Size_list clause _]). *)
-Ltac cnorm_size T S x :=
-  let U := eval cbv in T in
-  let R := eval cbv in S in
-  tryif (constr_eq T U; constr_eq S R) then fail
-  else (progress (change (@size T S x) with (@size U R x) in *)).
-
-Ltac cnorm_types :=
-  try unfold val in *; try unfold pot in *;
-  repeat match goal with
-  | |- context [@size ?T ?S ?x] => cnorm_size T S x
-  | _ : context [@size ?T ?S ?x] |- _ => cnorm_size T S x
-  | |- context [@length ?T _] => cnorm_type T
-  | |- context [@map ?T _ _ _] => cnorm_type T
-  | |- context [@map _ ?T _ _] => cnorm_type T
-  | |- context [@val ?T _ _] => cnorm_type T
-  | _ : context [@val ?T _ _] |- _ => cnorm_type T
-  | _ : context [@length ?T _] |- _ => cnorm_type T
-  | _ : context [@map ?T _ _ _] |- _ => cnorm_type T
-  | _ : context [@map _ ?T _ _] |- _ => cnorm_type T
-  | |- context [fold_right Nat.add 0 ?l] => change (fold_right Nat.add 0 l) with (list_sum l)
-  | H : context [fold_right Nat.add 0 ?l] |- _ => change (fold_right Nat.add 0 l) with (list_sum l) in H
-  end.
-
-Ltac add_size_facts :=
-  repeat match goal with
-  | |- context [@size _ _ ?x] =>
-      lazymatch goal with
-      | _ : context [@size _ _ x] |- _ => fail
-      | _ => pose proof (size_fact (x := x))
-      end
-  end;
-  cnorm_types.
-
-(** ** Facts on values
-
-    [ValueFact x P]: [P x] is a fact on the value [x] of a function that a
-    cost mentions, typically a bound of a measure of [x] by the measures of
-    the arguments ([length (filter p l) <= length l]), which [lia] and
-    [nia] cannot derive. The facts are lemmas on the functions, registered
-    where the functions are (the library, or the application);
-    [add_value_facts] adds the facts on the values in the goal, the
-    conjunctions split. The fact is stated on [x] as it appears in the goal
-    (the predicate [P] applied to it): [lia] compares the atoms
-    syntactically. A value has one fact (a conjunction for more). *)
-Class ValueFact {A} (x : A) (P : A -> Prop) := value_fact : P x.
-#[global] Hint Mode ValueFact - ! - : typeclass_instances.
-
-(** A fact is known if it, or its first part, is a hypothesis. *)
-Ltac value_fact_known T :=
-  lazymatch T with
-  | ?A /\ _ => value_fact_known A
-  | _ => lazymatch goal with _ : T |- _ => idtac end
-  end.
-
-Ltac add_value_facts :=
-  repeat match goal with
-  | |- context [?x] =>
-      let H := constr:(value_fact (x := x)) in
-      let T := type of H in
-      let T := eval cbv beta in T in
-      tryif value_fact_known T then fail
-      else (let F := fresh "Hv" in pose proof (H : T) as F; decompose [and] F)
-  end;
-  cnorm_types.
-
-(** ** Choice of the constants
-
-    The costs of a bound of [ComplexityBound] are polynomials in measures of
-    the arguments ([n], [length l], [Pos.size_nat p], ...), each bounded by
-    the size of the argument. [poly_of t] bounds the polynomial [t] by the
-    sum [k] of its coefficients and its degree [d], its atoms being the
-    measures. The polynomial of a bound is then [k * (1 + s_0 + .. +
-    s_(n-1)) ^ d] in the sizes [s_i] of the [n] arguments ([k + k * (s_0 +
-    .. + s_(n-1))] for a linear bound), and checked by [lia] or [nia]: the
-    proofs do not depend on the constants of the bounds of
-    [ComplexityBound]. *)
-
-Ltac2 rec nat_value (t : constr) : int option :=
-  lazy_match! t with
-  | O => Some 0
-  | S ?u => match nat_value u with Some n => Some (Int.add n 1) | None => None end
-  | _ => None
-  end.
-
-Ltac2 imax (a : int) (b : int) : int := if Int.lt a b then b else a.
-
-Ltac2 rec ipow (a : int) (e : int) : int :=
-  if Int.equal e 0 then 1 else Int.mul a (ipow a (Int.sub e 1)).
-
-Ltac2 not_polynomial (t : constr) :=
-  Control.zero (Tactic_failure (Some (Message.concat
-    (Message.of_string "not a polynomial: ") (Message.of_constr t)))).
-
-Ltac2 rec poly_of (t : constr) : int * int :=
-  match nat_value t with
-  | Some n => (n, 0)
-  | None =>
-      lazy_match! t with
-      | ?a + ?b => let (ka, da) := poly_of a in let (kb, db) := poly_of b in (Int.add ka kb, imax da db)
-      | ?a * ?b => let (ka, da) := poly_of a in let (kb, db) := poly_of b in (Int.mul ka kb, Int.add da db)
-      | ?a - _ => poly_of a
-      | S ?a => let (ka, da) := poly_of a in (Int.add ka 1, da)
-      | ?a ^ ?b =>
-          match nat_value b with
-          | Some e => let (ka, da) := poly_of a in (ipow ka e, Int.mul da e)
-          | None => not_polynomial t
-          end
-      | _ => (1, 1)
-      end
-  end.
-
-(** The largest sum of coefficients and degree of the costs of the goals
-    [cost <= bound]. *)
-Ltac2 cost_constants () : int * int :=
-  let k := Ref.ref 0 in
-  let d := Ref.ref 0 in
-  Control.enter (fun () =>
-    lazy_match! goal with
-    | [ |- ?l <= _ ] =>
-        let (kl, dl) := poly_of l in
-        Ref.set k (imax (Ref.get k) kl); Ref.set d (imax (Ref.get d) dl)
-    end);
-  (Ref.get k, Ref.get d).
-
-(** The numeral [n] (in the focused goal). *)
-Ltac2 rec nat_constr (n : int) : constr :=
-  if Int.equal n 0 then constr:(O) else let t := nat_constr (Int.sub n 1) in constr:(S $t).
-
-(** The number of arguments: the length of the longest list of sizes. *)
-Ltac2 rec list_length (t : constr) : int :=
-  lazy_match! t with
-  | cons _ ?u => Int.add 1 (list_length u)
-  | _ => 0
-  end.
-
-Ltac2 arity () : int :=
-  let n := Ref.ref 0 in
-  Control.enter (fun () =>
-    match! goal with
-    | [ |- context [peval _ ?ss] ] => Ref.set n (imax (Ref.get n) (list_length ss))
-    | [ |- _ ] => ()
-    end);
-  Ref.get n.
-
-(** [s_i + .. + s_(n-1)] (in the focused goal). *)
-Ltac2 rec psum (i : int) (n : int) : constr :=
-  if Int.le n i then constr:(pconst 0)
-  else
-    let v := nat_constr i in
-    let rest := psum (Int.add i 1) n in
-    constr:(padd (pvar $v) $rest).
-
-(** Instantiates the polynomial [?p] of the goals [cost <= peval ?p ss]. *)
-Ltac2 instantiate_poly (mk : int -> int -> int -> constr) :=
-  let (k, d) := cost_constants () in
-  let n := arity () in
-  Control.focus 1 1 (fun () =>
-    lazy_match! goal with
-    | [ |- _ <= peval ?p _ ] => Std.unify p (mk k d n)
-    end).
-
-Ltac2 linear_constants () :=
-  instantiate_poly (fun k d n =>
-    (if Int.lt 1 d then
-       Control.zero (Tactic_failure (Some (Message.of_string "the costs are not linear")))
-     else ());
-    let k := nat_constr k in
-    let s := psum 0 n in
-    constr:(padd (pconst $k) (pmul (pconst $k) $s))).
-
-Ltac2 constant_constants () :=
-  instantiate_poly (fun k d _ =>
-    (if Int.lt 0 d then
-       Control.zero (Tactic_failure (Some (Message.of_string "the costs are not constant")))
-     else ());
-    let k := nat_constr k in
-    constr:(pconst $k)).
-
-(** The same as [linear_constants] and [constant_constants], but the
-    polynomial is instantiated whatever the degree of the costs: the
-    inequalities that cannot hold are left, and explained
-    ([csolve_degree]). For the tactics used by hand; the hints, which try
-    bounds that may not hold, use the failing versions. *)
-Ltac2 linear_constants_any () :=
-  instantiate_poly (fun k _ n =>
-    let k := nat_constr k in
-    let s := psum 0 n in
-    constr:(padd (pconst $k) (pmul (pconst $k) $s))).
-
-Ltac2 constant_constants_any () :=
-  instantiate_poly (fun k _ _ => let k := nat_constr k in constr:(pconst $k)).
-
-(** ** Polynomial bounds by monotonicity *)
-
-(** [cmono_le X]: [t <= ?u], with [?u] the term [t] in which each measure
-    (an atom) is replaced by [X], by monotonicity. *)
-Ltac cmono_le X :=
-  lazymatch goal with
-  | |- ?a + ?b <= _ => eapply Nat.add_le_mono; [cmono_le X | cmono_le X]
-  | |- ?a * ?b <= _ => eapply Nat.mul_le_mono; [cmono_le X | cmono_le X]
-  | |- ?a - ?b <= _ => eapply Nat.le_trans; [apply Nat.le_sub_l | cmono_le X]
-  | |- S ?a <= _ => eapply le_n_S; cmono_le X
-  | |- 0 <= _ => apply le_n
-  | |- ?m <= _ => let H := fresh in assert (H : m <= X) by lia; exact H
-  end.
-
-Ltac2 rec prodX (x : constr) (i : int) : constr :=
-  if Int.equal i 0 then constr:(1) else let p := prodX x (Int.sub i 1) in constr:($x * $p).
-
-(** The degree [d] of [X * (X * ... 1)]. *)
-Ltac2 rec xdeg (x : constr) (t : constr) : int :=
-  lazy_match! t with
-  | ?a * ?b => if Constr.equal a x then Int.add 1 (xdeg x b) else 0
-  | _ => 0
-  end.
-
-Ltac2 cpow_chain (x : constr) (hx : constr) (d : int) : unit :=
-  let rec go i :=
-    if Int.lt i d then
-      (let p := prodX x i in
-       ltac1:(x p hx |- pose proof (Nat.mul_le_mono_r 1 x p hx))
-         (Ltac1.of_constr x) (Ltac1.of_constr p) (Ltac1.of_constr hx);
-       go (Int.add i 1))
-    else () in
-  go 0.
-
-(** [cmono_poly]: [cost <= k * (X * (... * 1))], the goal of a polynomial
-    bound ([polynomial_constants]), where [X] is [1] plus the sizes and [k]
-    the sum of the coefficients of the cost: each measure of the cost is at
-    most [X] (by [lia], from the facts on the sizes), and each power of [X]
-    at most [X ^ d]. [nia] may not find these products, for a degree [d]
-    above [2]. *)
-Ltac2 cmono_poly () :=
-  lazy_match! goal with
-  | [ |- _ <= _ * (?x * ?r) ] =>
-      let d := Int.add 1 (xdeg x r) in
-      ltac1:(x |- assert (1 <= x) by lia) (Ltac1.of_constr x);
-      let hx := Control.hyp (match List.last_opt (Control.hyps ()) with Some (h, _, _) => h | None => Control.throw Not_found end) in
-      ltac1:(x |- eapply Nat.le_trans; [cmono_le x |]) (Ltac1.of_constr x);
-      cpow_chain x hx d;
-      ltac1:(lia)
-  end.
-Ltac cmono_poly := ltac2:(cmono_poly ()).
-
-(** For each goal [cost <= bound]: if the degree of its cost is larger
-    than [deg], the degree of the bound, it cannot hold for large values of
-    the arguments, whatever the constants: it is left, and explained (and
-    not given to [nia], which would search for a proof forever); otherwise
-    [lia] or [nia] try to prove it. *)
-(** The hypotheses of a case (a test [(10 <? n) = false], or [n <= 10])
-    may bound the arguments: the inequality may then hold, with constants
-    that the degree does not give. *)
-Ltac2 bounded_case () : bool :=
-  List.exist (fun (_, body, ty) =>
-    match body with
-    | Some _ => false
-    | None => lazy_match! ty with
-              | _ = true => true | _ = false => true
-              | _ <= ?k => Option.is_some (nat_value k)
-              | _ < ?k => Option.is_some (nat_value k)
-              | _ => false end
-    end) (Control.hyps ()).
-
-Ltac2 degree_message (g : constr) (d : int) (deg : int) (kind : string) : unit :=
-  let tail :=
-    if bounded_case () then
-      [Message.of_string "For large arguments the left side is the larger, unless the hypotheses of the case bound them (a test, say):";
-       Advice.nl (); Message.of_string "then prove a bound in their values first (ComplexityBound, as an instance), from which this one follows."]
-    else
-      [Message.of_string "For large arguments the left side is the larger, whatever the constants: the function has no ";
-       Message.of_string kind; Message.of_string " bound. Try a bound of a higher degree (PolynomialBound)."] in
-  Message.print (Advice.cat (List.append
-    [Message.of_string "The inequality "; Message.of_constr g;
-     Message.of_string (if bounded_case () then " may not hold:" else " cannot hold:");
-     Advice.nl (); Message.of_string "its left side, the cost found, has degree "; Message.of_int d;
-     Message.of_string " in the arguments, and its right side, a "; Message.of_string kind;
-     Message.of_string " bound, has degree "; Message.of_int deg; Message.of_string ".";
-     Advice.nl ()] tail)).
-
-Ltac2 csolve_degree (deg : int) (kind : string) : unit :=
-  Control.enter (fun () =>
-    let high :=
-      match! goal with
-      | [ |- ?l <= _ ] =>
-          match Control.case (fun () => poly_of l) with
-          | Val ((_, d), _) => if Int.lt deg d then Some d else None
-          | Err _ => None
-          end
-      | [ |- _ ] => None
-      end in
-    match high with
-    | Some d => degree_message (Control.goal ()) d deg kind
-    | None => ltac1:(first [solve [lia] | solve [cmono_poly] | cnia])
-    end).
-
-Ltac2 polynomial_constants () :=
-  instantiate_poly (fun k d n =>
-    let k := nat_constr k in
-    let d := nat_constr d in
-    let s := psum 0 n in
-    constr:(pmul (pconst $k) (ppow (padd (pconst 1) $s) $d))).
-
-
-(** The constants of the costs, declared by the layers of the models
-    ([c_S], [c_cons], ...), and the functions that costs use ([czip]): the
-    tactics unfold them ([autounfold with costs]), so that a constant fixed
-    by a model becomes a number, and an abstract one stays an atom for
-    [lia]. The bounds themselves are instances of [ComplexityBound]. *)
-Create HintDb costs.
-
-Module Bounds (Import CM : GroundCostModel).
+Module Bounds (Import CM : CostModelCore).
 
   (** ** First-order functions
 
-      [FirstOrderBound f g]: each application of the first-order function
-      [f] to its next argument costs at most [g ss], where [ss] are the
-      sizes of the arguments given so far, those of the cost model ([Size]:
-      the sizes of the representations). [PolynomialBound f],
-      [LinearBound f] and [ConstantBound f]: [g] is a polynomial ([Poly]),
-      of degree at most [1] for [LinearBound], and [0] for
-      [ConstantBound].
-
-      [FirstOrder A CA]: [A] is a type of functions whose arguments and
-      result are ground data, with sizes for the arguments, and [CA] the type
-      of their complexities. *)
+      [FirstOrder A CA]: [A] is a type of first-order functions, whose
+      arguments and result have a representation and a size, and [CA] the
+      type of their complexities; [fo_repr] is their representation. The
+      size of the result excludes the functions, which have none. *)
   Inductive FirstOrder : Type -> Type -> Type :=
-  | fo_res {B CB} (RB : Repr B CB) : IsGround RB -> FirstOrder B CB
-  | fo_arg {A CA B CB} (RA : Repr A CA) : IsGround RA -> Size A -> FirstOrder B CB ->
+  | fo_res {B CB} (RB : Repr B CB) : Size B -> FirstOrder B CB
+  | fo_arg {A CA B CB} (RA : Repr A CA) : Size A -> FirstOrder B CB ->
       FirstOrder (A -> B) (ℂI A CA -> ℂO CB).
   Existing Class FirstOrder.
   Global Existing Instances fo_res fo_arg.
 
-  (** The representation of a first-order type, the one found by typeclass
-      search. *)
   Fixpoint fo_repr {A CA} (fo : FirstOrder A CA) : Repr A CA :=
     match fo in FirstOrder A CA return Repr A CA with
     | fo_res RB _ => RB
-    | fo_arg RA _ _ fo => Repr_arr RA (fo_repr fo)
+    | fo_arg RA _ fo => Repr_arr RA (fo_repr fo)
     end.
 
-  (** [size_bound g ss]: the complexity in which each application to an
-      argument costs [g] of the sizes of the arguments, [ss] being the sizes
-      of those already given. *)
+  (** [size_costs fo g ss c]: each application costs at most [g] of the
+      sizes of the arguments so far ([ss], then the new one). The
+      complexities of the results are not constrained. *)
+  Fixpoint size_costs {A CA} (fo : FirstOrder A CA) (g : list nat -> nat) (ss : list nat) : CA -> Prop :=
+    match fo in FirstOrder A CA return CA -> Prop with
+    | fo_res _ _ => fun _ => True
+    | fo_arg _ SA fo => fun c => forall ca,
+        cost (c ca) <= g (ss ++ [size (Size := SA) (val ca)]) /\
+        size_costs fo g (ss ++ [size (Size := SA) (val ca)]) (res (c ca))
+    end.
+
+  (** [size_bound fo g ss]: the complexity whose costs are [g], with the
+      default complexities for the results. *)
   Fixpoint size_bound {A CA} (fo : FirstOrder A CA) (g : list nat -> nat) (ss : list nat) : CA :=
     match fo in FirstOrder A CA return CA with
     | fo_res RB _ => @cdefault _ _ RB
-    | fo_arg _ _ SA fo => fun ca =>
+    | fo_arg _ SA fo => fun ca =>
         g (ss ++ [size (Size := SA) (val ca)]) +>
         size_bound fo g (ss ++ [size (Size := SA) (val ca)])
     end.
 
-  (** ** Bounds *)
+  Lemma size_bound_costs {A CA} (fo : FirstOrder A CA) g ss : size_costs fo g ss (size_bound fo g ss).
+  Proof.
+    revert ss. induction fo as [B CB RB SB | A CA B CB RA SA fo IH]; intro ss; cbn; [exact I|].
+    intro ca. split; [apply le_n | apply IH].
+  Qed.
 
+  (** ** Bounds
+
+      [FirstOrderBound f g]: [f] has a complexity whose costs are at most
+      [g] of the sizes. [g] is a polynomial ([Poly]) for [PolynomialBound],
+      of degree at most [1] for [LinearBound], and [0] for [ConstantBound]. *)
   Definition FirstOrderBound {A CA} `{fo : FirstOrder A CA} (f : A) (g : list nat -> nat) : Prop :=
-    @ComplexityBound A (repr_ctype (R := fo_repr fo)) f (size_bound fo g []).
+    exists c, @ComplexityBound A (repr_ctype (R := fo_repr fo)) f c /\ size_costs fo g [] c.
 
   Class PolynomialBound {A CA} `{FirstOrder A CA} (f : A) : Prop :=
     polynomial_bound : exists p, FirstOrderBound f (peval p).
@@ -424,141 +83,27 @@ Module Bounds (Import CM : GroundCostModel).
   Class ConstantBound {A CA} `{FirstOrder A CA} (f : A) : Prop :=
     constant_bound : exists p, pdeg p = 0 /\ FirstOrderBound f (peval p).
 
-  Lemma size_bound_mono {A CA} (fo : FirstOrder A CA) (g g' : list nat -> nat) s :
-    (forall ss, g ss <= g' ss) ->
-    bound_order (H := fo_repr fo) (size_bound fo g s) (size_bound fo g' s).
+  (** The bounds are closed upwards in [g]. *)
+  Lemma size_costs_mono {A CA} (fo : FirstOrder A CA) (g g' : list nat -> nat) ss c :
+    (forall ss, g ss <= g' ss) -> size_costs fo g ss c -> size_costs fo g' ss c.
   Proof.
-    intro Hg. revert s. induction fo as [B CB RB GB | A CA B CB RA GA SA fo IH]; intro s; cbn.
-    - apply ground_order.
-    - apply bound_order_arr. intros ca _. cbn. split; [apply Hg | apply IH].
+    intro Hg. revert ss c. induction fo as [B CB RB SB | A CA B CB RA SA fo IH]; intros ss c; cbn; [auto|].
+    intros H ca. destruct (H ca) as [H1 H2]. split; [specialize (Hg (ss ++ [size (val ca)])); lia | exact (IH _ _ H2)].
   Qed.
 
   Lemma FirstOrderBound_mono {A CA} `{FirstOrder A CA} (f : A) (g g' : list nat -> nat) :
     (forall ss, g ss <= g' ss) -> FirstOrderBound f g -> FirstOrderBound f g'.
-  Proof.
-    intros Hg Hf. exact (ComplexityBound_mono _ _ _ (size_bound_mono _ _ _ [] Hg) Hf).
-  Qed.
+  Proof. intros Hg (c & Hc & Hs). exists c. split; [exact Hc | exact (size_costs_mono _ _ _ _ _ Hg Hs)]. Qed.
 
-  (** A linear bound is a polynomial bound. *)
+  (** A constant bound is linear, a linear bound is polynomial. *)
   Global Instance LinearBound_PolynomialBound {A CA} `{FirstOrder A CA} (f : A)
     {Hf : LinearBound f} : PolynomialBound f.
   Proof. destruct Hf as (p & _ & Hf). exists p. exact Hf. Qed.
 
-  (** A constant bound is a linear bound. *)
   Global Instance ConstantBound_LinearBound {A CA} `{FirstOrder A CA} (f : A)
     {Hf : ConstantBound f} : LinearBound f.
   Proof. destruct Hf as (p & Hp & Hf). exists p. split; [lia | exact Hf]. Qed.
-
-  (** ** Proofs of bounds
-
-      [cost_split_by tac] reduces [FirstOrderBound f g] to inequalities
-      between the costs of the bound of [f] given by [tac] (typeclass search
-      in [cost_split]) and [g], with the facts on the sizes of the arguments
-      ([add_size_facts]) and the constants of the model unfolded ([costs]).
-
-      [cconstant], [clinear] and [cpolynomial] prove [ConstantBound f],
-      [LinearBound f] and [PolynomialBound f] from the bound of [f] found by
-      typeclass search, choosing the constants ([linear_constants]);
-      [clinear_using H] from the bound [H]. The inequalities that [lia]
-      and [nia] do not prove are left, for example when they need facts on
-      the measures of the arguments. *)
-
-  (** Decompose [bound_order] goals into inequalities between costs. The
-      arguments of functions are named as in the right-hand side (usually
-      the claimed bound). *)
-  Ltac bo_split :=
-    repeat match goal with
-    | |- @bound_order _ (_ -> _) _ _ ?c =>
-        let c := eval hnf in c in
-        apply bound_order_arr;
-        lazymatch c with
-        | fun x => _ => let y := fresh x in intro y
-        | _ => intro
-        end;
-        let w := fresh "Hwf" in intro w;
-        split
-    | |- @bound_order _ _ _ _ _ => solve [apply ground_order]
-    end.
-
-  (** The inputs of ground data ([IsGround], found by typeclass search) are
-      replaced by their values, which keep the names of the inputs: their
-      complexities carry no information. *)
-  Ltac destr_inputs :=
-    repeat match goal with
-    | c : ℂI _ unit |- _ => let v := fresh "v" in destruct c as [v []]; rename v into c
-    | c : ℂI ?A ?C |- _ =>
-        let _ := constr:(_ : IsGround (_ : Repr A C)) in
-        let v := fresh "v" in let p := fresh "p" in destruct c as [v p]; rename v into c
-    end.
-
-  (** Replaces the complexity bound with an evar. The complexity bound goal
-      will eventually need to be taken from the shelf. *)
-  Ltac capply := eapply ComplexityBound_mono; [shelve|].
-
-  Ltac cost_split_by tac :=
-    unfold FirstOrderBound; cbn [fo_repr size_bound];
-    eapply ComplexityBound_mono; [idtac | tac];
-    bo_split; destr_inputs;
-    cbv beta iota zeta delta [cost res val pot]; autounfold with costs;
-    cbn -[Nat.mul size]; add_size_facts.
-  Ltac cost_split := cost_split_by ltac:(typeclasses eauto).
-
-  (** The bound of [f] found by typeclass search, or a message. *)
-  Ltac cinstance :=
-    first [typeclasses eauto
-          | lazymatch goal with
-            | |- ComplexityBound ?f _ =>
-                fail 1 "no ComplexityBound instance is known for" f
-                       ": prove one first (Global Instance ..., or Existing Instance after a Lemma),"
-                       "or prove this bound with cbound, which analyses" f "itself"
-            end].
-
-  Ltac clinear_by tac :=
-    unfold LinearBound; eexists; split; cycle 1;
-    [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; linear_constants ()) in
-      split tac; cbn [peval nth]; first [solve [lia] | cnia_now]
-    | cbn; lia ].
-  Ltac clinear_core := clinear_by ltac:(typeclasses eauto).
-
-  (** [clinear], [cconstant]: the same, but the polynomial is chosen
-      whatever the costs, so that the inequalities that cannot hold are
-      shown, and explained ([csolve_degree]). *)
-  Ltac clinear_untimed :=
-    unfold LinearBound; eexists; split; cycle 1;
-    [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; linear_constants_any ()) in
-      split ltac:(cinstance); cbn [peval nth]; ltac2:(csolve_degree 1 "linear"); cadvice
-    | cbn; lia ].
-  Ltac clinear_using H := clinear_by ltac:(exact H).
-
-  Ltac cconstant_by tac :=
-    unfold ConstantBound; eexists; split; cycle 1;
-    [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; constant_constants ()) in
-      split tac; cbn [peval nth]; first [solve [lia] | cnia_now]
-    | reflexivity ].
-  Ltac cconstant_core := cconstant_by ltac:(typeclasses eauto).
-  Ltac cconstant_untimed :=
-    unfold ConstantBound; eexists; split; cycle 1;
-    [ let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; constant_constants_any ()) in
-      split ltac:(cinstance); cbn [peval nth]; ltac2:(csolve_degree 0 "constant"); cadvice
-    | reflexivity ].
-
-  Ltac cpolynomial_by tac :=
-    unfold PolynomialBound; eexists;
-    let split := ltac2:(t |- ltac1:(t |- cost_split_by t) t; polynomial_constants ()) in
-    split tac;
-    cbn [peval nth Nat.pow]; first [solve [lia] | solve [cmono_poly] | cnia_now].
-  Ltac cpolynomial_core := cpolynomial_by ltac:(typeclasses eauto).
-  Ltac cpolynomial_untimed := cpolynomial_by ltac:(cinstance); cadvice.
-
-  (** Bounds without an instance are derived from the bounds of
-      [ComplexityBound] found by typeclass search, when [cconstant],
-      [clinear] or [cpolynomial] proves them. *)
-  (** The same within the timeout ([ctimeout], [Advice]). *)
-  Ltac clinear := let f := ltac2:(t |- ctimed "clinear" t) in f ltac:(idtac; clinear_untimed).
-  Ltac cconstant := let f := ltac2:(t |- ctimed "cconstant" t) in f ltac:(idtac; cconstant_untimed).
-  Ltac cpolynomial := let f := ltac2:(t |- ctimed "cpolynomial" t) in f ltac:(idtac; cpolynomial_untimed).
-
-  Global Hint Extern 10 (ConstantBound _) => solve [cconstant_core] : typeclass_instances.
-  Global Hint Extern 10 (LinearBound _) => solve [clinear_core] : typeclass_instances.
-  Global Hint Extern 10 (PolynomialBound _) => solve [cpolynomial_core] : typeclass_instances.
 End Bounds.
+
+(** The cost model with the bounds in the sizes. *)
+Module Type BoundsCore := CostModelCore.CostModelCore <+ Bounds.

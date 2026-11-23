@@ -150,8 +150,8 @@ Definition option_case {X E A : Type} (s : env E X -> A) (z : E -> A) (o : E -> 
     complexities: an option of [A], with complexities [CA], has an option
     of [CA] as its complexity: that of its element. [Some] keeps the
     complexity of its argument, and the case analysis gives it to the
-    branch of [Some]. As for lists ([TimeLists]), the value gives the
-    shape: [Some] without a complexity has the default one ([cdefault]).
+    branch of [Some]. The value decides: [Some] without a complexity has
+    the default one ([cdefault]).
     The order compares the complexities of the elements, the missing one
     being the default one; an option of ground data is ground
     ([OptionGround]). *)
@@ -248,7 +248,8 @@ Module Type ProdData (Import CM : CostModel).
   Parameter bound_order_prod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (c c' : CA * CB),
     bound_order (fst c) (fst c') -> bound_order (snd c) (snd c') -> bound_order c c'.
 
-  (** The shape of a pair: the shapes of its elements. *)
+  (** A complexity of a pair is well-formed when those of its elements
+      are. *)
   Parameter wf_prod : forall {A CA B CB} `{Repr A CA} `{Repr B CB} (p : A * B) (c : CA * CB),
     wf p c <-> wf (fst p) (fst c) /\ wf (snd p) (snd c).
 End ProdData.
@@ -306,8 +307,7 @@ Module Type ProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
     with complexities [CA] and [CB], has a sum of [CA] and [CB] as its
     complexity, that of its element, both [inl] or both [inr] (in L, the
     instance). The case analysis gives the complexity of the element to its
-    branch. As for lists, the value gives the shape: when the value and its
-    complexity disagree, the element has the default complexity
+    branch. The value decides: when the value and its complexity disagree, the element has the default complexity
     ([cdefault]). The order compares the complexities of each side, the
     missing one being the default one ([sum_left], [sum_right]); a sum of
     ground data is ground ([SumGround]). *)

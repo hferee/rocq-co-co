@@ -223,6 +223,7 @@ Module MCM <: CostModel.
   Proof. intros [(c0 & Hc & v & H)]. exists v. intro k. exact (rl_mono Hc (H k)). Qed.
 
   Include Bounds.
+  Include BoundsTactics.
   Include HOBounds.
 End MCM.
 
@@ -956,8 +957,8 @@ End MZM.
 
 (** ** Lists and options
 
-    The realisers of the elements carry their complexities; the value
-    gives the shape. A list has one complexity for each element, the
+    The realisers of the elements carry their complexities. A list has
+    one complexity for each element ([wf]), the
     missing complexity of an option is the default one ([LInstance]). *)
 
 Fixpoint list_rl {A CA} (P : A -> CA -> value -> Prop) (l : list A) (c : list CA)
@@ -1254,7 +1255,7 @@ End MFX.
 (** ** The instance *)
 Module LM <: MachineTimeCostModel.
   Include MCM. Include MBT. Include MCB. Include MBO. Include MNT.
-  Include MLM. Include ListShapes MCM MLM. Include MOM. Include OptionGround MCM MOM.
+  Include MLM. Include ListWf MCM MLM. Include MOM. Include OptionGround MCM MOM.
   Include MPM. Include ProdGround MCM MPM. Include MSM. Include SumGround MCM MSM.
   Include MZM. Include MFX.
 End LM.

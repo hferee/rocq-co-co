@@ -2,12 +2,12 @@
 
     Irwin, Kapron and Royer's example: the type-3 functionals
 
-    - `V F x = 1` if `F (C x) <> F zero`, [0] otherwise,
-    - `W F x = 2^x` if `F (C x) <> F zero`, [0] otherwise,
+    - [V F x = 1] if [F (C x) <> F zero], [0] otherwise,
+    - [W F x = 2^x] if [F (C x) <> F zero], [0] otherwise,
 
-    where `C x` is the characteristic function of [2^x] and [zero] the
-    constant function [0], for `F : (N -> N) -> N`. `V` is basic feasible,
-    [W] is not, yet [W] is not harder than `V`.
+    where [C x] is the characteristic function of [2^x] and [zero] the
+    constant function [0], for [F : (N -> N) -> N]. [V] is basic feasible,
+    [W] is not, yet [W] is not harder than [V].
 
     J. S. Royer. A feasible type-3 functional that fails to be basic
     feasible. DIMACS workshop on computational complexity and programming
@@ -51,7 +51,7 @@ Fixpoint pow2_eq_pos (x : N) (p : positive) : bool :=
   | xI _ => false
   end.
 
-(** `C x`: the characteristic function of [2^x]. *)
+(** [C x]: the characteristic function of [2^x]. *)
 Definition C (x y : N) : N :=
   match y with N0 => 0 | Npos p => if pow2_eq_pos x p then 1 else 0 end.
 
@@ -100,20 +100,20 @@ Proof.
       try reflexivity; apply pow2_eq_pos_spec in E || rewrite <- pow2_eq_pos_spec in *; congruence.
 Qed.
 
-(** `C x` and [zero] differ only at [2^x]. *)
+(** [C x] and [zero] differ only at [2^x]. *)
 Lemma C_zero x y : y <> (2 ^ x)%N -> C x y = zero y.
 Proof. intro H. rewrite C_spec. destruct (N.eqb_spec y (2 ^ x)); [contradiction | reflexivity]. Qed.
 
 Lemma W_spec F x : W F x = if (F (C x) =? F zero)%N then 0%N else (2 ^ x)%N.
 Proof. unfold W. rewrite pow2_spec. reflexivity. Qed.
 
-(** ** `V` is a basic feasible functional
+(** ** [V] is a basic feasible functional
 
-    [V'] is `V` written in PV^ω ([BFF]): [pw2 x] is the characteristic
+    [V'] is [V] written in PV^ω ([BFF]): [pw2 x] is the characteristic
     function of [2^x] and [eqN] the equality test, defined with the
-    recursion on notation `R`. It is the denotation of the term [V'_pv]
-    of PV^ω, and it is equal to `V` as a functional ([V'_V]): on equal
-    arguments, [V'] and `V` have equal values. *)
+    recursion on notation [R]. It is the denotation of the term [V'_pv]
+    of PV^ω, and it is equal to [V] as a functional ([V'_V]): on equal
+    arguments, [V'] and [V] have equal values. *)
 Definition V'_t : PTerm pv ((tN ⇒ tN ⇒ tN) ⇒ (tN ⇒ tN ⇒ tN) ⇒ ((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) :=
   <{ λ eqN pw2 F x, cond (eqN (F (pw2 x)) (F (λ _, 0))) 1 0 }>.
 Definition V' (F : (N -> N) -> N) (x : N) : N := Eval cbn in pden V'_t eqN pw2 F x.
@@ -138,7 +138,7 @@ Proof.
     rewrite ?IH, ?Pos2Nat.inj_xI, ?Pos2Nat.inj_xO; cbn; lia.
 Qed.
 
-(** The length of `W F x` is [x + 1] when `F` distinguishes `C x` from
+(** The length of [W F x] is [x + 1] when [F] distinguishes [C x] from
     [zero]: exponential in [|x|]. *)
 Lemma size_nat_pow2 x : N.size_nat (pow2 x) = S (N.to_nat x).
 Proof. destruct x as [|p]; [reflexivity|]. cbn [pow2 N.size_nat N.to_nat]. rewrite size_nat_zeros. cbn. lia. Qed.
@@ -158,21 +158,21 @@ Qed.
 
 (** ** [W] is not a basic feasible functional
 
-    When `F` is 0-1 valued, the length of the values of a BFF is bounded by
-    a polynomial in [|x|], but `|W F x| = x + 1` when `F` distinguishes
-    `C x` from [zero]: every BFF has a polynomial majorant. *)
+    When [F] is 0-1 valued, the length of the values of a BFF is bounded by
+    a polynomial in [|x|], but [|W F x| = x + 1] when [F] distinguishes
+    [C x] from [zero]: every BFF has a polynomial majorant. *)
 
-(** The bound [n ↦ m (λ _, 1) (n + 1)] on the lengths of `W F x`, for a
-    majorant [m] of [W] and a 0-1 valued `F`, with [|x| = n + 1]. *)
+(** The bound [n ↦ m (λ _, 1) (n + 1)] on the lengths of [W F x], for a
+    majorant [m] of [W] and a 0-1 valued [F], with [|x| = n + 1]. *)
 Definition W_bound (m : hpoly (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) : hpoly (tN ⇒ tN) :=
   tapp (db <{ λ g n, g (λ _, 1) (n + 1) }>
           : hpoly ((((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) ⇒ tN ⇒ tN)) m.
 
 (** Every term of PV^ω has a polynomial majorant ([BFF_majorant]). Applied
-    to the majorant [fun _ => 1] of a 0-1 valued `F`, it gives a
+    to the majorant [fun _ => 1] of a 0-1 valued [F], it gives a
     higher-order polynomial of type [N ⇒ N], bounded by a polynomial
-    ([hpoly_growth]). But it would bound the length [x + 1] of `W F x` when
-    `F` distinguishes `C x` from [zero], which is exponential in [|x|]
+    ([hpoly_growth]). But it would bound the length [x + 1] of [W F x] when
+    [F] distinguishes [C x] from [zero], which is exponential in [|x|]
     ([pow2_not_poly]). *)
 Corollary W_not_BFF : ~ is_BFF (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN) W.
 Proof.
@@ -200,13 +200,13 @@ Qed.
 
 (** ** Complexity
 
-    The cost of [W] is the cost of `V` plus, when `F` distinguishes `C x`
+    The cost of [W] is the cost of [V] plus, when [F] distinguishes [C x]
     from [zero], the cost of writing [2^x], linear in [x], exponential in
-    [|x|] ([W_cost]). If `F (C x) <> F zero`, then `F` has queried its
-    argument at [2^x], the only point where `C x` and [zero] differ, so
-    that a machine running `F` has written down [2^x]: this bounds the cost
-    of [W] by the cost of `F` only when `F` pays for the size of its
-    queries ([W_cost_paid]), which holds when the potential of `F` is a
+    [|x|] ([W_cost]). If [F (C x) <> F zero], then [F] has queried its
+    argument at [2^x], the only point where [C x] and [zero] differ, so
+    that a machine running [F] has written down [2^x]: this bounds the cost
+    of [W] by the cost of [F] only when [F] pays for the size of its
+    queries ([W_cost_paid]), which holds when the potential of [F] is a
     size bound ([CSized], [sized_query]). *)
 
 (** The constants of the costs below, abbreviations, so that the costs
@@ -214,7 +214,7 @@ Qed.
     [C_poly]; [V_cost] ([V_a], [V_b]) and [V_maj], [V_poly]; [W_cost]
     ([W_a], [W_b], [W_c]) and [W_maj], [W_poly], [W_cost_sized],
     [W_cost_paid]; [V_clo] and [W_clo], the costs of the applications of
-    `V` and [W] to `F`. *)
+    [V] and [W] to [F]. *)
 Abbreviation C_a := 14 (only parsing).
 Abbreviation C_b := 39 (only parsing).
 Abbreviation C_c := 15 (only parsing).
@@ -226,14 +226,14 @@ Abbreviation W_c := 0 (only parsing).
 Abbreviation V_clo := 1 (only parsing).
 Abbreviation W_clo := 1 (only parsing).
 
-(** The potentials of `C x` and [zero], given to `F` by `V` and [W]: the
+(** The potentials of [C x] and [zero], given to [F] by [V] and [W]: the
     costs of their applications. *)
 Definition C_pot (x : N) (cy : ℂI N unit) : ℂO unit :=
   (N.size_nat (val cy) * (C_a * N.size_nat x + C_b) + C_c) >|.
 Definition zero_pot (cy : ℂI N unit) : ℂO unit := 1 >|.
 
-(** The costs of `V F x` and `W F x`, from the potential `pF` of `F`: `F`
-    is applied to `C x` and to [zero], and its values are compared. [W]
+(** The costs of [V F x] and [W F x], from the potential [pF] of [F]: [F]
+    is applied to [C x] and to [zero], and its values are compared. [W]
     then writes [2^x] when they differ, in time linear in [x]. *)
 Definition V_cost (F : (N -> N) -> N) (pF : ℂI (N -> N) (ℂI N unit -> ℂO unit) -> ℂO unit)
   (x : N) : nat :=
@@ -251,21 +251,21 @@ Arguments W_cost F pF x /.
 
 
     [W_complexity] below gives the cost of [W]: [W_cost] is [V_cost] plus,
-    when `F` distinguishes `C x` from [zero], [W_a x + W_b] for writing
+    when [F] distinguishes [C x] from [zero], [W_a x + W_b] for writing
     [2^x], which is exponential in the length of [x]
-    ([x >= 2^(|x| - 1)], [pow_size_nat_le]). It is a constant for each `F`
-    (only finitely many [x] are such that `F` queries [2^x] on [zero]),
-    but not uniformly in the potential of `F`: nothing in the cost model
-    relates the values queried by `F` to its costs. Values are free
+    ([x >= 2^(|x| - 1)], [pow_size_nat_le]). It is a constant for each [F]
+    (only finitely many [x] are such that [F] queries [2^x] on [zero]),
+    but not uniformly in the potential of [F]: nothing in the cost model
+    relates the values queried by [F] to its costs. Values are free
     constants of programs, and a call costs one step whatever the size of
     its argument (as a beta-step of L).
 
     Royer's argument does relate them, for oracle machines, which write
-    their queries: if `F (C x) <> F zero`, then `F` queried its argument
-    at [2^x], and the call `F (C x)` paid at least [x] steps for writing
-    it (a lower bound on the cost `pF (C x ⋊ C_pot x)`). Under this
-    assumption, the cost of [W] is at most a constant times the cost of `V`
-    ([W_cost_paid]), so that [W] is as feasible as `V`, although it is not
+    their queries: if [F (C x) <> F zero], then [F] queried its argument
+    at [2^x], and the call [F (C x)] paid at least [x] steps for writing
+    it (a lower bound on the cost [pF (C x ⋊ C_pot x)]). Under this
+    assumption, the cost of [W] is at most a constant times the cost of [V]
+    ([W_cost_paid]), so that [W] is as feasible as [V], although it is not
     basic feasible. *)
 Lemma W_cost_paid F pF x :
   ((F (C x) =? F zero)%N = false -> N.to_nat x <= cost (pF (C x ⋊ C_pot x))) ->
@@ -280,9 +280,94 @@ Module Type3Complexity (Import Time : TimePos).
   Module BF := BFFFeasibility Time.
   Import BF.
 
+  (** ** Size bounds at low types
+
+      The size bounds ([CSized], [HOBounds]) of first-order functions, of
+      constant functions, and of functionals of type [(A → B) → D]. *)
+  Module LowTypes.
+    Import Stdlib.Lists.List.
+
+    Section LowTypes.
+      Context {A CA B CB D CD : Type} (RA : Repr A CA) (sA : Size A)
+        (RB : Repr B CB) (sB : Size B) (RD : Repr D CD) (sD : Size D).
+
+      (** A first-order function [f] of size [s]: on each argument [y], the
+          size of [f y] plus the question [1] (if [f] reads [y]) is at most
+          the cost plus the size of [y], which [f] receives. *)
+      Lemma CSized_1 (f : A -> B) (s : ℂI A CA -> ℂO CB) :
+        (forall y : ℂI A CA, 1 + sB (f (val y)) <= cost (s y) + sA (val y)) ->
+        CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) f s.
+      Proof.
+        intros H [y cy] _. exists ([tt], tt). split; [split; [constructor; [exact I | constructor] | exact I]|].
+        cbn. split; [specialize (H y); lia|].
+        intros [y' cy'] _ (_ & Hq & _). inversion_clear Hq as [|? ? Hy _]. cbn in *. now rewrite Hy.
+      Qed.
+
+      (** A constant function needs no question. *)
+      Lemma CSized_const (n : B) (s : ℂI A CA -> ℂO CB) :
+        (forall y : ℂI A CA, sB n <= cost (s y)) ->
+        CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (fun _ => n) s.
+      Proof.
+        intros H [y cy] _. exists ([], tt). split; [split; [constructor | exact I]|].
+        cbn. split; [specialize (H y); lia | reflexivity].
+      Qed.
+
+      (** At type [(A → B) → D]: a functional [F] of size [cF] answers on a
+          function [f] of size [cf] after finitely many questions [ys] to
+          [f]. Each costs [1] plus the cost of [cf] on [y], the answers
+          [f y] are free, and the questions determine [F f] among the
+          functions of size [cf]. *)
+      Lemma CSized_2 (F : (A -> B) -> D) cF (f : A -> B) cf :
+        CSized (ho_arr (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (ho_ground RD sD)) F cF ->
+        CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) f cf ->
+        exists ys : list (ℂI A CA),
+          sD (F f) + list_sum (map (fun y => S (cost (cf y))) ys)
+            <= cost (cF (f ⋊ cf)) + list_max (map (fun y => sB (f (val y))) ys) /\
+          forall g, CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) g cf ->
+            (forall y, In y ys -> g (val y) = f (val y)) -> F g = F f.
+      Proof.
+        intros HF Hf.
+        destruct (HF (f ⋊ cf, tt) (conj Hf I)) as ([qs []] & _ & Hw & Hm).
+        exists (map (fun zs => fst zs) qs). split.
+        - cbn [answer gsize cweight recv dcost fst snd val pot] in Hw. rewrite !map_map.
+          match goal with |- context [list_sum (map ?w qs)] =>
+            replace (map w qs) with (map (qweight (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (f ⋊ cf)) qs)
+          end.
+          + match type of Hw with context [list_max ?l] =>
+            match goal with |- context [list_max ?l'] => change l' with l end end.
+            lia.
+          + apply map_ext. intros [[y cy] []]. unfold qweight. cbn. lia.
+        - intros g Hg Hgf. apply (Hm (g ⋊ cf, tt) (conj Hg I)).
+          split; [reflexivity|]. split; [|exact I].
+          apply Forall_forall. intros zs Hin. cbn [answer val fst].
+          apply Hgf, (in_map (fun zs : ℂI A CA * unit => fst zs)), Hin.
+      Qed.
+    End LowTypes.
+
+    (** [CSized_2] for an argument of complexity [unit]: the questions are
+        values. *)
+    Lemma CSized_2_unit {A B CB D CD} (RA : Repr A unit) (sA : Size A)
+        (RB : Repr B CB) (sB : Size B) (RD : Repr D CD) (sD : Size D)
+        (F : (A -> B) -> D) cF (f : A -> B) cf :
+      CSized (ho_arr (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (ho_ground RD sD)) F cF ->
+      CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) f cf ->
+      exists ys : list A,
+        sD (F f) + list_sum (map (fun y => S (cost (cf (y ⋊ tt)))) ys)
+          <= cost (cF (f ⋊ cf)) + list_max (map (fun y => sB (f y)) ys) /\
+        forall g, CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) g cf ->
+          (forall y, In y ys -> g y = f y) -> F g = F f.
+    Proof.
+      intros HF Hf. destruct (CSized_2 RA sA RB sB RD sD F cF f cf HF Hf) as (ys & Hw & Hm).
+      exists (map val ys). rewrite !map_map. split.
+      - erewrite (map_ext _ (fun y => S (cost (cf y)))); [exact Hw | intros [y []]; reflexivity].
+      - intros g Hg Hgf. apply (Hm g Hg). intros y Hy. apply Hgf, (in_map val), Hy.
+    Qed.
+  End LowTypes.
+  Import LowTypes.
+
   (** ** Sized arguments ([HOBounds])
 
-      The potentials of `C x` and [zero] are size bounds ([CSized]);
+      The potentials of [C x] and [zero] are size bounds ([CSized]);
       [C_pot x] is also a size of [zero], which only differs from [C x] at
       [2^x]. *)
   Lemma C_sized x : CSized (bits (tN ⇒ tN)) (C x) (C_pot x).
@@ -307,7 +392,7 @@ Module Type3Complexity (Import Time : TimePos).
     F (C x) <> F zero ->
     N.to_nat x < cost (cF (C x ⋊ C_pot x)).
   Proof.
-    intros HF Hd. destruct (CSized_2_unit _ _ _ _ _ _ _ _ F cF (C x) (C_pot x) HF (C_sized x)) as (ys & Hw & Hm).
+    intros HF Hd. destruct (CSized_2_unit _ _ _ _ _ _ F cF (C x) (C_pot x) HF (C_sized x)) as (ys & Hw & Hm).
     destruct (List.in_dec N.eq_dec (2 ^ x)%N ys) as [Hin | Hout].
     - (* [F] asks [2^x], which costs more than [x + 1] to [C x], whose
          answers are free but at most [1] *)
@@ -325,8 +410,8 @@ Module Type3Complexity (Import Time : TimePos).
       intros y Hy. symmetry. apply C_zero. intros ->. exact (Hout Hy).
   Qed.
 
-  (** If `F` has a size bound [sF], [W] costs at most `V` plus [W_a] times
-      the size of `F` on `C x` ([sized_query]), and its value is not
+  (** If [F] has a size bound [sF], [W] costs at most [V] plus [W_a] times
+      the size of [F] on [C x] ([sized_query]), and its value is not
       longer than this size. *)
   Lemma W_cost_sized F cF sF x :
     CSized (bits ((tN ⇒ tN) ⇒ tN)) F sF ->
@@ -434,15 +519,15 @@ Module Type3Complexity (Import Time : TimePos).
   Lemma size_C x y : N.size_nat (C x y) <= 1.
   Proof. rewrite C_spec. destruct (y =? 2 ^ x)%N; cbn; lia. Qed.
 
-  (** [V'], the denotation of a term of PV^ω equal to `V`, has a
+  (** [V'], the denotation of a term of PV^ω equal to [V], has a
       higher-order polynomial bound, as every term ([BFF_hpoly_bound]). *)
   Global Instance V'_hpoly : Time.HPolyBound (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) V' :=
     BFF_hpoly_bound _ V'_pv.
 
-  (** The majorants: [C_maj a] of `C x` for [|x| <= a], [fun _ => 1] of
-      [zero], the majorant of `V` in the majorant [mF] of `F` and the bound
+  (** The majorants: [C_maj a] of [C x] for [|x| <= a], [fun _ => 1] of
+      [zero], the majorant of [V] in the majorant [mF] of [F] and the bound
       [a] of [|x|], and the majorant of [W] on arguments with a size bound
-      ([smaj]): in the majorants [mF] of the complexity of `F` and [nF] of
+      ([smaj]): in the majorants [mF] of the complexity of [F] and [nF] of
       its size, and the bounds [a] and [b] of [|x|]. They are the higher-order polynomials
       written with [db] below, named so that [lia] sees them as atoms. *)
   Definition C_maj (a : nat) : M (tN ⇒ tN) := fun b => b * (C_a * a + C_b) + C_c.
@@ -478,7 +563,7 @@ Module Type3Complexity (Import Time : TimePos).
   Lemma maj_zero : maj (bits (tN ⇒ tN)) zero zero_pot (fun _ => 1).
   Proof. intros y cy b _ _. cbn. lia. Qed.
 
-  (** The costs of `F` in `V`, on `C x` and on [zero], are bounded by its
+  (** The costs of [F] in [V], on [C x] and on [zero], are bounded by its
       majorant: so is [V_cost]. *)
   Lemma V_cost_bound F cF mF x a :
     monotone ((tN ⇒ tN) ⇒ tN) mF -> maj (bits ((tN ⇒ tN) ⇒ tN)) F cF mF -> N.size_nat x <= a ->
@@ -490,8 +575,8 @@ Module Type3Complexity (Import Time : TimePos).
     unfold V_maj. cbn [maj bits baseM V_cost] in *. norm_types. split; lia.
   Qed.
 
-  (** `V` has a higher-order polynomial bound: its costs are those of `F`
-      on `C x` and on [zero] ([V_cost_bound]). *)
+  (** [V] has a higher-order polynomial bound: its costs are those of [F]
+      on [C x] and on [zero] ([V_cost_bound]). *)
   Lemma V_hpoly : Time.HPolyBound (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) V.
   Proof.
     refine (hpoly_intro _ _ V_poly _ V_complexity _).
@@ -504,8 +589,8 @@ Module Type3Complexity (Import Time : TimePos).
 
   (** [W] has no higher-order polynomial bound, whatever its complexity: a
       majorant also bounds the lengths of the values ([maj] at [N]). The
-      0-1 valued `F f = (if f (2^x) =? 0 then 0 else 1)`, with no cost, is majorized by
-      [fun _ => 1], but the length [x + 1] of `W F x` is exponential in
+      0-1 valued [F f = (if f (2^x) =? 0 then 0 else 1)], with no cost, is majorized by
+      [fun _ => 1], but the length [x + 1] of [W F x] is exponential in
       [|x|], whereas a higher-order polynomial of type [N ⇒ N] is bounded by
       a polynomial ([hpoly_growth], [pow2_not_poly]). *)
   Lemma W_not_hpoly : ~ Time.HPolyBound (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W.
@@ -534,9 +619,9 @@ Module Type3Complexity (Import Time : TimePos).
   Corollary V_hpolyS : Time.HPolyBoundS (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) V.
   Proof. exact (hpoly_hpolyS _ _ V_hpoly). Qed.
 
-  (** On an argument `F` of complexity [cF] majorized by [mF], with a size
-      bound [sF] majorized by [nF], [W] costs at most `V` ([V_cost_bound]
-      in [mF]) plus [W_a] times the size of `F` on `C x` ([W_cost_sized],
+  (** On an argument [F] of complexity [cF] majorized by [mF], with a size
+      bound [sF] majorized by [nF], [W] costs at most [V] ([V_cost_bound]
+      in [mF]) plus [W_a] times the size of [F] on [C x] ([W_cost_sized],
       in [nF]); its value is not longer than this size ([W_size_sized]). *)
   Lemma W_smaj : smaj (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W
     (fun cF => W_clo +> fun cx => W_cost (val cF) (pot cF) (val cx) >|) W_maj.
@@ -554,8 +639,8 @@ Module Type3Complexity (Import Time : TimePos).
 
   (** ** The complexities are size bounds
 
-      The complexities of `C`, [zero], `V` and [W] are size bounds of them
-      ([CSized]), with no constant. `V` and [W] ask `F` about `C x`
+      The complexities of [C], [zero], [V] and [W] are size bounds of them
+      ([CSized]), with no constant. [V] and [W] ask [F] about [C x]
       and [zero], and read [x]. [W] creates its value [2^x], of length
       [x + 1], and pays for it in [W_cost]. *)
   Lemma C_complexity_sized : CSized (bits (tN ⇒ tN ⇒ tN)) C (fun cx => 4 +> C_pot (val cx)).

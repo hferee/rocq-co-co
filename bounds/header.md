@@ -47,7 +47,7 @@ lower or equal, ↑ every constant is higher or equal, ↕ mixed, = unchanged.
   `rec_pos`, the function of `fold_left`. Lists and options of any data get
   their own models (`TimeLists`, `TimeDatatypes`, `HOTimeCostModel`), with
   new bounds for `map`, `filter`, `find`, the folds, `option_map`, ...
-  (`HOListComplexity`). The constants were found from
+  (`HOListComplexity`, `HOOptionComplexity`). The constants were found from
   the inequalities left by the proofs (`goals.py`), and the bounds in the
   sizes were minimised too.
 

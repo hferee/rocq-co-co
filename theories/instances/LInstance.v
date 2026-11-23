@@ -214,10 +214,10 @@ Qed.
     complexity [c], for the applications whose cost is at most [k] (a
     budget of model cost: this step-indexing is what [fix_complexity]
     needs). It comes with the order on complexities, and a default
-    complexity ([dflt], for [cdefault]), and the shape of the complexities
-    ([rwf], for [wf]) that the realised values have. A function with complexity [cf]
-    is realised by an L value whose application to the realiser of an
-    argument `a` reduces in at most `K * cost (cf a)` steps to a realiser
+    complexity ([dflt], for [cdefault]), and the well-formed complexities
+    of the values ([rwf], for [wf]), the only ones that realisers have. A
+    function with complexity [cf] is realised by an L value whose application to the realiser of an
+    argument [a] reduces in at most [K * cost (cf a)] steps to a realiser
     of the result. Lists, options, pairs and sums are realised
     element-wise, by the realisers of their elements with their
     complexities (the default one for the missing ones of options and
@@ -273,7 +273,7 @@ Definition arr_rl {A CA B CB} (RA : LRepr A CA) (RB : LRepr B CB)
     exists n v, pow step n (app s sa) v /\ n <= K * cost (cf (a ⋊ c1)) /\
       rl RB (j - cost (cf (a ⋊ c1))) (f a) (res (cf (a ⋊ c1))) v.
 
-(** The order: at the inputs of their shape, the only ones the realisers
+(** The order: at the well-formed inputs, the only ones the realisers
     are applied to ([rl_wf]). *)
 Definition arr_bo {A CA B CB} (RA : LRepr A CA) (RB : LRepr B CB) (c c' : ℂI A CA -> ℂO CB) : Prop :=
   forall ca, rwf RA (val ca) (pot ca) -> cost (c ca) <= cost (c' ca) /\ bo RB (res (c ca)) (res (c' ca)).
@@ -339,7 +339,7 @@ Lemma list_rl_cons {A CA} {P : A -> CA -> term -> Prop} {x l c s} (d : CA) :
   exists r t, s = lam (lam (app (app (var 0) r) t)) /\ P x (hd d c) r /\ list_rl P l (tl c) t.
 Proof. destruct c as [| a c]; cbn; [intros [] | exact (fun H => H)]. Qed.
 
-(** The order and the shapes: [Forall2] ([TimeLists]). *)
+(** The order and the well-formed complexities: [Forall2] ([TimeLists]). *)
 Definition list_repr {A CA} (RA : LRepr A CA) : LRepr (list A) (list CA).
 Proof.
   refine {| rl := fun k l c s => list_rl (rl RA k) l c s;
@@ -588,9 +588,10 @@ Module LCM <: CostModel.
     ComplexityBound f c -> has_complexity f c.
   Proof. intros [(c0 & Hc & s & H)]. exists s. intro k. exact (rl_mono Hc (H k)). Qed.
 
-  (** The bounds in the size of the inputs ([Bounds]), and at higher types
-      ([HOBounds]). *)
+  (** The bounds in the size of the inputs ([Bounds]), their tactics
+      ([BoundsTactics]), and the bounds at higher types ([HOBounds]). *)
   Include Bounds.
+  Include BoundsTactics.
   Include HOBounds.
 End LCM.
 
@@ -1351,12 +1352,12 @@ End LZM.
 
 (** Fixpoints. The unfolding equation is pointwise, and the realisers of
     the result do not distinguish pointwise-equal values ([PwExt]). For a
-    realiser `se` of `e`, `f e` is realised by L's fixpoint operator [rho]
-    applied to [fix_G sF se], which runs the realiser `sF` of `F` in the
-    environment of `se` and of the recursive function ([env_rl]): by
+    realiser [se] of [e], [f e] is realised by L's fixpoint operator [rho]
+    applied to [fix_G sF se], which runs the realiser [sF] of [F] in the
+    environment of [se] and of the recursive function ([env_rl]): by
     induction on the budget, one unfolding takes 4 beta-steps (3 for [rho],
     1 for the environment) and costs at least one, and the recursive calls
-    have a smaller budget. [fix_r sF] realises [f]: applied to `se`, it is
+    have a smaller budget. [fix_r sF] realises [f]: applied to [se], it is
     [rho (fix_G sF se)] after one beta-step, the cost of the closure. *)
 Definition fix_G (sF se : term) : term := lam (app sF (lam (app (app (var 0) se) (var 1)))).
 Definition fix_r (sF : term) : term :=
@@ -1438,7 +1439,7 @@ End LFX.
 
 Module L <: TimeCostModel.
   Include LCM. Include LBT. Include LCB. Include LBO. Include LNT.
-  Include LLM. Include ListShapes LCM LLM. Include LOM. Include OptionGround LCM LOM.
+  Include LLM. Include ListWf LCM LLM. Include LOM. Include OptionGround LCM LOM.
   Include LPM. Include ProdGround LCM LPM. Include LSM. Include SumGround LCM LSM.
   Include LZM. Include LFX.
 End L.
