@@ -10,7 +10,7 @@
     - [CombinatorTimeCostModel]: the costs of the combinators of
       [Combinators]. [Compile.compile] turns a Rocq term into a convertible
       term built from them, and from the case combinators of the datatype
-      models ([Ic] is only used by bracket abstraction, [BracketCompile]).
+      models.
       The combinators are higher-order
       constants: their complexities take the complexities of their
       (functional) arguments, so that typeclass search finds the complexity

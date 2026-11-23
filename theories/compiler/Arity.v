@@ -1,13 +1,12 @@
-(** * Fixpoints of functionals, pointwise in all arguments
+(** * Arities and pointwise equality
 
-    [Arity T] describes [T] as a type of functions with some arguments, and
-    [pw_eq] is the pointwise equality of such functions. They are used to
-    state the unfolding equations of recursive functions ([TimeFix]). *)
+    [Arity T] describes [T] as a type of functions with arbitrary arity. *)
 
 Inductive Arity : Type -> Type :=
 | ar_val : forall T, Arity T
 | ar_fun : forall A B, Arity B -> Arity (A -> B).
 
+(** [pw_eq] is the pointwise equality of such functions *)
 Fixpoint pw_eq {T} (ar : Arity T) : T -> T -> Prop :=
   match ar in Arity T return T -> T -> Prop with
   | ar_val T => fun x y => x = y

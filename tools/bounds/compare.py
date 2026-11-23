@@ -36,7 +36,10 @@ def load_manifest():
     return {r['name']: r for r in json.load(open(os.path.join(RUNS_DIR, 'runs.json')))}
 
 def load_run(name):
-    with open(os.path.join(RUNS_DIR, 'runs', name + '.jsonl')) as f:
+    path = os.path.join(RUNS_DIR, 'runs', name + '.jsonl')
+    if not os.path.exists(path):
+        sys.exit(f'run {name}: no snapshot {os.path.relpath(path, RUNS_DIR)} (make bounds-snapshot RUN={name})')
+    with open(path) as f:
         run = {e['id']: e for e in map(json.loads, f)}
     for e in run.values():           # snapshots of older notations
         for k in ('template', 'hyps'):
@@ -262,22 +265,47 @@ def long_csv(runs, rows):
                 w.writerow([i, r, e['kind'], e['model'], e['function'], e['template'], k, v])
     return buf.getvalue()
 
+def md_html(text):
+    """A small markdown subset: headings, paragraphs, lists, `code`, **bold**."""
+    def inline(s):
+        s = re.sub(r'`([^`]*)`', lambda m: '<code>' + m.group(1) + '</code>', html.escape(s, quote=False))
+        return re.sub(r'\*\*([^*]*)\*\*', r'<b>\1</b>', s)
+    out = []
+    for block in re.split(r'\n\s*\n', text.strip()):
+        lines = block.split('\n')
+        if lines[0].startswith('#'):
+            n = len(lines[0]) - len(lines[0].lstrip('#'))
+            out.append(f'<h{n}>{inline(lines[0][n:].strip())}</h{n}>')
+        elif lines[0].startswith('- '):
+            items = re.split(r'\n(?=- )', block)
+            out.append('<ul>' + ''.join(f'<li>{inline(i[2:])}</li>' for i in items) + '</ul>')
+        else:
+            out.append(f'<p>{inline(block)}</p>')
+    return '\n'.join(out)
+
 def page(runs, man, rows, base, mode, header):
     bi, li = runs.index(base), last_model(runs, man)
     h = html.escape
+    # The table scrolls in its box, with its header row and first column fixed.
     out = ['<!DOCTYPE html><html><head><meta charset="utf-8"><title>Complexity bounds</title><style>',
-           'body{font-family:sans-serif;margin:1em} table{border-collapse:collapse;font-size:13px}',
-           'th,td{border:1px solid #ccc;padding:2px 6px;white-space:nowrap} th{position:sticky;top:0;background:#eee}',
-           'td:first-child,th:first-child{position:sticky;left:0;background:#fafafa}',
+           'body{font-family:sans-serif;margin:1em} .hd{max-width:60em}',
+           '.box{overflow:auto;max-height:85vh;border:1px solid #ccc}',
+           'table{border-collapse:separate;border-spacing:0;font-size:13px}',
+           'th,td{border-right:1px solid #ccc;border-bottom:1px solid #ccc;padding:2px 6px;background:#fff;vertical-align:top}',
+           'th{white-space:nowrap} td{max-width:16em}',
+           'thead th{position:sticky;top:0;z-index:2;background:#eee}',
+           'td:first-child{position:sticky;left:0;z-index:1;background:#fafafa;min-width:12em;max-width:22em}',
+           'thead th:first-child{left:0;z-index:3} td:nth-child(2){min-width:20em;max-width:36em}',
+           '.sec th{text-align:left;background:#f3f3f3} .sec span{position:sticky;left:6px}',
            'code{font-family:monospace} .dn{background:#dfd} .up{background:#fdd} .mx{background:#ffd}',
            '</style></head><body>']
-    if header: out.append('<pre>' + h(header) + '</pre>')
+    if header: out.append('<div class="hd">' + md_html(header) + '</div>')
     out.append('<p>Filter: <input id="q" oninput="f()"></p>')
-    out.append('<table id="t"><tr><th>Function</th><th>Bound</th>' + ''.join(
+    out.append('<div class="box"><table id="t"><thead><tr><th>Function</th><th>Bound</th>' + ''.join(
         f'<th title="{h(man[r].get("description", ""))}">{h(man[r].get("title", r))}</th>' for r in runs)
-        + f'<th>{h(base)} → {h(runs[li])}</th></tr>')
+        + f'<th>{h(base)} → {h(runs[li])}</th></tr></thead><tbody>')
     for title, rs in sections(rows):
-        out.append(f'<tr><th colspan="{len(runs) + 3}" style="text-align:left">{h(title)}</th></tr>')
+        out.append(f'<tr class="sec"><th colspan="{len(runs) + 3}"><span>{h(title)}</span></th></tr>')
         for i, ref, es in rs:
             name, extra = label(i, ref)
             tds, prev = [], None
@@ -289,8 +317,8 @@ def page(runs, man, rows, base, mode, header):
             out.append(f'<tr><td title="{h(i)}"><code>{h(name)}</code> {h("; ".join(extra))}</td>'
                        f'<td><code>{h(show_template(ref["template"]))}</code></td>' + ''.join(tds)
                        + f'<td>{direction(es[bi], es[li])}</td></tr>')
-    out.append('</table><script>function f(){var q=document.getElementById("q").value.toLowerCase();'
-               'for(var r of document.querySelectorAll("#t tr"))if(r.querySelector("td"))'
+    out.append('</tbody></table></div><script>function f(){var q=document.getElementById("q").value.toLowerCase();'
+               'for(var r of document.querySelectorAll("#t tbody tr"))if(r.querySelector("td"))'
                'r.style.display=r.textContent.toLowerCase().includes(q)?"":"none"}</script></body></html>')
     return '\n'.join(out)
 
