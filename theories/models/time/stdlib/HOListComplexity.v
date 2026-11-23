@@ -5,11 +5,17 @@
     the smallest constants. Not covered yet: [partition], whose result is a
     pair of lists. *)
 
-From Complexity Require Export HOOptionComplexity BoolComplexity ListFacts.
+From Complexity Require Export BoolComplexity SumComplexity ListFacts.
 From Stdlib Require Import List.
 Import ListNotations.
 (** [filter_map] is that of [ListFacts], not the lemma of [List]. *)
 Import ListFacts.
+
+(** The elements of a list of sums (Haskell's [lefts] and [rights]). *)
+Fixpoint lefts {A B} (l : list (A + B)) : list A :=
+  match l with [] => [] | inl a :: l => a :: lefts l | inr _ :: l => lefts l end.
+Fixpoint rights {A B} (l : list (A + B)) : list B :=
+  match l with [] => [] | inl _ :: l => rights l | inr b :: l => b :: rights l end.
 
 (** No timeout in the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
@@ -291,6 +297,21 @@ Module HOListComplexity (Import Time : TimeBool).
           + 38 * length (val cl) + 6)
          +> flat_map (fun x => res (pot cf x)) (ccombine cl)).
   Proof. cbound; ccombine_case; first [reflexivity | lia]. Qed.
+
+  (** ** Lists of sums
+
+      The elements with their complexities ([czip_sum], [SumComplexity]).
+      An element [inl] costs [27], an element [inr] [22]. *)
+  Global Instance lefts_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
+    Time.ComplexityBound (@lefts A B)
+      (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (27 * length (val cl) + 6)
+                 +> map (@pot A CA) (lefts (map (czip_sum cdefault cdefault) (ccombine cl)))).
+  Proof. cbound; ccombine_case; cbn [lefts rights map]; first [reflexivity | lia]. Qed.
+  Global Instance rights_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
+    Time.ComplexityBound (@rights A B)
+      (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (27 * length (val cl) + 6)
+                 +> map (@pot B CB) (rights (map (czip_sum cdefault cdefault) (ccombine cl)))).
+  Proof. cbound; ccombine_case; cbn [lefts rights map]; first [reflexivity | lia]. Qed.
 End HOListComplexity.
 
 (** The model with the bounds of the functions on lists of any data. *)

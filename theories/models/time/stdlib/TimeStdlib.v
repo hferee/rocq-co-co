@@ -8,4 +8,4 @@ From Complexity Require Export HOOptionComplexity HOListComplexity ListComplexit
   SumComplexity.
 
 Module Type TimeStdlib := TimePos <+ HOOptionComplexity <+ HOListComplexity <+ ListComplexity
-  <+ ZComplexity <+ SumComplexity.
+  <+ ZComplexity <+ SumComplexity <+ SumOptionComplexity.

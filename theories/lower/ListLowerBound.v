@@ -4,7 +4,7 @@
     the numbers ([NatLowerBound]), its proof in L, and the lower bound that
     it gives for sorting. *)
 
-From Complexity Require Export TimeCostModel Poly.
+From Complexity Require Export TimeCostModel.
 From Stdlib Require Import List Permutation Sorted Lia.
 Import ListNotations.
 Unset Implicit Arguments.
@@ -118,7 +118,7 @@ End SortingLinearLowerBound.
     at most a constant ([evalc_nd]). An output list has [3] units of this
     depth per cell above its first old suffix ([nd_lenc_split]). *)
 
-From Complexity Require Import LInstance NatLowerBound.
+From Complexity Require Import LInstance LDepth.
 From Undecidability.L Require Import Util.L_facts.
 Unset Implicit Arguments.
 

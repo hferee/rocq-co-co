@@ -1,14 +1,77 @@
 {
   "exclude": [
-    "instances/",
-    "model/",
-    "time/",
+    "models/time/instances/",
     "compiler/",
     "math/",
-    "examples/Tutorial.v",
-    "examples/Limitations.v",
     "lower/",
-    "examples/UnguardedFix.v"
+    "models/core/",
+    "models/time/TimeCombinators.v",
+    "models/time/TimeCostModel.v",
+    "models/time/TimeDatatypes.v",
+    "models/time/TimeFix.v",
+    "models/time/TimeLists.v",
+    "models/counting/TimeArith.v",
+    "models/time/examples/Tutorial.v",
+    "models/time/examples/Limitations.v",
+    "models/time/examples/UnguardedFix.v"
+  ],
+  "renames": [
+    [
+      "^compiler/Combinators\\.v$",
+      "math/Combinators.v"
+    ],
+    [
+      "^model/([^/]+\\.v)$",
+      "models/core/\\1"
+    ],
+    [
+      "^time/TimeArith\\.v$",
+      "models/counting/TimeArith.v"
+    ],
+    [
+      "^time/",
+      "models/time/"
+    ],
+    [
+      "^stdlib/",
+      "models/time/stdlib/"
+    ],
+    [
+      "^examples/(HornerCount|StrassenCount)\\.v$",
+      "models/counting/examples/\\1.v"
+    ],
+    [
+      "^examples/eth/",
+      "models/time/examples/eth/"
+    ],
+    [
+      "^examples/(ETH\\w*\\.v)$",
+      "models/time/examples/eth/\\1"
+    ],
+    [
+      "^examples/",
+      "models/time/examples/"
+    ],
+    [
+      "^space/SpaceExamples\\.v$",
+      "models/space/examples/SpaceExamples.v"
+    ],
+    [
+      "^space/",
+      "models/space/"
+    ],
+    [
+      "^machine/MachineExamples\\.v$",
+      "models/time/machine/examples/MachineExamples.v"
+    ],
+    [
+      "^machine/",
+      "models/time/machine/"
+    ],
+    [
+      "^instances/",
+      "models/time/instances/"
+    ]
   ],
   "definitions": {
     "bff/BFFComplexity.v": [
@@ -30,31 +93,35 @@
   },
   "sections": [
     [
-      "Natural numbers, booleans, lists, binary integers, sums (stdlib)",
-      "stdlib/"
+      "Natural numbers, booleans, lists, binary integers, sums (models/time/stdlib)",
+      "models/time/stdlib/"
     ],
     [
       "Basic feasible functionals (bff)",
       "bff/"
     ],
     [
-      "Examples (examples)",
-      "examples/"
+      "Examples (models/time/examples)",
+      "models/time/examples/"
     ],
     [
-      "Space: total allocation (space)",
-      "space/"
+      "Counting operations (models/counting)",
+      "models/counting/"
     ],
     [
-      "Environment machine for L: steps of the machine (machine)",
-      "machine/"
+      "Space: total allocation (models/space)",
+      "models/space/"
+    ],
+    [
+      "Environment machine for L: steps of the machine (models/time/machine)",
+      "models/time/machine/"
     ]
   ],
   "notes": {
     "complexity_ext": "for f pointwise equal to g, from the bound cg of g",
     "horner_complexity": "when 1 <= c_fix, in the counting model of the file",
     "map_space": "when f allocates at most c",
-    "stdlib/ListComplexity.v#fold_left_const_complexity": "when f costs at most c1 +> c2"
+    "models/time/stdlib/ListComplexity.v#fold_left_const_complexity": "when f costs at most c1 +> c2"
   },
   "names": {
     "Pos_add_mutual_complexity": "fun b => if b then Pos.add else Pos.add_carry",
@@ -65,24 +132,23 @@
     "fold_left_hcomplexity": "fold_left"
   },
   "order": [
-    "stdlib/NatComplexity.v",
-    "stdlib/BoolComplexity.v",
-    "stdlib/ListComplexity.v",
-    "stdlib/HOListComplexity.v",
-    "stdlib/PosComplexity.v",
-    "stdlib/ZComplexity.v",
-    "stdlib/SumComplexity.v",
+    "models/time/stdlib/NatComplexity.v",
+    "models/time/stdlib/BoolComplexity.v",
+    "models/time/stdlib/ListComplexity.v",
+    "models/time/stdlib/HOListComplexity.v",
+    "models/time/stdlib/PosComplexity.v",
+    "models/time/stdlib/ZComplexity.v",
+    "models/time/stdlib/SumComplexity.v",
     "bff/BFFComplexity.v",
     "bff/BFFFeasibility.v",
     "bff/Type3Example.v",
-    "examples/Examples.v",
-    "examples/BracketComparison.v",
-    "examples/HornerCount.v",
-    "examples/StrassenCount.v",
-    "examples/ETHCost.v",
-    "examples/BoundExamples.v",
-    "space/SpaceExamples.v",
-    "machine/MachineExamples.v"
+    "models/time/examples/Examples.v",
+    "models/time/examples/BracketComparison.v",
+    "models/counting/examples/HornerCount.v",
+    "models/counting/examples/StrassenCount.v",
+    "models/time/examples/eth/ETHCost.v",
+    "models/space/examples/SpaceExamples.v",
+    "models/time/machine/examples/MachineExamples.v"
   ],
   "groups": [
     "bff/BFFComplexity.v",

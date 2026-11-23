@@ -5,26 +5,23 @@
 
 From Complexity Require Export TimeDatatypes TimeLists TimeFix.
 
-(** The costs of [Nat.add] and [Nat.mul] are constants: one for the partial
-    application, the coefficients of a linear bound for [Nat.add] in its
-    first argument, and those of a bilinear bound for [Nat.mul]. *)
+(** The costs of [Nat.add] and [Nat.mul] are constants. They are defined as
+  parameters so that we can distinguish between both. *)
 Module Type NatArithTimeCostModel (Import CM : CostModel) (Import ND : NatData CM).
-  (* TODO: simplify this much more: only one constant parameter per addition. *)
-  Parameter c_add_clo c_add_n c_add : nat.
-  Parameter c_mul_clo c_mul_nm c_mul_n c_mul : nat.
-  #[global] Hint Unfold c_add_clo c_add_n c_add c_mul_clo c_mul_nm c_mul_n c_mul : costs.
+  Parameter c_add_clo c_add : nat.
+  Parameter c_mul_clo  c_mul : nat.
+  #[global] Hint Unfold c_add c_mul : costs.
 
   #[global] Declare Instance add_complexity : ComplexityBound Nat.add
-    (fun cn => c_add_clo +> fun cm => (c_add_n * val cn + c_add) >|).
+    (fun cn => 0 +> fun cm => c_add >|).
 
   #[global] Declare Instance mul_complexity : ComplexityBound Nat.mul
-    (fun cn => c_mul_clo +> fun cm => (val cn * (c_mul_nm * val cm + c_mul_n) + c_mul) >|).
+    (fun cn => 0 +> fun cm => c_mul >|).
 End NatArithTimeCostModel.
 
 (** The primitives, the constructor [S], booleans and lists, but no case
     analysis on [nat]: functions on numbers are analysed through [Nat.add]
-    and [Nat.mul] only. L is an instance, with the bounds of [Nat.add] and
-    [Nat.mul] of [NatComplexity] ([LArith]). *)
+    and [Nat.mul] only. *)
 Module Type ParamArithTimeCostModel := CostModel.CostModel <+ BasicTimeCostModel
   <+ CombinatorTimeCostModel <+ BoolTimeCostModel
   <+ NatData <+ NatCtorTimeCostModel <+ NatArithTimeCostModel
@@ -32,14 +29,9 @@ Module Type ParamArithTimeCostModel := CostModel.CostModel <+ BasicTimeCostModel
 
 (** Only the arithmetic operations are charged: an addition [c_add], a
     multiplication [c_mul], an unfolding [c_fix]; everything else is free.
-    The constants are abstract, so that a bound is a linear form whose
-    coefficients count the operations ([HornerCount]). Unfoldings cannot
-    be free: free unfoldings would give every function every bound
-    ([TimeFix], [UnguardedFix]). L is not an instance: unary addition
-    takes linear time. *)
+    Unfoldings cannot be free: free unfoldings would give every function every 
+    bound ([TimeFix], [UnguardedFix]). *)
 Module Type ArithOpsTimeCostModel := ParamArithTimeCostModel
-  with Definition c_add_clo := 0 with Definition c_add_n := 0
-  with Definition c_mul_clo := 0 with Definition c_mul_nm := 0 with Definition c_mul_n := 0
   with Definition c_clo := 0 with Definition c_frame := 0
   with Definition c_ehd := 0 with Definition c_etl := 0 with Definition c_Lam := 0
   with Definition c_Kc := 0 with Definition c_Ic := 0 with Definition c_compose := 0
@@ -52,3 +44,20 @@ Module Type ArithOpsTimeCostModel := ParamArithTimeCostModel
     and polynomial bounds in the sizes lose their usual meaning. *)
 Module Type ArithCountTimeCostModel := ArithOpsTimeCostModel
   with Definition c_add := 1 with Definition c_mul := 1 with Definition c_fix := 1.
+
+(** ** [S] is free
+
+    In these models, an application of [S] costs nothing: the lower bound
+    [succ_not_free] of L ([NatLowerBound]), whose statement is negated
+    here, does not hold. *)
+
+From Stdlib Require Import Lia.
+
+Module ArithOpsSuccFree (Import M : ArithOpsTimeCostModel).
+  Lemma succ_free :
+    ~ (forall c : ℂI nat unit -> ℂO unit, ComplexityBound S c -> forall cn, 1 <= cost (c cn)).
+  Proof.
+    intro H. pose proof (H _ S_complexity (0 ⋊ tt)) as H'.
+    autounfold with costs in H'. cbn in H'. lia.
+  Qed.
+End ArithOpsSuccFree.

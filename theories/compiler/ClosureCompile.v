@@ -1,12 +1,11 @@
 (** * Closure conversion
 
-    [compile t] rewrites the lambda-term [t] into a convertible term built
-    from the combinators of [Combinators], by closure conversion: every
-    lambda becomes a closure, i.e. its code applied to the environment where
-    it is built. Matches become case combinators. A closed function needs no
-    closure: its argument is its environment ([closed]). It only uses
-    conversion: the goal before and after is the same proposition. This is
-    the default compiler of [cbound] ([Compile]). *)
+    [compile t]: a term convertible to the Rocq term [t], whose abstractions
+    become closures (linked environments, as in the CAM; flat closures gave
+    larger bounds) and whose matches become case combinators. Closed
+    subterms are kept. A closed function needs no closure: its argument is
+    its environment ([closed]). The default compiler of [cbound]
+    ([Compile]). *)
 
 From Ltac2 Require Import Ltac2.
 From Stdlib Require Import Program.Basics PArith NArith ZArith QArith.

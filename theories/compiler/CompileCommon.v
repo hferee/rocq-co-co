@@ -42,7 +42,13 @@ Ltac2 ref_name (r : Std.reference) : string :=
   | None => ""
   end.
 
-(** Case combinators are the constants named [I_case] (see [Combinators]). *)
+(** The case combinator of an inductive type [I] is the constant [I_case],
+    defined with the model of [I] ([nat_case] in [TimeDatatypes]). Its
+    arguments: the parameters of [I], the types of the environment and of
+    the result, the code of the branches (in the order of the constructors),
+    the code of the matched value, and the environment. A branch runs in
+    the environment extended with the arguments of its constructor. It must
+    be opaque for typeclass search and in the hint database [comb]. *)
 Ltac2 is_case_comb (f : constr) : bool :=
   match kind f with
   | Constant c _ =>

@@ -75,8 +75,8 @@ frame for each element: `Pos.succ` 14 and 18 (the carry), `fold_right` 28 and
 constants of x86 include the call from the measuring program.
 
 The section **Environment machine for L** gives bounds in another cost
-model: steps of an environment machine for L (`machine/MachineCostModel`,
-instance `instances/LMachine`, of the whole time model), which reads variables in a linked
+model: steps of an environment machine for L (`models/time/machine/MachineCostModel`,
+instance `models/time/instances/LMachine`, of the whole time model), which reads variables in a linked
 environment, allocates closures and pays a frame for each evaluation in
 non-tail position. Each combinator costs the steps of its realiser on the
 machine (`c_ehd = 15`, `c_etl = 16`, `c_Lam = 5`, `c_Kc = 2`, `c_Ic = 1`,

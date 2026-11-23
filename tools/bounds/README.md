@@ -12,7 +12,7 @@ model.
 - `bounds/runs/<name>.jsonl`: the snapshot of a run, one bound per line:
 
   ```json
-  {"id": "stdlib/NatComplexity.v#Nat_add_complexity", "kind": "ComplexityBound", "model": "Time",
+  {"id": "models/time/stdlib/NatComplexity.v#Nat_add_complexity", "kind": "ComplexityBound", "model": "Time",
    "function": "Nat.add", "template": "(fun cn => {0} +> fun cm => ({1} * val cn + {2}) >|)",
    "constants": [4, 22, 6], "hyps": "", "proof": "term"}
   ```
@@ -23,6 +23,12 @@ model.
   `kind` is `ComplexityBound`, `FirstOrderBound`, `Definition` (a cost
   function or a majorant defined apart, listed in `config.json`) or
   `Majorant` (the higher-order polynomials of `BFFFeasibility`).
+
+  The file of an `id` is its current path under `theories/`. The files of
+  an older layout of the repository (a snapshot of an older revision) get
+  their current paths from the `renames` of `config.json`: regular
+  expressions that match the old paths only, and their replacements
+  (`stdlib/` became `models/time/stdlib/`, for example).
 
 A run marked `"reference": true` in the manifest is a measurement, not a
 state of the bounds: the run `asm` (`asm/measure.py`) gives the x86-64
@@ -41,7 +47,7 @@ From the root of the repository, with the library built:
 | Command | What it does |
 |---|---|
 | `make bounds-snapshot RUN=name [REV=rev] [TITLE=..] [DESCRIPTION=..]` | snapshot of the working tree, or of a git revision |
-| `make bounds-minimise [SCREEN=1] [FILES="stdlib/NatComplexity.v ..."]` | minimise the constants, in dependency order (slow) |
+| `make bounds-minimise [SCREEN=1] [FILES="models/time/stdlib/NatComplexity.v ..."]` | minimise the constants, in dependency order (slow) |
 | `make bounds-table` | regenerate `bounds-comparison.md` from the runs of `config.json` |
 | `make show-bounds-table [RUNS="name ..."]` | the same table as an HTML page, `bounds-comparison.html` (not versioned), opened in the browser |
 | `make bounds-check [RUN=name]` | fail if a bound of the working tree is higher than in the run, or has another shape |

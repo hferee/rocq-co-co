@@ -5,7 +5,7 @@
     numbers, ...). Their bounds in the values, for any data, are in
     [HOListComplexity]; [WfExamples] has more of them. *)
 
-From Complexity Require Export NatComplexity ListFacts HOListComplexity.
+From Complexity Require Export NatComplexity HOListComplexity.
 From Stdlib Require Import List.
 Import ListNotations.
 

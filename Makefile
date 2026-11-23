@@ -35,7 +35,7 @@ doc:
 # Complexity bounds (tools/bounds): snapshots in bounds/runs/, their
 # comparison in bounds-comparison.md.
 #   make bounds-snapshot RUN=name [REV=rev] [TITLE=..] [DESCRIPTION=..]
-#   make bounds-minimise [SCREEN=1] [FILES="stdlib/NatComplexity.v ..."]
+#   make bounds-minimise [SCREEN=1] [FILES="models/time/stdlib/NatComplexity.v ..."]
 #   make bounds-table
 #   make show-bounds-table [RUNS="run1 run2 ..."]   (HTML, in the browser)
 #   make bounds-check [RUN=name]   (fails if a bound got higher)
@@ -54,5 +54,14 @@ bounds-check:
 bounds-asm:
 	python3 tools/bounds/asm/measure.py
 
-.PHONY: _ doc bounds-snapshot bounds-minimise bounds-table show-bounds-table bounds-check bounds-asm
+# Dependency graph of the .v files (tools/depgraph.py), with
+# coq-library-undecidability: doc/deps.dot has every direct import,
+# doc/deps.svg is drawn without the transitive edges (tred, Graphviz); its
+# files link to their documentation in html/ (make doc).
+depgraph:
+	@$(COQDEP) $(COQMF_COQLIBS) $(VFILES) | python3 tools/depgraph.py - . > doc/deps.dot
+	tred doc/deps.dot | dot -Tsvg -o doc/deps.svg
+	@echo "Dependency graph: doc/deps.dot, doc/deps.svg"
+
+.PHONY: _ doc bounds-snapshot bounds-minimise bounds-table show-bounds-table bounds-check bounds-asm depgraph
 

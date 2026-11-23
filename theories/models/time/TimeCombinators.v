@@ -8,11 +8,10 @@
     - [BasicTimeCostModel]: the costs of the identity, of application, of
       composition and of constant functions.
     - [CombinatorTimeCostModel]: the costs of the combinators of
-      [Combinators]. [Compile.compile] turns every lambda-term (and
-      [match], through the case combinators of the datatype models) into a
-      convertible term built from the closure combinators [Lam], [ehd],
-      [etl], [Kc], [Sc], [Cc] and [compose] ([Ic] is only used by bracket
-      abstraction, [BracketCompile]). The combinators are higher-order
+      [Combinators]. [Compile.compile] turns a Rocq term into a convertible
+      term built from them, and from the case combinators of the datatype
+      models ([Ic] is only used by bracket abstraction, [BracketCompile]).
+      The combinators are higher-order
       constants: their complexities take the complexities of their
       (functional) arguments, so that typeclass search finds the complexity
       of a compiled term by following its structure ([cbc_found]). *)

@@ -2,7 +2,7 @@
   should never be free: any function would have any complexity bound ;
   the induced notion of complexity would be pointless. *)
 
-From Complexity Require Import TimeCostModel TimeArith.
+From Complexity Require Import TimeFix.
 
 
 Module UnguardedFix (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)

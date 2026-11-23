@@ -1,12 +1,12 @@
 (** * Functions on sums
 
     The standard library has no function on [A + B]: the usual ones are
-    defined here (Haskell's [isLeft], [either], [lefts], ...). [cbound]
-    proves their bounds, with the smallest constants. *)
+    defined here (Haskell's [isLeft], [either], ...). [cbound] proves their
+    bounds, with the smallest constants. The functions on lists of sums
+    ([lefts], [rights]) are with the other functions on lists
+    ([HOListComplexity]). *)
 
-From Complexity Require Export HOListComplexity.
-From Stdlib Require Import List.
-Import ListNotations.
+From Complexity Require Export TimeCostModel.
 
 (** No timeout in the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
@@ -30,12 +30,6 @@ Definition get_inl {A B} (x : A + B) : option A :=
   match x with inl a => Some a | inr _ => None end.
 Definition get_inr {A B} (x : A + B) : option B :=
   match x with inl _ => None | inr b => Some b end.
-
-(** The elements of a list of sums. *)
-Fixpoint lefts {A B} (l : list (A + B)) : list A :=
-  match l with [] => [] | inl a :: l => a :: lefts l | inr _ :: l => lefts l end.
-Fixpoint rights {A B} (l : list (A + B)) : list B :=
-  match l with [] => [] | inl _ :: l => rights l | inr b :: l => b :: rights l end.
 
 (** The element of a sum, with its complexity, or [da] or [db] when the
     complexity is of the other side. *)
@@ -92,11 +86,11 @@ Module SumComplexity (Import Time : TimeCostModelBase).
 
 End SumComplexity.
 
-(** ** Options and lists of sums
+(** ** Sums to options
 
-    The lists are read with their complexities ([ccombine]). *)
+    Over the model with the options ([TimeCostModel]). *)
 
-Module SumListComplexity (Import Time : TimeHOLists).
+Module SumOptionComplexity (Import Time : TimeCostModel.TimeCostModel).
 
   Global Instance get_inl_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@get_inl A B)
@@ -112,17 +106,4 @@ Module SumListComplexity (Import Time : TimeHOLists).
                       | inr y => Some (pot y)
                       end).
   Proof. cbound. Qed.
-
-  (** An element [inl] costs [27], an element [inr] [22]. *)
-  Global Instance lefts_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
-    Time.ComplexityBound (@lefts A B)
-      (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (27 * length (val cl) + 6)
-                 +> map (@pot A CA) (lefts (map (czip_sum cdefault cdefault) (ccombine cl)))).
-  Proof. cbound; ccombine_case; cbn [lefts rights map]; first [reflexivity | lia]. Qed.
-  Global Instance rights_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
-    Time.ComplexityBound (@rights A B)
-      (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (27 * length (val cl) + 6)
-                 +> map (@pot B CB) (rights (map (czip_sum cdefault cdefault) (ccombine cl)))).
-  Proof. cbound; ccombine_case; cbn [lefts rights map]; first [reflexivity | lia]. Qed.
-
-End SumListComplexity.
+End SumOptionComplexity.

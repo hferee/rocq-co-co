@@ -88,40 +88,40 @@ def main(argv):
     c = m['mul'][1]
     # the bounds of the same shape: [0] for the partial applications
     same = {
-        'stdlib/NatComplexity.v#Nat_add_complexity': [0, *m['add']],
-        'stdlib/NatComplexity.v#Nat_mul_complexity': [0, a, b, c],
-        'stdlib/NatComplexity.v#Nat_sub_complexity': [0, *m['sub']],
-        'stdlib/NatComplexity.v#Nat_eqb_complexity': [0, *m['eqb']],
-        'stdlib/NatComplexity.v#Nat_leb_complexity': [0, *m['leb']],
-        'stdlib/NatComplexity.v#Nat_ltb_complexity': [0, *m['ltb']],
-        'stdlib/ListComplexity.v#length_complexity': list(m['length']),
-        'stdlib/ListComplexity.v#app_complexity': [0, *m['app']],
-        'stdlib/ListComplexity.v#seq_complexity': [0, *m['seq']],
-        'machine/MachineExamples.v#Nat_add_machine': [0, *m['add']],
-        'machine/MachineExamples.v#length_machine': list(m['length']),
-        'machine/MachineExamples.v#app_machine': [0, *m['app']],
-        'machine/MachineExamples.v#rev_append_machine': [0, *m['rev_append']],
-        'machine/MachineExamples.v#count_acc_machine': [0, *m['count_acc']],
-        'machine/MachineExamples.v#succ_all_machine': list(m['succ_all']),
+        'models/time/stdlib/NatComplexity.v#Nat_add_complexity': [0, *m['add']],
+        'models/time/stdlib/NatComplexity.v#Nat_mul_complexity': [0, a, b, c],
+        'models/time/stdlib/NatComplexity.v#Nat_sub_complexity': [0, *m['sub']],
+        'models/time/stdlib/NatComplexity.v#Nat_eqb_complexity': [0, *m['eqb']],
+        'models/time/stdlib/NatComplexity.v#Nat_leb_complexity': [0, *m['leb']],
+        'models/time/stdlib/NatComplexity.v#Nat_ltb_complexity': [0, *m['ltb']],
+        'models/time/stdlib/ListComplexity.v#length_complexity': list(m['length']),
+        'models/time/stdlib/ListComplexity.v#app_complexity': [0, *m['app']],
+        'models/time/stdlib/ListComplexity.v#seq_complexity': [0, *m['seq']],
+        'models/time/machine/examples/MachineExamples.v#Nat_add_machine': [0, *m['add']],
+        'models/time/machine/examples/MachineExamples.v#length_machine': list(m['length']),
+        'models/time/machine/examples/MachineExamples.v#app_machine': [0, *m['app']],
+        'models/time/machine/examples/MachineExamples.v#rev_append_machine': [0, *m['rev_append']],
+        'models/time/machine/examples/MachineExamples.v#count_acc_machine': [0, *m['count_acc']],
+        'models/time/machine/examples/MachineExamples.v#succ_all_machine': list(m['succ_all']),
     }
     hl = '(fun cf => fun cl => ({0} * length (val cl) + {1}) >|)'
     own = {
-        'stdlib/PosComplexity.v#Pos_succ_complexity':
+        'models/time/stdlib/PosComplexity.v#Pos_succ_complexity':
             ('(fun cp => ({0} * Pos.size_nat (val cp) + {1}) >|)', m['pos_succ']),
-        'stdlib/PosComplexity.v#Pos_eqb_complexity':
+        'models/time/stdlib/PosComplexity.v#Pos_eqb_complexity':
             ('(fun cp => fun cq => ({0} * Pos.size_nat (val cp) + {1}) >|)', m['pos_eqb']),
-        'stdlib/PosComplexity.v#Pos_add_complexity':
+        'models/time/stdlib/PosComplexity.v#Pos_add_complexity':
             ('(fun cx => fun cy => ({0} * Pos.size_nat (val cx) + {1}) >|)', m['pos_add']),
-        'stdlib/PosComplexity.v#Pos_compare_complexity':
+        'models/time/stdlib/PosComplexity.v#Pos_compare_complexity':
             ('(fun cx => fun cy => ({0} * Pos.size_nat (val cy) + {1}) >|)', m['pos_compare']),
-        'stdlib/ZComplexity.v#Z_add_linear_complexity':
+        'models/time/stdlib/ZComplexity.v#Z_add_linear_complexity':
             ('(fun cx => fun cy => ({0} * zsize (val cx) + {1}) >|)', m['z_add']),
-        'stdlib/HOListComplexity.v#map_complexity': (hl, m['map']),
-        'stdlib/HOListComplexity.v#filter_complexity': (hl, m['filter']),
-        'stdlib/HOListComplexity.v#forallb_complexity': (hl, m['forallb']),
-        'stdlib/HOListComplexity.v#fold_left_complexity':
+        'models/time/stdlib/HOListComplexity.v#map_complexity': (hl, m['map']),
+        'models/time/stdlib/HOListComplexity.v#filter_complexity': (hl, m['filter']),
+        'models/time/stdlib/HOListComplexity.v#forallb_complexity': (hl, m['forallb']),
+        'models/time/stdlib/HOListComplexity.v#fold_left_complexity':
             ('(fun cf => fun cl => fun cx => ({0} * length (val cl) + {1}) >|)', m['fold_left']),
-        'stdlib/HOListComplexity.v#fold_right_complexity':
+        'models/time/stdlib/HOListComplexity.v#fold_right_complexity':
             ('(fun cf => fun ca0 => fun cl => ({0} * length (val cl) + {1}) >|)', m['fold_right']),
     }
     sys.path.insert(0, os.path.join(HERE, '..'))

@@ -5,7 +5,11 @@ usage: extract.py [--root DIR] [--rev REV] OUT.jsonl
 Reads the .v files under DIR/theories (default: the repository), or under
 theories/ at the git revision REV, and writes one JSON object per bound:
 
-  id         file (relative to theories/) and name: "stdlib/NatComplexity.v#Nat_add_complexity"
+  id         file (relative to theories/) and name:
+             "models/time/stdlib/NatComplexity.v#Nat_add_complexity"; the
+             files of an older layout get their current paths ("renames"
+             of config.json), so that the snapshots of all the revisions
+             compare
   kind       ComplexityBound, FirstOrderBound, Definition (cost functions) or Majorant
   model      Time, Space, or "" (generic)
   function   the function bounded
@@ -25,6 +29,15 @@ import coqsrc
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..'))
 CONFIG = json.load(open(os.path.join(HERE, 'config.json')))
+
+def rename(path):
+    """The current path of a file (relative to theories/) of an older layout:
+    the first rule of "renames" (config.json) that matches it, a regular
+    expression and its replacement. The rules match the old paths only."""
+    for pat, rep in CONFIG.get('renames', []):
+        if re.match(pat, path):
+            return re.sub(pat, rep, path, count=1)
+    return path
 
 def bounds_of(path, s):
     out = []
@@ -82,14 +95,14 @@ def sources(root=None, rev=None):
             if f.endswith('.v'):
                 s = subprocess.run(['git', 'show', f'{rev}:{f}'], cwd=REPO, capture_output=True,
                                    text=True, check=True).stdout
-                yield os.path.relpath(f, 'theories'), s
+                yield rename(os.path.relpath(f, 'theories')), s
     else:
         base = os.path.join(root or REPO, 'theories')
         for dp, _, fs in sorted(os.walk(base)):
             for f in sorted(fs):
                 if f.endswith('.v'):
                     p = os.path.join(dp, f)
-                    yield os.path.relpath(p, base), open(p).read()
+                    yield rename(os.path.relpath(p, base)), open(p).read()
 
 ABBREV = re.compile(r'^[ \t]*Abbreviation[ \t]+(\w+)[ \t]*:=[ \t]*(\d+)[ \t]*\(only parsing\)\.', re.M)
 

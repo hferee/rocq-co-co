@@ -1,8 +1,7 @@
 (** * Functions on options of any data
 
-    As for lists ([HOListComplexity]), which come after options as in the
-    standard library: the bounds are in the complexities of the element
-    ([czip_option]) and of the function. *)
+    As for lists ([HOListComplexity]): the bounds are in the complexities
+    of the element ([czip_option]) and of the function. *)
 
 From Complexity Require Export TimeCostModel.
 
