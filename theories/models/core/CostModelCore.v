@@ -4,7 +4,7 @@ From Complexity Require Export BasicClasses.
 (** * Complexity model
 
     The notions shared by all cost models, whatever the resource they measure:
-    time ([TimeCostModel]), space ([SpaceCostModel]), or specific function
+    time ([TimeCostModel]), allocation ([TotalAllocationModel]), or specific function
     calls ([StrassenCount] for instance).
 
     For function types, a complexity is a function taking as input an input

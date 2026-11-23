@@ -716,12 +716,6 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
     intros. apply has_complexity_bound. exists Kc_r. intro k. Lfun. Lstep. Lfun. Lstep. Lend Ha.
   Qed.
 
-  Lemma Ic_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@Ic A) (fun ca => 1 +> pot ca).
-  Proof.
-    intros. apply has_complexity_bound. exists Ic_r. intro k. Lfun. Lstep. Lend Ha.
-  Qed.
-
   Lemma compose_hcomplexity : forall {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC},
     ComplexityBound (@compose A B C)
       (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 1 +>

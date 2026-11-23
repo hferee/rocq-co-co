@@ -34,8 +34,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
       application (building a closure). A full application of a combinator
       ([CombinatorTimeCostAxioms], below) has a cost of its own: the projections of an
       environment [c_ehd] and [c_etl], the call of a closure [c_Lam], the
-      constants [c_Kc] (also for [fun _ => b]), the identity [c_Ic] (also for
-      [fun x => x]), the composition [c_compose], and [c_Cc] and [c_Sc].
+      constants [c_Kc] (also for [fun _ => b]), the identity [c_Ic] ([fun x => x]), the composition [c_compose], and [c_Cc] and [c_Sc].
       They are equal in the models of L, and differ on a machine
       ([MachineCostModel]). The models of the datatypes and of fixpoints
       have their own constants. *)
@@ -205,10 +204,6 @@ Module Type CombinatorTimeCostAxioms
   #[global] Declare Instance Kc_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@Kc A B) (fun ca => c_clo +> (fun _ => c_Kc +> pot ca)).
 
-  (** Only used by bracket abstraction. *)
-  #[global] Declare Instance Ic_complexity : forall {A CA} `{Repr A CA},
-    ComplexityBound (@Ic A) (fun ca => c_Ic +> pot ca).
-
   (** [compose] (B) as a constant, whereas [compose_complexity] requires fixed
       arguments. *)
   #[global] Declare Instance compose_hcomplexity :
@@ -296,8 +291,8 @@ Module CombinatorTactics
   Ltac2 is_combinator (f : constr) : bool :=
     Bool.or (is_case_comb f)
       (List.exist (fun c => Constr.equal f c)
-         [constr:(@Lam); constr:(@ehd); constr:(@etl); constr:(@Kc); constr:(@Ic);
-          constr:(@Sc); constr:(@Cc); constr:(@compose)]).
+         [constr:(@Lam); constr:(@ehd); constr:(@etl); constr:(@Kc); constr:(@Sc);
+          constr:(@Cc); constr:(@compose)]).
 
   (** The constants and constructors of [t], applied to their type
       arguments. *)
@@ -419,7 +414,7 @@ Module CombinatorTactics
   Ltac csimpl :=
     cbv beta iota zeta delta [found found_bound found_apply found_compose
                               app cost_add fmap ret_I cost res val pot fst snd
-                              Lam ehd etl Kc Ic Sc Cc compose];
+                              Lam ehd etl Kc Sc Cc compose];
     autounfold with costs; unfold_comb.
 
   (** Compute the functions of the claimed bound on constructors, but

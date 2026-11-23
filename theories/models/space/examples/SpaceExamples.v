@@ -1,20 +1,20 @@
-(** * Space complexity of standard algorithms (sanity checks)
+(** * Total allocation of standard algorithms (sanity checks)
 
-    Bounds on the allocations of standard functions in the space cost model
-    ([SpaceCostModel]), proved by [cbound] as in the time cost model. They
+    Bounds on the allocations of standard functions
+    ([TotalAllocationModel]), proved by [cbound] as in the time cost model. They
     agree with the known space complexities, in the number of allocated
     cells. The constants also count the closures built by the compiled code
     and the frame of each recursive call ([c_fix]); a [match] allocates
     nothing. *)
 
-From Complexity Require Export SpaceCostModel.
+From Complexity Require Export TotalAllocationModel.
 From Stdlib Require Import List.
 Import ListNotations.
 
 (** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
 #[local] Ltac2 Set ctimeout := 0.
 
-Module SpaceExamples (Import Space : SpaceCostModel).
+Module SpaceExamples (Import Space : TotalAllocationModel).
 
   (** ** Natural numbers
 

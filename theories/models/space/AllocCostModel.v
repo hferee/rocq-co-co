@@ -1,9 +1,9 @@
-(** * The space cost model with sizes (aside)
+(** * The total allocation model with sizes (aside)
 
     An experiment, set aside: the definition of the sizes is still open
     ([hosize-plan.md]). *)
 
-From Complexity Require Export SpaceCostModel.
+From Complexity Require Export TotalAllocationModel.
 
 Module Type SizedAllocCostModel (Import CM : CostModel).
 
@@ -26,4 +26,4 @@ Module Type SizedAllocCostModel (Import CM : CostModel).
     Footprinted h -> HOBound h f c -> exists k, CSized h f (cplus h k c).
 End SizedAllocCostModel.
 
-Module Type AllocCostModel := SpaceCostModel.SpaceCostModel <+ SizedAllocCostModel.
+Module Type AllocCostModel := TotalAllocationModel.TotalAllocationModel <+ SizedAllocCostModel.

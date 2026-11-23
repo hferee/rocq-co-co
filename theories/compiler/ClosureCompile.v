@@ -69,10 +69,10 @@ Ltac2 simple_lambda (b : binder) (body : constr) : constr option :=
   | _ => None
   end.
 
-(** The environment at position [p] of an environment: [etl^p e] ([Ic]
-    for [p = 0]). *)
+(** The environment at position [p] of an environment: [etl^p e] (the
+    identity for [p = 0]). *)
 Ltac2 rec base_access (p : int) : constr :=
-  if Int.equal p 0 then mkapp constr:(@Ic) [| hole () |]
+  if Int.equal p 0 then mklam (binder (hole ())) (mkrel 1)
   else if Int.equal p 1 then mkapp constr:(@etl) [| hole (); hole () |]
   else mkapp constr:(@compose)
          [| hole (); hole (); hole (); mkapp constr:(@etl) [| hole (); hole () |];
@@ -133,7 +133,8 @@ with branch_codes (base : int) (ci : case) (branches : constr array) : constr li
 (** [closed t], for a closed term [t]. A closed lambda needs no closure:
     its code, with its argument as the environment ([conv] with [base]
     [1]), is the function itself. A closed [fun x => match x with ... end]
-    is thus the case combinator, with [x] as its environment, read by [Ic];
+    is thus the case combinator, with [x] as its environment, read by the
+    identity;
     a closed [fun x y => b] is [Lam c], [c] being the code of [b] in the
     environment [ECons x y]. *)
 with closed (t : constr) : constr :=

@@ -356,12 +356,6 @@ Module MCB <: CombinatorTimeCostModel MCM MBT.
     Mfun. Mstep. Mfun. Mstep. Mend Ha.
   Qed.
 
-  Lemma Ic_complexity : forall {A CA} `{Repr A CA},
-      ComplexityBound (@Ic A) (fun ca => 1 +> pot ca).
-  Proof.
-    intros. apply has_complexity_bound. exists (clos (var 0) []). intro k. Mfun. Mstep. Mend Ha.
-  Qed.
-
   Lemma compose_hcomplexity : forall {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC},
     ComplexityBound (@compose A B C)
       (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 1 +>

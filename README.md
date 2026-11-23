@@ -50,14 +50,17 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
       declared first) and functions defined by well-founded recursion
       (`Function`). `Limitations` shows what the analysis does not cover
       (dependent matches), with the error reported.
-  - `counting/`: a model with addition and multiplication as primitives and
-    no case analysis on `nat` (`TimeArith`), and its instance counting
-    arithmetic operations; `examples/`: operation counts (`HornerCount`,
-    and Strassen's matrix product in `StrassenCount`).
-  - `space/`: the space cost model (`SpaceCostModel`): the layers of the
-    time cost model, with the allocations of the primitives as costs (a
+  - `counting/`: models counting chosen operations.
+    - `counting_arith/`: addition and multiplication as primitives, and no
+      case analysis on `nat` (`TimeArith`); `examples/`: operation counts
+      (`HornerCount`, and Strassen's matrix product in `StrassenCount`).
+    - `counting_comparisons/`: comparisons of an abstract type as the only
+      primitive charged (`CmpCount`); `examples/`: van der Weegen and
+      McKinna's quicksort, with its exact comparison count (`QuickSort`).
+  - `space/`: the total allocation (`TotalAllocationModel`): the layers of
+    the time cost model, with the allocations of the primitives as costs (a
     closure, a constructor or a frame allocates a cell; an application or a
-    case analysis allocates nothing). The space is the total allocation.
+    case analysis allocates nothing), never freed.
     `AllocCostModel` adds an experimental axiom relating allocations to the
     sizes of functionals. `examples/SpaceExamples` bounds the allocations of
     standard functions (`Nat.add`, `Nat.mul`, `app`, `rev`, `rev_append`,

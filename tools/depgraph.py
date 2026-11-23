@@ -45,7 +45,9 @@ COLORS = {
     "models/time/machine": "#d8f0f0", "models/time/machine/examples": "#eaf8f8",
     "models/time/instances": "#fde8f4",
     "models/time/examples": "#f4f7ec", "models/time/examples/eth": "#e7eed8",
-    "models/counting": "#fdeedd", "models/counting/examples": "#fff6ec",
+    "models/counting": "#fdeedd",
+    "models/counting/counting_arith": "#fdeedd", "models/counting/counting_arith/examples": "#fff6ec",
+    "models/counting/counting_comparisons": "#fbe3d3", "models/counting/counting_comparisons/examples": "#fef1e8",
     "models/space": "#f3e8fd", "models/space/examples": "#faf4ff",
 }
 

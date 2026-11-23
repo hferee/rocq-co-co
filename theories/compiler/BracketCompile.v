@@ -3,7 +3,8 @@
     The former compilation scheme, kept for comparison with closure
     conversion ([ClosureCompile], [BracketComparison]): every lambda is
     eliminated by Turner's bracket abstraction, by value, with the
-    combinators [Kc], [Ic], [Sc], [Cc] and [compose] (K, I, S, C, B).
+    combinators [Kc], [Sc], [Cc] and [compose] (K, S, C, B), and the
+    identity [fun x => x] (I).
 
     - D. A. Turner. A new implementation technique for applicative
       languages. Software: Practice and Experience 9(1):31-49, 1979.
@@ -18,7 +19,7 @@ Import Constr.Unsafe.
 (** Combinators: number of type arguments and of other arguments. *)
 Ltac2 comb_info (f : constr) : (int * int) option :=
   if Bool.or (List.exist (fun c => Constr.equal f c)
-                [constr:(@Kc); constr:(@Ic); constr:(@Sc); constr:(@Cc); constr:(@compose)])
+                [constr:(@Kc); constr:(@Sc); constr:(@Cc); constr:(@compose)])
        (is_case_comb f)
   then
     let t := Constr.type f in
@@ -64,7 +65,7 @@ Ltac2 hoist (t : constr) : bool :=
 Ltac2 rec abs (t : constr) : constr :=
   if hoist t then mkapp constr:(@Kc) [| hole (); hole (); lower t |]
   else match kind t with
-  | Rel _ => mkapp constr:(@Ic) [| hole () |]
+  | Rel _ => mklam (binder (hole ())) (mkrel 1)
   | App f args =>
       let n := Array.length args in
       let last := Array.get args (Int.sub n 1) in
@@ -91,7 +92,7 @@ Ltac2 rec env_access (k : int) : constr :=
     lambda is abstracted, and a [match] becomes an application of the case
     combinator: its branches and its matched value are closures, functions
     of an environment, abstracted as the other lambdas. The environment is
-    the matched value when it is a variable (read by [Ic]), the empty
+    the matched value when it is a variable (read by the identity), the empty
     environment [tt] otherwise. *)
 Ltac2 rec bracket_compile (t : constr) : constr :=
   match kind t with
@@ -115,7 +116,7 @@ Ltac2 rec bracket_compile (t : constr) : constr :=
          case analysis is then a partial application in this variable *)
       let (scode, e) :=
         match kind scrut with
-        | Rel _ => (mkapp constr:(@Ic) [| hole () |], scrut)
+        | Rel _ => (mklam (binder (hole ())) (mkrel 1), scrut)
         | _ => (mklam (binder constr:(unit)) (liftn 1 1 scrut), constr:(tt))
         end in
       bracket_compile

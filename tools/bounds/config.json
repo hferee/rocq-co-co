@@ -10,7 +10,7 @@
     "models/time/TimeDatatypes.v",
     "models/time/TimeFix.v",
     "models/time/TimeLists.v",
-    "models/counting/TimeArith.v",
+    "models/counting/counting_arith/TimeArith.v",
     "models/time/examples/Tutorial.v",
     "models/time/examples/Limitations.v",
     "models/time/examples/UnguardedFix.v"
@@ -26,7 +26,7 @@
     ],
     [
       "^time/TimeArith\\.v$",
-      "models/counting/TimeArith.v"
+      "models/counting/counting_arith/TimeArith.v"
     ],
     [
       "^time/",
@@ -38,7 +38,7 @@
     ],
     [
       "^examples/(HornerCount|StrassenCount)\\.v$",
-      "models/counting/examples/\\1.v"
+      "models/counting/counting_arith/examples/\\1.v"
     ],
     [
       "^examples/eth/",
@@ -71,6 +71,14 @@
     [
       "^instances/",
       "models/time/instances/"
+    ],
+    [
+      "^models/counting/TimeArith\\.v$",
+      "models/counting/counting_arith/TimeArith.v"
+    ],
+    [
+      "^models/counting/examples/",
+      "models/counting/counting_arith/examples/"
     ]
   ],
   "definitions": {
@@ -105,8 +113,8 @@
       "models/time/examples/"
     ],
     [
-      "Counting operations (models/counting)",
-      "models/counting/"
+      "Counting operations (models/counting/counting_arith)",
+      "models/counting/counting_arith/"
     ],
     [
       "Space: total allocation (models/space)",
@@ -144,8 +152,8 @@
     "bff/Type3Example.v",
     "models/time/examples/Examples.v",
     "models/time/examples/BracketComparison.v",
-    "models/counting/examples/HornerCount.v",
-    "models/counting/examples/StrassenCount.v",
+    "models/counting/counting_arith/examples/HornerCount.v",
+    "models/counting/counting_arith/examples/StrassenCount.v",
     "models/time/examples/eth/ETHCost.v",
     "models/space/examples/SpaceExamples.v",
     "models/time/machine/examples/MachineExamples.v"

@@ -12,9 +12,9 @@ From Stdlib Require Import Program.Basics.
     - [ehd], [etl]: the projections of an environment;
     - [Sc f g e = f e (g e)] (S), [compose f g e = f (g e)] (B),
       [Cc f a e = f e a] (C);
-    - [Kc a e = a] (K), [Ic a = a] (I).
+    - [Kc a e = a] (K).
 
-    The suffix [c] avoids the [S] and [I] of the standard library.
+    The suffix [c] avoids the [S] of the standard library.
 
     G. Cousineau, P.-L. Curien, M. Mauny. The categorical abstract machine.
     Science of Computer Programming 8(2):173-202, 1987. *)
@@ -30,9 +30,7 @@ Definition Kc {A B : Type} (a : A) : B -> A := fun _ => a.
 Definition Sc {X A B : Type} (f : X -> A -> B) (g : X -> A) : X -> B := fun x => f x (g x).
 Definition Cc {X A B : Type} (f : X -> A -> B) (a : A) : X -> B := fun x => f x a.
 
-Definition Ic {A : Type} : A -> A := fun a => a.
-
 (** Opaque for typeclass search; the hint database [comb] unfolds them. *)
-#[global] Typeclasses Opaque Lam ehd etl Kc Ic Sc Cc compose.
+#[global] Typeclasses Opaque Lam ehd etl Kc Sc Cc compose.
 Create HintDb comb.
-#[global] Hint Unfold Lam ehd etl Kc Ic Sc Cc compose : comb.
+#[global] Hint Unfold Lam ehd etl Kc Sc Cc compose : comb.

@@ -3,7 +3,7 @@
     A set of exercises. Each one states a complexity bound for a function,
     with [0] in place of its constants, and ends with [Abort]: replace the
     [0]s by constants for which the bound holds, and [Abort] by a proof
-    that ends with [Qed]. The sections get harder as they go. *)
+    that ends with [Qed]. *)
 
 From Complexity Require Import TimeStdlib.
 From Stdlib Require Import List.
@@ -20,16 +20,16 @@ Module Tutorial (Import Time : TimeStdlib).
 
       [Time.ComplexityBound f c] says that [c] bounds the cost of [f]. For a
       function of one argument, [c] is [fun cn => k +> r]: applying [f] to
-      [n] costs at most [k] steps, and [r] bounds the result; [val cn] is
-      the value of [n]. A result that is a number (or a boolean, a list,
-      ...) has nothing more to bound: [k >|] reads "the cost [k], and
-      nothing after it". For example,
+      [n] costs at most [k] steps, and [r] bounds the complexity of the result;
+      [val cn] is the value of the input [n]. A result that is a number (or a 
+      boolean, a list, ...) has nothing more to bound: [k >|] reads "the cost
+      [k], and nothing after it". For example,
 <<
       Time.ComplexityBound Nat.add (fun cn => 1 +> fun cm => 14 * val cn + 10 >|)
 >>
       says that applying [Nat.add] to [n] costs 1 step (it builds the
       closure [Nat.add n]), and applying [Nat.add n] to [m] at most
-      [14 n + 10] steps. [+>] and [>|] bind less tightly than [+] and [*].
+      [14 n + 10] steps.
 
       The method:
       1. Start from the bound with 0s.
@@ -37,13 +37,43 @@ Module Tutorial (Import Time : TimeStdlib).
          reduces the bound to inequalities [cost found <= claimed bound],
          one for each case of the arguments, which it proves with [lia]
          and [nia] when it can. It stops after 2 seconds
-         ([Ltac2 Set ctimeout := 10.] for more, [0] for no limit).
-      3. Read the messages on the inequalities left. "The inequality ...
-         is false for cn = 0: the cost found is 8, the claimed bound 6":
+         (set using [Ltac2 Set ctimeout := 2.]; set to [0] for no limit).
+      3. Experimental: Read the messages on the inequalities left.
+         "The inequality ... is false for cn = 0: the cost found is 8, the
+         claimed bound 6":
          the bound is too small; with 0s, the inequalities show the cost
          found in each case. Without a message, the inequality may hold
          but need facts that [lia] and [nia] do not know: [cexplain]
          suggests some (section 2). *)
+
+  (** What [cbound] does, step by step (a worked example, not an exercise):
+      1. [eapply ComplexityBound_mono]: prove some bound [?found], then
+         compare it with the claimed one;
+      2. [compile_goal]: [succ2] becomes [compose S (compose S Ic)];
+      3. one cost axiom per combinator: [compose_complexity] (B),
+         [S_complexity], [Ic_complexity] (reads the argument);
+      4. [csimpl]: compute [?found]; [bo_split]: compare its cost, [5], with
+         the claimed one. *)
+  Definition succ2 (n : nat) : nat := S (S n).
+
+  Lemma succ2_complexity : Time.ComplexityBound succ2 (fun cn => 5 >|).
+  Proof.
+    eapply ComplexityBound_mono; cycle 1.
+    - unfold succ2. compile_goal.
+      (* now, this is showing what [cbc_found] does. *)
+      eapply compose_complexity.
+      + exact S_complexity.
+      + eapply compose_complexity.
+        * exact S_complexity.
+        * exact id_complexity.
+    - (* now prove that the claimed bound satisfies the constraints. *)
+      csimpl. bo_split.
+      (* a bound is valid if it is well shaped (trivial for int) *)
+        cbn. lia.
+  Qed.
+
+  (** From now on, we will directly use [cbound], that tries to automate proofs
+  like that of [succ2_complexity]. *)
 
   Definition is_zero (n : nat) : bool := match n with O => true | S _ => false end.
 
@@ -107,28 +137,48 @@ Module Tutorial (Import Time : TimeStdlib).
 
   Fixpoint double (n : nat) : nat := match n with O => O | S k => S (S (double k)) end.
 
-  (** Each step costs a constant: the bound is linear. Find the smallest
-      constants for which [cbound] succeeds: with constants that are too
-      small, [cbound] prints the case that fails, with the cost found. *)
+(* Let's see how cbound works on recursive functions.*)
   Lemma double_complexity : Time.ComplexityBound double
-    (fun cn => (0 * val cn + 0) >|).
-  Abort.
+    (fun cn => (16 * val cn + 6) >|).
+  Proof.
+    (* cbound would do the trick here. *)
+    crec.
+    - (* Prove a complexity bound for the function [double] is the fixpoint of. *)
+      compile_goal.
+      eapply apply_complexity; [| exact Lam_complexity].
+      eapply apply_complexity; [exact ehd_complexity |].
+      eapply apply_complexity;
+        [| eapply apply_complexity; [| exact nat_case_complexity]].
+      + (* branch S k *)
+        eapply compose_complexity; [exact S_complexity |].
+        eapply compose_complexity; [exact S_complexity |].
+        eapply apply_complexity; [exact ehd_complexity |].
+        eapply apply_complexity; [| exact Sc_complexity].
+        eapply compose_complexity; [exact ehd_complexity |].
+        eapply compose_complexity; exact etl_complexity.
+      + (* branch O: Kc 0 *)
+        eapply apply_complexity; [exact (nat_complexity 0) | exact Kc_complexity].
+    - (* show that the complexity satisfies the recurrence inequation. *)
+      (* cfinish would do the trick here. *)
+      csimpl. bo_split. destr_inputs. ccases.
+      + lia.
+      + lia.
+  Qed.
+
 
   (** [quad] calls [double]. As long as [double_complexity] is not proved
       and declared as an instance, [cbound] fails with "no complexity bound
-      is known for double". So prove [double_complexity] first (with
-      [Qed]), and add [Existing Instance double_complexity.] after it.
-
+      is known for double". 
+<<
+      Existing Instance double_complexity.
+>>
       The second call of [double] is on [double n], so its cost depends on
       the value of [double n]: the inequality left mentions it, and [lia],
       which only knows arithmetic, knows nothing about it. Prove
       [double n = 2 * n] first (by induction), and register it as a fact on
       the values of [double] ([ValueFact]): [cbound] adds the registered
-      facts on the values that an inequality mentions. The fact is a
-      predicate on the value, applied to the value as the inequality writes
-      it; one instance per value (a conjunction for several facts). The
-      library registers some ([length (filter p l) <= length l]). A fact
-      that is not registered can be added by hand, with [pose proof],
+      facts on the values that an inequality mentions.
+      A fact that is not registered can be added by hand, with [pose proof],
       before [lia].
 <<
       Lemma double_spec n : double n = 2 * n.
