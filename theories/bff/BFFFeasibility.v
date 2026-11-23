@@ -36,7 +36,7 @@ Fixpoint cenv (Γ : list ty) : Type :=
     known types. The same term can be elaborated with [den (tN ⇒ tN)] or
     [N -> N], with [cty σ] folded or not; [lia] compares terms
     syntactically, so it needs them normalized. *)
-Ltac norm_types := cbn [sem cty] in *.
+Ltac norm_types := cbn [sem cty] in *; cnorm_types.
 
 Module BFFFeasibility (Import Time : TimeCostModel).
 
@@ -67,7 +67,7 @@ Module BFFFeasibility (Import Time : TimeCostModel).
   Definition CBoundE Γ σ (f : envT N Γ -> den σ) (c : ℂI (envT N Γ) (cenv Γ) -> ℂO (cty σ)) :=
     @Time.ComplexityBound _ (@repr_ctype _ _ (Repr_arr (renv Γ) (repr σ))) f c.
 
-  Ltac simpl_c := cbv [app cost_add fmap ret_I cost res val pot] in *; autounfold with costs in *.
+  Ltac simpl_c := cbv [app cost_add fmap ret_I cost res val pot cseq caround cost_around czero cle ctick cnat cofnat cost_alg nat_alg] in *; autounfold with costs in *.
 
   Global Instance zero_hpoly : Time.HPolyBound (bits tN) 0%N.
   Proof. refine (hpoly_intro _ _ (db <{ 0 }>) _ (N_complexity 0) _). cbn. lia. Qed.

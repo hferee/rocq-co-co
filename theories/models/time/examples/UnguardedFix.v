@@ -5,7 +5,7 @@
 From Complexity Require Import TimeFix.
 
 
-Module UnguardedFix (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
+Module UnguardedFix (Import CM : NatCostModel) (Import BT : BasicTimeCostModel CM)
   (Import CB : CombinatorTimeCostModel CM BT) (Import FX : FixTimeCostModel CM BT CB).
 
   (** The rule of [TimeFix], without its premise [1 <= c_fix]. *)

@@ -26,7 +26,7 @@ Unset Implicit Arguments.
     It holds at the well-formed inputs ([wf]): a bound may say anything at the others, which the realisers of
     the function are never applied to. *)
 
-Module Type ListGrowthAxiom (Import CM : CostModel) (Import ND : NatData CM) (Import LD : ListData CM).
+Module Type ListGrowthAxiom (Import CM : NatCostModel) (Import ND : NatData CM) (Import LD : ListData CM).
   Parameter list_growth :
     forall (f : list nat -> list nat) (c : ℂI (list nat) (list unit) -> ℂO (list unit)),
     ComplexityBound f c ->

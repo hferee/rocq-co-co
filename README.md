@@ -65,6 +65,9 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
     sizes of functionals. `examples/SpaceExamples` bounds the allocations of
     standard functions (`Nat.add`, `Nat.mul`, `app`, `rev`, `rev_append`,
     `map`, ...).
+    The peak space (`SpaceCostModel`): costs are profiles (unfoldings, peak,
+    memory kept by the result) composed in max-plus, frames being freed
+    after their evaluation; `examples/PeakExamples`.
 - `compiler/`: the compilers of Gallina terms to the combinators
   (`math/Combinators`): closure conversion (`ClosureCompile`, the default)
   and bracket abstraction (`BracketCompile`), over common tools

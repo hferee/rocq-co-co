@@ -10,11 +10,16 @@ From Complexity Require Export TimeDatatypes TimeLists TimeFix.
 
 (** The layers without lists, options and pairs. The costs of the
     primitives are constants, parameters of the module types ([c_clo], ...,
-    [c_fix]), left abstract here: a cost model is a choice of layers and of
+    [c_fix]), left abstract here, as their type and their algebra ([Cost],
+    [cost_alg]): a cost model is a choice of layers, of costs and of
     constants, fixed with [with Definition]. *)
-Module Type ParamTimeCostModelBase := CostModel.CostModel <+ BasicTimeCostModel
+Module Type ParamCostModelBase := CostModel.CostModel <+ BasicTimeCostModel
   <+ CombinatorTimeCostModel <+ BoolTimeCostModel <+ NatTimeCostModel
   <+ SumTimeCostModel <+ SumGround <+ ZTimeCostModel <+ FixTimeCostModel.
+
+(** The same, with costs in [nat]: time. *)
+Module Type ParamTimeCostModelBase := ParamCostModelBase
+  with Definition Cost := nat with Definition cost_alg := nat_alg.
 
 (** The same, with the constants of [TimeCostModel]: the analyses that do not
     use lists, options or pairs ([BoolComplexity]) are functors over it. *)
@@ -33,9 +38,12 @@ Module Type TimeCostModelBase := ParamTimeCostModelBase
     data (numbers, pairs of numbers, ...) are those whose complexities
     carry no information ([IsGround]). Lists are not ground: their
     complexities have their lengths ([wf_list]). *)
-Module Type ParamTimeCostModel := ParamTimeCostModelBase
+Module Type ParamCostModel := ParamCostModelBase
   <+ ListTimeCostModel <+ ListWf <+ OptionTimeCostModel <+ OptionGround
   <+ ProdTimeCostModel <+ ProdGround.
+
+Module Type ParamTimeCostModel := ParamCostModel
+  with Definition Cost := nat with Definition cost_alg := nat_alg.
 
 (** Every constant is [1]: each application is a β-step of L
     ([LInstance]). The analyses of the standard library are proved over

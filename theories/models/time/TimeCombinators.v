@@ -26,6 +26,7 @@ Set Default Proof Mode "Classic".
 (** ** Application and basic functions *)
 
 Module Type BasicTimeCostModel (Import CM : CostModel).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
   (** ** Constants
 
@@ -38,8 +39,8 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
       They are equal in the models of L, and differ on a machine
       ([MachineCostModel]). The models of the datatypes and of fixpoints
       have their own constants. *)
-  Parameter c_clo : nat.
-  Parameter c_ehd c_etl c_Lam c_Kc c_Ic c_compose c_Cc c_Sc : nat.
+  Parameter c_clo : Cost.
+  Parameter c_ehd c_etl c_Lam c_Kc c_Ic c_compose c_Cc c_Sc : Cost.
   #[global] Hint Unfold c_clo c_ehd c_etl c_Lam c_Kc c_Ic c_compose c_Cc c_Sc : costs.
 
   (** [c_frame]: the cost of an evaluation that is not in tail position,
@@ -49,7 +50,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
       subterms of [Sc], the function of [Cc], and the matched value of a
       case analysis. A call in tail position does not pay it. [0] in the
       models whose instance has no stack ([TimeCostModel]: L reduces terms). *)
-  Parameter c_frame : nat.
+  Parameter c_frame : Cost.
   #[global] Hint Unfold c_frame : costs.
 
   (* Assume we know the cost of some basic functions *)
@@ -81,7 +82,7 @@ Module Type BasicTimeCostModel (Import CM : CostModel).
     ComplexityBound f cf ->
     ComplexityBound g cg ->
     ComplexityBound (compose f g : A -> C)
-                    (fun ca => c_compose ⊕ pot <$> (f ⋊ cf) · (c_frame ⊕ (g ⋊ cg) · ca)).
+                    (fun ca => c_compose ⊕ pot <$> (f ⋊ cf) · (c_frame ⊛ (g ⋊ cg) · ca)).
 
   #[global] Declare Instance constant_complexity :
     forall {A B CA CB} `{Repr A CA} `{Repr B CB} b {cb},
@@ -148,6 +149,7 @@ Ltac2 cunit () := Control.enter cunit_goal.
     applications do not check them. *)
 Module Type CombinatorTimeCostAxioms
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
   (** ** Costs
 
@@ -211,7 +213,7 @@ Module Type CombinatorTimeCostAxioms
     ComplexityBound (@compose A B C)
       (fun cf : ℂI (B -> C) (ℂI B CB -> ℂO CC) => c_clo +>
        fun cg : ℂI (A -> B) (ℂI A CA -> ℂO CB) => c_clo +>
-       fun ca : ℂI A CA => c_compose ⊕ pot <$> cf · (c_frame ⊕ cg · ca)).
+       fun ca : ℂI A CA => c_compose ⊕ pot <$> cf · (c_frame ⊛ cg · ca)).
 
   (** [Cc f a x = f x a]. *)
   #[global] Declare Instance Cc_complexity :
@@ -219,7 +221,7 @@ Module Type CombinatorTimeCostAxioms
     ComplexityBound (@Cc X A B)
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo +>
        fun ca : ℂI A CA => c_clo +>
-       fun cx : ℂI X CX => c_Cc ⊕ pot <$> (c_frame ⊕ cf · cx) · ca).
+       fun cx : ℂI X CX => c_Cc ⊕ pot <$> (c_frame ⊛ cf · cx) · ca).
 
   (** [Sc f g x = f x (g x)]: the bound variable is used twice. *)
   #[global] Declare Instance Sc_complexity :
@@ -227,12 +229,13 @@ Module Type CombinatorTimeCostAxioms
     ComplexityBound (@Sc X A B)
       (fun cf : ℂI (X -> A -> B) (ℂI X CX -> ℂO (ℂI A CA -> ℂO CB)) => c_clo +>
        fun cg : ℂI (X -> A) (ℂI X CX -> ℂO CA) => c_clo +>
-       fun cx : ℂI X CX => c_Sc ⊕ pot <$> (c_frame ⊕ cf · cx) · (c_frame ⊕ cg · cx)).
+       fun cx : ℂI X CX => c_Sc ⊕ pot <$> (c_frame ⊛ cf · cx) · (c_frame ⊛ cg · cx)).
 End CombinatorTimeCostAxioms.
 
 Module CombinatorTactics
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
   (Import CB : CombinatorTimeCostAxioms CM BT).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
   (** ** Search of complexities
 
@@ -269,7 +272,7 @@ Module CombinatorTactics
 
   Definition found_compose {A B C CA CB CC} `{Repr A CA} `{Repr B CB} `{Repr C CC}
     (f : B -> C) (g : A -> B) (Hf : Found f) (Hg : Found g) : Found (compose f g : A -> C) :=
-    {| found := fun ca : ℂI A CA => c_compose ⊕ pot <$> (f ⋊ found f) · (c_frame ⊕ (g ⋊ found g) · ca);
+    {| found := fun ca : ℂI A CA => c_compose ⊕ pot <$> (f ⋊ found f) · (c_frame ⊛ (g ⋊ found g) · ca);
        found_ok := compose_complexity f _ g _ (found_ok f) (found_ok g) |}.
 
   Global Existing Instance found_bound | 1.
@@ -414,26 +417,33 @@ Module CombinatorTactics
   Ltac csimpl :=
     cbv beta iota zeta delta [found found_bound found_apply found_compose
                               app cost_add fmap ret_I cost res val pot fst snd
+                              cseq caround cost_around czero cle ctick cnat cofnat cost_alg nat_alg
                               Lam ehd etl Kc Sc Cc compose];
-    autounfold with costs; unfold_comb.
+    autounfold with costs;
+    (* the costs of a model may unfold to its algebra ([costs]): computed *)
+    cbv beta iota zeta delta [cseq caround cost_around czero cle ctick cnat cofnat];
+    unfold_comb.
 
   (** Compute the functions of the claimed bound on constructors, but
       neither multiplication nor the tests on values. The projections that
       this reveals (from cost functions of the claimed bound) are unfolded
       as in [csimpl], so that the same atoms compare equal. *)
   Ltac cnorm :=
-    cbn -[Nat.mul Nat.eqb Nat.leb Nat.ltb Pos.to_nat];
-    cbv beta delta [cost res val pot].
+    cbn -[Nat.mul Nat.max Nat.eqb Nat.leb Nat.ltb Pos.to_nat];
+    cbv beta delta [cost res val pot cseq caround cost_around czero cle ctick cnat cofnat cost_alg nat_alg].
 
   (** Case analysis of the values matched in the costs (those of the
       claimed bound are not unfolded: a recursive function of the bound,
       unfolded on a successor, would match again). *)
   Ltac ccases :=
     repeat (csimpl;
-      lazymatch goal with
-      | |- context [match ?x with _ => _ end] =>
-          tryif is_var x then destruct x else (let E := fresh "E" in destruct x eqn:E)
-      end);
+      (* a match on a variable first: a cost may match on a cost computed
+         from it (profiles, [SpaceCostModel]) *)
+      first [ match goal with |- context [match ?x with _ => _ end] => is_var x; destruct x end
+            | lazymatch goal with
+              | |- context [match ?x with _ => _ end] =>
+                  let E := fresh "E" in destruct x eqn:E
+              end ]);
     csimpl; cnorm;
     (* the same tests in the claimed bound, revealed by [cnorm] *)
     repeat match goal with

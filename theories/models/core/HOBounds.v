@@ -10,6 +10,7 @@ From Stdlib Require Import List Lia.
 Import ListNotations.
 
 Module HOBounds (Import CM : BoundsCore).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
   (** ** Higher-order types
 
@@ -45,7 +46,7 @@ Module HOBounds (Import CM : BoundsCore).
     match h in HigherOrder σ A CA return A -> CA -> M σ -> Prop with
     | ho_ground _ s => fun x _ m => s x <= m
     | @ho_arr σ τ _ _ _ _ h1 h2 => fun f c m => forall x cx a, monotone σ a -> maj h1 x cx a ->
-        cost (c (x ⋊ cx)) <= baseM τ (m a) /\ maj h2 (f x) (res (c (x ⋊ cx))) (m a)
+        cnat (cost (c (x ⋊ cx))) <= baseM τ (m a) /\ maj h2 (f x) (res (c (x ⋊ cx))) (m a)
     end.
 
   Lemma maj_mle {σ A CA} (h : HigherOrder σ A CA) f c m m' :
@@ -131,7 +132,7 @@ Module HOBounds (Import CM : BoundsCore).
   Fixpoint dcost {σ A CA} (h : HigherOrder σ A CA) : CA -> spine h -> nat :=
     match h as h0 in HigherOrder σ A CA return CA -> spine h0 -> nat with
     | ho_ground _ _ => fun _ _ => 0
-    | ho_arr _ h2 => fun s xs => cost (s (fst xs)) + dcost h2 (res (s (fst xs))) (snd xs)
+    | ho_arr _ h2 => fun s xs => cnat (cost (s (fst xs))) + dcost h2 (res (s (fst xs))) (snd xs)
     end.
 
   (** A certificate: questions to each argument, each question being the
@@ -206,7 +207,7 @@ Module HOBounds (Import CM : BoundsCore).
   Fixpoint cplus {σ A CA} (h : HigherOrder σ A CA) (k : nat) : CA -> CA :=
     match h in HigherOrder σ A CA return CA -> CA with
     | ho_ground _ _ => fun c => c
-    | ho_arr _ h2 => fun c x => (k + cost (c x)) +> cplus h2 k (res (c x))
+    | ho_arr _ h2 => fun c x => cofnat (k + cnat (cost (c x))) +> cplus h2 k (res (c x))
     end.
 
   (** ** Sized arguments
@@ -229,7 +230,7 @@ Module HOBounds (Import CM : BoundsCore).
     | @ho_arr σ τ _ _ _ _ h1 h2 => fun f c m =>
         forall x cx a sx b, monotone σ a -> monotone σ b ->
         maj h1 x cx a -> CSized h1 x sx -> maj h1 x sx b ->
-        cost (c (x ⋊ cx)) <= baseM (dbl τ) (m a b) /\ smaj h2 (f x) (res (c (x ⋊ cx))) (m a b)
+        cnat (cost (c (x ⋊ cx))) <= baseM (dbl τ) (m a b) /\ smaj h2 (f x) (res (c (x ⋊ cx))) (m a b)
     end.
 
   Lemma smaj_mle {σ A CA} (h : HigherOrder σ A CA) f c m m' :

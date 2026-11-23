@@ -19,6 +19,7 @@ Lemma size_tt : size tt = 1.
 Proof. reflexivity. Qed.
 
 Module Bounds (Import CM : CostModelCore).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
   (** ** First-order functions
 
@@ -46,7 +47,7 @@ Module Bounds (Import CM : CostModelCore).
     match fo in FirstOrder A CA return CA -> Prop with
     | fo_res _ _ => fun _ => True
     | fo_arg _ SA fo => fun c => forall ca,
-        cost (c ca) <= g (ss ++ [size (Size := SA) (val ca)]) /\
+        cnat (cost (c ca)) <= g (ss ++ [size (Size := SA) (val ca)]) /\
         size_costs fo g (ss ++ [size (Size := SA) (val ca)]) (res (c ca))
     end.
 
@@ -56,14 +57,14 @@ Module Bounds (Import CM : CostModelCore).
     match fo in FirstOrder A CA return CA with
     | fo_res RB _ => @cdefault _ _ RB
     | fo_arg _ SA fo => fun ca =>
-        g (ss ++ [size (Size := SA) (val ca)]) +>
+        cofnat (g (ss ++ [size (Size := SA) (val ca)])) +>
         size_bound fo g (ss ++ [size (Size := SA) (val ca)])
     end.
 
   Lemma size_bound_costs {A CA} (fo : FirstOrder A CA) g ss : size_costs fo g ss (size_bound fo g ss).
   Proof.
     revert ss. induction fo as [B CB RB SB | A CA B CB RA SA fo IH]; intro ss; cbn; [exact I|].
-    intro ca. split; [apply le_n | apply IH].
+    intro ca. split; [rewrite cnat_cofnat; apply le_n | apply IH].
   Qed.
 
   (** ** Bounds

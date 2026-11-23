@@ -10,6 +10,7 @@
 From Complexity Require Export CostModelCore.
 
 Module GroundTypes (Import CM : CostModelAxioms).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
   (** It is not clear yet if this is the most relevant definition. *)
   Class IsGround {A CA} (R : Repr A CA) : Type := {

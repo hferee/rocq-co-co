@@ -27,14 +27,16 @@ Proof. intros H [[e a] [pe pa]]. exact (H (e ⋊ pe) (a ⋊ pa)). Qed.
 Module Type FixTimeCostAxioms
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
   (Import CB : CombinatorTimeCostModel CM BT).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
-  (** The cost of an unfolding. Each unfolding must cost at least one
-      ([1 <= c_fix], a premise of the rules): the recurrence cannot then be
+  (** The cost of an unfolding. Each unfolding must cost at least one unit
+      of progress ([cle ctick c_fix], [1 <= c_fix] in time, a premise of
+      the rules): the recurrence cannot then be
       satisfied by an unfolding that does not terminate, whereas with free
       unfoldings every function would have every bound ([UnguardedFix]).
       As a premise rather than an axiom, it keeps the models where [c_fix]
       is [0] consistent: their recursive functions cannot be analysed. *)
-  Parameter c_fix : nat.
+  Parameter c_fix : Cost.
   #[global] Hint Unfold c_fix : costs.
 
   (** [PwExt R ar]: the representation [R] does not distinguish values that
@@ -69,7 +71,7 @@ Module Type FixTimeCostAxioms
     (F : env E (A -> B) -> A -> B)
     (cF : ℂI (env E (A -> B)) (CE * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
     (cf : ℂI E CE -> ℂO (ℂI A CA -> ℂO CB)),
-    1 <= c_fix ->
+    cle ctick c_fix ->
     (forall e, is_fixpoint ar (fun g => F (ECons e g)) (f e)) ->
     ComplexityBound F cF ->
     bound_order
@@ -83,6 +85,7 @@ End FixTimeCostAxioms.
 Module FixRules
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
   (Import CB : CombinatorTimeCostModel CM BT) (Import FX : FixTimeCostAxioms CM BT CB).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
   (** ** Closed recursive functions
 
@@ -94,7 +97,7 @@ Module FixRules
     (ar : Arity B) `{!PwExt RB ar} (f : A -> B) (F : env unit (A -> B) -> A -> B)
     (cF : ℂI (env unit (A -> B)) (unit * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
     (cf : ℂI A CA -> ℂO CB),
-    1 <= c_fix ->
+    cle ctick c_fix ->
     is_fixpoint ar (fun g => F (ECons tt g)) f ->
     ComplexityBound F cF ->
     bound_order (fun ca : ℂI A CA => c_fix ⊕ pot <$> (F ⋊ cF) · (ECons tt f ⋊ (tt, cf)) · ca) cf ->
@@ -105,7 +108,7 @@ Module FixRules
     { apply (fix_complexity ar (fun _ => f) F cF (fun _ => c_clo +> cf) Hpos).
       - intros []. exact Hfix.
       - exact HF.
-      - apply bound_order_arr. intros [[] []] _. split; [apply Nat.le_refl | exact Hrec]. }
+      - apply bound_order_arr. intros [[] []] _. split; [reflexivity | exact Hrec]. }
     exact (apply_complexity _ tt_complexity H).
   Qed.
 End FixRules.
@@ -117,6 +120,7 @@ Module Type FixTimeCostRules
 Module FixTactics
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
   (Import CB : CombinatorTimeCostModel CM BT) (Import FX : FixTimeCostRules CM BT CB).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
   (** In a goal [ComplexityBound f cf] where [f] is a recursive function,
       [crec] leaves the goals [ComplexityBound F ?cF] (to be solved by
@@ -125,13 +129,13 @@ Module FixTactics
       reading it in the environment ([ehd]), beta-reduced, so that each
       recursive call reads it. [crec_mutual] does the same for
       [fun b => if b then f1 else f2], where [f1] and [f2] are mutually
-      recursive. The premise [1 <= c_fix] is proved by [cfix_pos], from the
+      recursive. The premise [cle ctick c_fix] is proved by [cfix_pos], from the
       value of [c_fix] or from a hypothesis. *)
-  Ltac cfix_pos := solve [assumption | autounfold with costs; lia].
+  Ltac cfix_pos := solve [assumption | cbv [cle ctick cost_alg nat_alg]; autounfold with costs; cbn; lia].
   Ltac crec_with eq :=
     let H := fresh "Hunfold" in
     let Hpos := fresh "Hpos" in
-    eq; intro H; assert (Hpos : 1 <= c_fix) by cfix_pos;
+    eq; intro H; assert (Hpos : cle ctick c_fix) by cfix_pos;
     lazymatch type of H with
     | is_fixpoint ?ar ?FF ?f =>
         let F := eval cbv beta in (fun eg : env unit _ => FF (ehd eg)) in
@@ -182,7 +186,8 @@ Module FixTactics
                                      then (Array.get a 0, Array.get a 1) else fail ()
                         | _ => fail () end in
         let x := match Constr.Unsafe.kind (Std.eval_hnf (lower body)) with
-                 | Constr.Unsafe.App _ a => if Int.equal (Array.length a) 1 then Array.get a 0 else fail ()
+                 | Constr.Unsafe.App _ a => if Int.lt 0 (Array.length a)
+                                            then Array.get a (Int.sub (Array.length a) 1) else fail ()
                  | _ => fail () end in
         (ta, ca, x)
     | _ => fail ()
@@ -236,7 +241,7 @@ Module FixTactics
           let nm := dflt (Constr.Binder.name b) in
           let rest := match Constr.Unsafe.kind body with
                       | Constr.Unsafe.App _ a =>
-                          if Int.equal (Array.length a) 3 then Array.get a 2 else body
+                          if Int.equal (Array.length a) 4 then Array.get a 3 else body
                       | _ => body end in
           nm :: bound_names (Int.sub n 1) rest
       | _ => dflt None :: bound_names (Int.sub n 1) c
@@ -286,7 +291,7 @@ Module FixTactics
         let hu := Fresh.in_goal @Hunfold in
         Std.intro (Some hu) None;
         let hp := Fresh.in_goal @Hpos in
-        ltac1:(hp |- assert (hp : 1 <= c_fix) by cfix_pos) (Ltac1.of_ident hp);
+        ltac1:(hp |- assert (hp : cle ctick c_fix) by cfix_pos) (Ltac1.of_ident hp);
         let ar := ef.(ef_ar) in
         let f := ef.(ef_f) in
         let fF0 := ef.(ef_F) in

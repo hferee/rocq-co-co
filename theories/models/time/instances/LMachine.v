@@ -192,6 +192,8 @@ Defined.
 (** ** The cost model *)
 
 Module MCM <: CostModel.
+  Definition Cost := nat.
+  #[global] Instance cost_alg : CostAlg Cost := nat_alg.
   Definition Repr := MRepr.
   Existing Class Repr.
 
@@ -226,6 +228,17 @@ Module MCM <: CostModel.
   Include BoundsTactics.
   Include HOBounds.
 End MCM.
+
+(** The costs of the machine are in [nat]: the tactics unfold their algebra
+    ([nat_alg]), as defined in [MCM]. *)
+Ltac Malg := cbv [cseq caround cost_around czero cle ctick cnat cofnat MCM.cost_alg nat_alg] in *.
+Ltac Mfun ::=
+  let j := fresh "j" in let a := fresh "a" in let c := fresh "c" in
+  let w := fresh "w" in let Hj := fresh "Hj" in let Ha := fresh "Ha" in
+  let Hc := fresh "Hc" in let u := fresh "wu" in let E := fresh "wE" in
+  intros j a c w Hj Ha Hc; destruct w as [u E];
+  cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hc |- *; Malg.
+Ltac Mend H ::= eapply rl_down; [| exact H]; cbn [cost res pot val] in *; Malg; lia.
 
 Module MBT <: BasicTimeCostModel MCM.
   Import MCM.
@@ -1202,7 +1215,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
     destruct sF as [uF EF].
     exists (clos (lam BODY1) [clos uF EF]). intro k. Mfun.
     destruct (Hrec (a ⋊ c) (rl_wf Ha)) as [Hcost0 Hcomp0].
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost0, Hcomp0.
+    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost0, Hcomp0; Malg.
     set (cfe := res (cf (a ⋊ c))) in *.
     set (e := clos wu wE) in *. set (sF := clos uF EF) in *.
     (* the closures of the recursive function of [e], at every budget up to [j] *)
@@ -1211,7 +1224,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
     { intro k'. induction k' as [k' IH] using (well_founded_induction lt_wf).
       intros Hk' x0 y0. Mfun.
       destruct (Hcomp0 (a0 ⋊ c0) (rl_wf Ha0)) as [Hcost Hcomp].
-      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost, Hcomp.
+      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost, Hcomp; Malg.
       set (x := clos wu0 wE0) in *. set (w := clos WB [y0; e; sF]).
       set (eta := clos ETAB [x; w; y0; e; sF]).
       assert (He : rl (env_repr RE (Repr_arr RA RB)) (j0 - 36) (ECons a (f a)) (c, cfe)
@@ -1228,7 +1241,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
     do 2 eexists; split; [cbn [call]; apply ev_lam | split; [lia |]].
     Mfun.
     destruct (Hcomp0 (a0 ⋊ c0) (rl_wf Ha0)) as [Hcost Hcomp].
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost, Hcomp.
+    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost, Hcomp; Malg.
     set (x := clos wu0 wE0) in *. set (w := clos WB [x; e; sF]).
     set (eta := clos ETAB [x; w; x; e; sF]).
     assert (He : rl (env_repr RE (Repr_arr RA RB)) (j0 - 36) (ECons a (f a)) (c, cfe)

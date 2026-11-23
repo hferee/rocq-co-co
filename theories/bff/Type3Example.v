@@ -329,7 +329,8 @@ Module Type3Complexity (Import Time : TimePos).
         intros HF Hf.
         destruct (HF (f ⋊ cf, tt) (conj Hf I)) as ([qs []] & _ & Hw & Hm).
         exists (map (fun zs => fst zs) qs). split.
-        - cbn [answer gsize cweight recv dcost fst snd val pot] in Hw. rewrite !map_map.
+        - cbn [answer gsize cweight recv dcost fst snd val pot] in Hw.
+          cbv [cnat cost_alg nat_alg] in Hw. rewrite !map_map.
           match goal with |- context [list_sum (map ?w qs)] =>
             replace (map w qs) with (map (qweight (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (f ⋊ cf)) qs)
           end.
@@ -404,7 +405,7 @@ Module Type3Complexity (Import Time : TimePos).
       match type of Hw with context [List.list_max ?l] => assert (Hr : List.list_max l <= 1) end.
       { apply List.list_max_le, List.Forall_forall. intros n Hn.
         apply List.in_map_iff in Hn as (y & <- & _). rewrite C_spec. destruct (_ =? _)%N; cbn; lia. }
-      norm_types. lia.
+      norm_types. cnorm_types. lia.
     - (* otherwise [zero] answers like [C x] to all the questions *)
       exfalso. apply Hd. symmetry. apply (Hm zero (zero_sized x)).
       intros y Hy. symmetry. apply C_zero. intros ->. exact (Hout Hy).
@@ -626,12 +627,12 @@ Module Type3Complexity (Import Time : TimePos).
   Lemma W_smaj : smaj (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W
     (fun cF => W_clo +> fun cx => W_cost (val cF) (pot cF) (val cx) >|) W_maj.
   Proof.
-    intros F cF mF sF nF HmF HnF HF HFs HFn. split; [cbn; unfold W_maj, V_maj; lia|].
+    intros F cF mF sF nF HmF HnF HF HFs HFn. split; [cbn; cnorm_types; unfold W_maj, V_maj; lia|].
     intros x cx a sx b _ _ Hx _ _.
     destruct (V_cost_bound F cF mF x a HmF HF Hx) as [_ HV].
     destruct (V_cost_bound F sF nF x a HnF HFn Hx) as [HS _].
     pose proof (W_cost_sized F cF sF x HFs) as HW. pose proof (W_size_sized F sF x HFs) as HZ.
-    cbn [smaj bits cost res val pot baseM dbl]. unfold W_maj. split; lia.
+    cbn [smaj bits cost res val pot baseM dbl]. cnorm_types. unfold W_maj. split; lia.
   Qed.
 
   Theorem W_hpolyS : Time.HPolyBoundS (bits (((tN ⇒ tN) ⇒ tN) ⇒ tN ⇒ tN)) W.

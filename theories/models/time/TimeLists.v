@@ -69,6 +69,7 @@ Section ListOrder.
 End ListOrder.
 
 Module Type ListData (Import CM : CostModel).
+  Local Abbreviation ℂO := (ℂO' Cost).
   #[global] Declare Instance Repr_list : forall {A CA}, Repr A CA -> Repr (list A) (list CA).
 
   #[global] Declare Instance Size_list : forall {A}, Size A -> Size (list A).
@@ -90,6 +91,7 @@ End ListData.
 
 (** The well-formed complexities of the empty and non-empty lists. *)
 Module ListWf (Import CM : CostModel) (Import LD : ListData CM).
+  Local Abbreviation ℂO := (ℂO' Cost).
   Lemma wf_nil {A CA} `{Repr A CA} (c : list CA) : wf (@nil A) c -> c = nil.
   Proof. intro Hw. apply wf_list in Hw. inversion Hw. reflexivity. Qed.
 
@@ -109,6 +111,7 @@ End ListWf.
 (** Lists of ground data are ground: their complexities are related index
     by index. *)
 Module ListGround (Import CM : CostModel) (Import LD : ListData CM).
+  Local Abbreviation ℂO := (ℂO' Cost).
   Global Instance list_ground {A CA} {R : Repr A CA} {G : IsGround R} : IsGround (Repr_list R) :=
     {| ground_indiscrete := fun c c' => bound_order_list c c' (fun i => ground_order _ _) |}.
 End ListGround.
@@ -116,8 +119,9 @@ End ListGround.
 
 Module Type ListCtorTimeCostModel
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import LD : ListData CM).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
-  Parameter c_cons : nat.
+  Parameter c_cons : Cost.
   #[global] Hint Unfold c_cons : costs.
 
   #[global] Declare Instance cons_complexity : forall {A CA} `{Repr A CA},
@@ -127,8 +131,9 @@ End ListCtorTimeCostModel.
 Module Type ListCaseTimeCostModel
   (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
   (Import CB : CombinatorTimeCostModel CM BT) (Import LD : ListData CM).
+  Local Abbreviation ℂO := (ℂO' Cost).
 
-  Parameter c_case_list : nat.
+  Parameter c_case_list : Cost.
   #[global] Hint Unfold c_case_list : costs.
 
   (** The branch of [cons] receives the head and the tail with their
@@ -140,7 +145,7 @@ Module Type ListCaseTimeCostModel
        fun cc : ℂI (env (env E X) (list X) -> A)
                    (ℂI (env (env E X) (list X)) ((CE * CX) * list CX) -> ℂO CA) => c_clo +>
        fun cl : ℂI (E -> list X) (ℂI E CE -> ℂO (list CX)) => c_clo +>
-       fun ce : ℂI E CE => c_case_list ⊕ c_frame ⊕ cost (pot cl ce) ⊕
+       fun ce : ℂI E CE => c_case_list ⊕ caround c_frame (cost (pot cl ce)) ⊕
          match val cl (val ce) with
          | cons h t =>
              pot cc (ECons (ECons (val ce) h) t

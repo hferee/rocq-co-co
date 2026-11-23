@@ -171,7 +171,7 @@ Proof. induction k; cbn [unfs Nat.pow]; [lia | pose proof (qn_closed k); lia]. Q
 
 (** Quadtrees are ground data, with constructors and a case analysis. *)
 Module Type QMatTimeCostModel
-  (Import Time : CostModel) (Import BT : BasicTimeCostModel Time)
+  (Import Time : NatCostModel) (Import BT : BasicTimeCostModel Time)
   (Import CB : CombinatorTimeCostModel Time BT) (Import ZD : ZData Time).
 
   #[global] Declare Instance Repr_qmat : Repr qmat unit.
@@ -203,7 +203,7 @@ End QMatTimeCostModel.
     multiplication cost as on numbers ([c_add], [c_mul]), a subtraction
     [c_sub]. *)
 Module Type ZOpsTimeCostModel
-  (Import Time : CostModel) (Import BT : BasicTimeCostModel Time) (Import ZD : ZData Time)
+  (Import Time : NatCostModel) (Import BT : BasicTimeCostModel Time) (Import ZD : ZData Time)
   (Import ND : NatData Time) (Import NA : NatArithTimeCostModel Time ND).
 
   Parameter c_sub : nat.

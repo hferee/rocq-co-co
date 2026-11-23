@@ -8,21 +8,22 @@ From Complexity Require Export TimeDatatypes TimeLists TimeFix.
 (** The costs of [Nat.add] and [Nat.mul] are constants. They are defined as
   parameters so that we can distinguish between both. *)
 Module Type NatArithTimeCostModel (Import CM : CostModel) (Import ND : NatData CM).
-  Parameter c_add_clo c_add : nat.
-  Parameter c_mul_clo  c_mul : nat.
+  Local Abbreviation ℂO := (ℂO' Cost).
+  Parameter c_add_clo c_add : Cost.
+  Parameter c_mul_clo  c_mul : Cost.
   #[global] Hint Unfold c_add c_mul : costs.
 
   #[global] Declare Instance add_complexity : ComplexityBound Nat.add
-    (fun cn => 0 +> fun cm => c_add >|).
+    (fun cn : ℂI nat unit => czero +> fun cm : ℂI nat unit => c_add >|).
 
   #[global] Declare Instance mul_complexity : ComplexityBound Nat.mul
-    (fun cn => 0 +> fun cm => c_mul >|).
+    (fun cn : ℂI nat unit => czero +> fun cm : ℂI nat unit => c_mul >|).
 End NatArithTimeCostModel.
 
 (** The primitives, the constructor [S], booleans and lists, but no case
     analysis on [nat]: functions on numbers are analysed through [Nat.add]
     and [Nat.mul] only. *)
-Module Type ParamArithTimeCostModel := CostModel.CostModel <+ BasicTimeCostModel
+Module Type ParamArithTimeCostModel := NatCostModel <+ BasicTimeCostModel
   <+ CombinatorTimeCostModel <+ BoolTimeCostModel
   <+ NatData <+ NatCtorTimeCostModel <+ NatArithTimeCostModel
   <+ ListTimeCostModel <+ ListWf <+ FixTimeCostModel.
@@ -54,6 +55,7 @@ Module Type ArithCountTimeCostModel := ArithOpsTimeCostModel
 From Stdlib Require Import Lia.
 
 Module ArithOpsSuccFree (Import M : ArithOpsTimeCostModel).
+  Local Abbreviation ℂO := (ℂO' Cost).
   Lemma succ_free :
     ~ (forall c : ℂI nat unit -> ℂO unit, ComplexityBound S c -> forall cn, 1 <= cost (c cn)).
   Proof.

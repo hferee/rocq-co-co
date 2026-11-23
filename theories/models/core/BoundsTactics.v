@@ -97,6 +97,11 @@ Ltac2 mutable cnorm_hook : unit -> unit := fun () => ().
 
 Ltac cnorm_types :=
   try unfold val in *; try unfold pot in *;
+  (* the measure of costs in [nat] is the cost itself *)
+  repeat match goal with
+  | |- context [@cnat ?K ?I ?x] => progress change (@cnat K I x) with x
+  | H : context [@cnat ?K ?I ?x] |- _ => progress change (@cnat K I x) with x in H
+  end;
   repeat match goal with
   | |- context [@size ?T ?S ?x] => cnorm_size T S x
   | _ : context [@size ?T ?S ?x] |- _ => cnorm_size T S x
@@ -135,6 +140,13 @@ Ltac value_fact_known T :=
 Ltac add_value_facts :=
   repeat match goal with
   | |- context [?x] =>
+      (* no fact on the arithmetic and the logic of the inequalities *)
+      lazymatch x with
+      | _ + _ => fail | _ * _ => fail | _ - _ => fail | S _ => fail | O => fail
+      | Nat.max _ _ => fail | Nat.min _ _ => fail
+      | _ <= _ => fail | _ < _ => fail | _ /\ _ => fail | _ = _ => fail
+      | _ => idtac
+      end;
       let H := constr:(value_fact (x := x)) in
       let T := type of H in
       let T := eval cbv beta in T in
@@ -445,7 +457,7 @@ Module BoundsTactics (Import CM : BoundsModel).
     unfold FirstOrderBound; cbn [fo_repr];
     eexists; split; [tac | sc_split];
     destr_inputs;
-    cbv beta iota zeta delta [cost res val pot]; autounfold with costs;
+    cbv beta iota zeta delta [cost res val pot cseq caround cost_around czero cle ctick cnat cofnat cost_alg nat_alg]; autounfold with costs;
     cbn -[Nat.mul size]; add_size_facts.
   Ltac cost_split := cost_split_by ltac:(typeclasses eauto).
 

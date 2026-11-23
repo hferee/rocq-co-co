@@ -552,6 +552,8 @@ Qed.
 (** ** L is an instance of the cost model *)
 
 Module LCM <: CostModel.
+  Definition Cost := nat.
+  #[global] Instance cost_alg : CostAlg Cost := nat_alg.
   Definition Repr := LRepr.
   Existing Class Repr.
 
@@ -594,6 +596,18 @@ Module LCM <: CostModel.
   Include BoundsTactics.
   Include HOBounds.
 End LCM.
+
+(** The costs of L are in [nat]: the tactics unfold their algebra
+    ([nat_alg]), as defined in [LCM]. *)
+Ltac Lalg := cbv [cseq caround cost_around czero cle ctick cnat cofnat LCM.cost_alg nat_alg] in *.
+Ltac Llia ::= unfold K in *; cbn [cost res pot val] in *; Lalg; lia.
+Ltac Lfun ::=
+  apply arr_lam; [Lproc |
+    let j := fresh "j" in let a := fresh "a" in let c := fresh "c" in
+    let s := fresh "s" in let Hj := fresh "Hj" in let Ha := fresh "Ha" in
+    let Hc := fresh "Hc" in
+    intros j a c s Hj Ha Hc; pose proof (rl_proc Ha);
+    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hc |- *; Lalg].
 
 (** Higher-order primitives. *)
 Module LBT <: BasicTimeCostModel LCM.

@@ -8,3 +8,6 @@
 From Complexity Require Export CostModelCore GroundTypes Bounds BoundsTactics HOBounds.
 
 Module Type CostModel := GroundCostModel <+ Bounds <+ BoundsTactics <+ HOBounds.
+
+(** Costs in [nat]: time and the counts of operations. *)
+Module Type NatCostModel := CostModel with Definition Cost := nat with Definition cost_alg := nat_alg.

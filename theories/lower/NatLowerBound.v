@@ -17,7 +17,7 @@ Unset Implicit Arguments.
     [succ_not_free]: whatever its bound, an application of [S] costs at
     least [1], on every argument. *)
 
-Module Type SuccAxiom (Import CM : CostModel) (Import ND : NatData CM).
+Module Type SuccAxiom (Import CM : NatCostModel) (Import ND : NatData CM).
   Parameter succ_not_free : forall c : ℂI nat unit -> ℂO unit,
     ComplexityBound S c -> forall cn, 1 <= cost (c cn).
 End SuccAxiom.
@@ -25,7 +25,7 @@ End SuccAxiom.
 (** [nat_growth]: the size of the output exceeds the size of the input by
     at most [a * (1 + cost)], for a constant [a] of the function (it cannot
     be the same for all the functions, [L_no_uniform_growth]). *)
-Module Type NatGrowthAxiom (Import CM : CostModel) (Import ND : NatData CM).
+Module Type NatGrowthAxiom (Import CM : NatCostModel) (Import ND : NatData CM).
   Parameter nat_growth : forall (f : nat -> nat) (c : ℂI nat unit -> ℂO unit),
     ComplexityBound f c ->
     exists a, forall cn, size (f (val cn)) <= size (val cn) + a * (1 + cost (c cn)).
