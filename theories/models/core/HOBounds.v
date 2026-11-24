@@ -10,8 +10,6 @@ From Stdlib Require Import List Lia.
 Import ListNotations.
 
 Module HOBounds (Import CM : BoundsCore).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
   (** ** Higher-order types
 
       [HigherOrder σ A CA]: [A] is a type of functionals of shape [σ],
@@ -202,13 +200,6 @@ Module HOBounds (Import CM : BoundsCore).
 
   (** [s] is a size bound of [f]: same type as a complexity of [f]. *)
   Definition CSized {σ A CA} (h : HigherOrder σ A CA) : A -> CA -> Prop := lsized (lev h).
-
-  (** [cplus h k c]: [c] with [k] added to the cost of every application. *)
-  Fixpoint cplus {σ A CA} (h : HigherOrder σ A CA) (k : nat) : CA -> CA :=
-    match h in HigherOrder σ A CA return CA -> CA with
-    | ho_ground _ _ => fun c => c
-    | ho_arr _ h2 => fun c x => cofnat (k + cnat (cost (c x))) +> cplus h2 k (res (c x))
-    end.
 
   (** ** Sized arguments
 

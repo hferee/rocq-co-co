@@ -25,7 +25,7 @@ ORDER = ["math", "compiler", "models", "core", "time", "counting", "space",
          "stdlib", "instances", "machine", "examples", "lower", "bff"]
 # The links of the nodes (in the SVG), relative to doc/ where the graph is
 # drawn: the pages of the documentation of the files (`make doc`, html/,
-# named after the logical paths: html/Complexity.models.time.TimeLists.html),
+# named after the logical paths: html/Complexity.models.generic.ListCosts.html),
 # its table of contents for the directories, and the repository of
 # coq-library-undecidability.
 HTML_DIR = "../html/"
@@ -33,7 +33,7 @@ LOGICAL_ROOT = "Complexity"   # -R theories Complexity (_CoqProject)
 UNDEC_URL = "https://github.com/uds-psl/coq-library-undecidability"
 
 def doc_url(f):
-    """models/time/TimeLists -> ../html/Complexity.models.time.TimeLists.html"""
+    """models/generic/ListCosts -> ../html/Complexity.models.generic.ListCosts.html"""
     return f'{HTML_DIR}{LOGICAL_ROOT}.{f.replace("/", ".")}.html'
 
 # The fill colours of the directories; the others (models/) are outlined.
@@ -52,7 +52,7 @@ COLORS = {
 }
 
 def node(path):
-    """theories/models/time/TimeLists.v -> models/time/TimeLists"""
+    """theories/models/generic/ListCosts.v -> models/generic/ListCosts"""
     return re.sub(r"^theories/|\.vo?$", "", path)
 
 edges = set()

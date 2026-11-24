@@ -4,7 +4,7 @@ From Complexity Require Export BasicClasses.
 (** * Complexity model
 
     The notions shared by all cost models, whatever the resource they measure:
-    time ([TimeCostModel]), allocation ([TotalAllocationModel]), peak space
+    time ([TimeCostModel]), allocation ([AllocationCostModel]), peak space
     ([SpaceCostModel]), or specific function
     calls ([StrassenCount] for instance).
 
@@ -33,29 +33,10 @@ Arguments pot {_ _}.
 
 (** ** Costs
 
-    The costs of a resource: sequential composition [cseq] (the first
-    computation, then the second, the first result kept), with its unit
-    [czero] and an order [cle]; [caround a b], a cost [a] (a frame, say)
-    held during [b], then released; [ctick], one unit of progress, which an unfolding costs at least
-    ([TimeFix]); and a scalar measure [cnat], which the bounds in the sizes
-    compare to polynomials ([Bounds]), with a cost [cofnat n] of measure
-    [n]. Time: [nat], with [+] ([nat_alg]); peak space: profiles
-    ([SpaceCostModel]). *)
-Class CostAlg (K : Type) := {
-  czero : K;
-  cseq : K -> K -> K;
-  caround : K -> K -> K;
-  cle : K -> K -> Prop;
-  cle_preorder :: PreOrder cle;
-  ctick : K;
-  cnat : K -> nat;
-  cofnat : nat -> K;
-  cnat_cofnat : forall n, cnat (cofnat n) = n }.
-
-#[global] Instance nat_alg : CostAlg nat :=
-  {| czero := 0; cseq := Nat.add; caround := Nat.add; cle := le; cle_preorder := Nat.le_preorder; ctick := 1;
-     cnat := fun n => n;
-     cofnat := fun n => n; cnat_cofnat := fun _ => eq_refl |}.
+    The costs of a resource, of type [Cost], are ordered by [cle], both
+    fixed by the model ([CostModelAxioms]). Their operations are those of
+    the generic cost model ([BasicCostModel]), and the laws that a part of
+    it needs are its own ([FixCosts]). *)
 
 (** A cost with a result: the writer monad of costs. This can be read as
   the complexity of an arbitrary term (not necessarily a value): the cost
@@ -64,7 +45,8 @@ Class CostAlg (K : Type) := {
 Record ℂO' (K C : Type) := { cost : K; res : C }.
 Arguments cost {_ _}.
 Arguments res {_ _}.
-(** Costs in [nat], those of time: the default. *)
+(** Costs in [nat], those of time: the default, outside a model
+    ([CostModelAxioms]). *)
 Abbreviation ℂO := (ℂO' nat).
 Notation "c +> r" := (Build_ℂO' _ _ c r) (at level 55, right associativity).
 
@@ -73,41 +55,13 @@ Notation "c +> r" := (Build_ℂO' _ _ c r) (at level 55, right associativity).
 #[warnings="-postfix-notation-not-level-1"]
 Notation "c >|" := (Build_ℂO' _ _ c inhabitant) (at level 55, format "c  >|").
 
-(** Adds a cost, before. *)
-Definition cost_add {K} `{CostAlg K} {C} (n : K) (m : ℂO' K C) : ℂO' K C :=
-  cseq n (cost m) +> res m.
-Infix "⊕" := cost_add (at level 60, right associativity).
-
-(** Holds a cost during a computation: [c_frame ⊛ m], the frame of the
-    evaluation [m] in non-tail position. *)
-Definition cost_around {K} `{CostAlg K} {C} (a : K) (m : ℂO' K C) : ℂO' K C :=
-  caround a (cost m) +> res m.
-Infix "⊛" := cost_around (at level 60, right associativity).
-
 (** [f <$> m]: the result of [m] transformed by [f], at the same cost; for
     example [pot <$> m] keeps the complexity of an annotated value. *)
 Definition fmap {K C D} (f : C -> D) (m : ℂO' K C) : ℂO' K D := cost m +> f (res m).
 Infix "<$>" := fmap (at level 55, right associativity).
 
-(** If [cf] is the complexity of an arbitrary  term [f] of function type,
-  and [cx] is the complexity of an argument term [x], then
-  [(f ⋊ cf) · (x ⋊ cx)] the application term [f x] together with its
-  complexity, in a call-by-value setting.*)
-
-Definition app {K} `{CostAlg K} {A B CA CB}
-  (f : ℂO' K (ℂI (A -> B) (ℂI A CA -> ℂO' K CB))) (x : ℂO' K (ℂI A CA)) : ℂO' K (ℂI B CB) :=
-  let r := pot (res f) (res x) in
-  cost x ⊕ (* normalise the argument *)
-  cost f ⊕ (* normalise the function *)
-  cost r +> (* normalise the application *)
-  (val (res f) (val (res x)) ⋊ (* the value of the result of the application *)
-  res r). (* the complexity of the result *)
-Infix "·" := app (at level 36, left associativity).
-
-(* Coerce the complexity of a value into that of an arbitrary term. *)
-Definition ret_I {K} `{CostAlg K} {A CA} (x : ℂI A CA) : ℂO' K (ℂI A CA) := czero +> x.
-#[warnings="-uniform-inheritance"]
-Coercion ret_I : ℂI >-> ℂO'.
+(** The costs of the models, which the tactics unfold ([BoundsTactics]). *)
+Create HintDb costs.
 
 (** * The cost model
 
@@ -117,10 +71,12 @@ Coercion ret_I : ℂI >-> ℂO'.
     it with the bounds in the size of the inputs ([Bounds]). *)
 Module Type CostModelAxioms.
 
-  (** ** Costs: their type and their algebra, fixed by the model. *)
+  (** ** Costs: their type and their order, fixed by the model. *)
   Parameter Cost : Type.
-  #[global] Declare Instance cost_alg : CostAlg Cost.
-  Local Abbreviation ℂO := (ℂO' Cost).
+  Parameter cle : Cost -> Cost -> Prop.
+  #[global] Hint Unfold cle : costs.
+  (** The costs of terms, in the model: for the modules that import it. *)
+  Abbreviation ℂO := (ℂO' Cost).
 
   (** ** Representable types
 

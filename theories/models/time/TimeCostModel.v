@@ -1,32 +1,24 @@
 (** * The time cost model
 
-    The axioms of the time cost model, as one signature, over which the
-    analyses are functors: the generic part ([CostModel]), application
-    ([BasicTimeCostModel]), the combinators of compiled terms
-    ([CombinatorTimeCostModel]), the datatypes ([TimeDatatypes],
-    [TimeLists]) and fixpoints ([FixTimeCostModel]). *)
+    The generic cost model ([Generic]) with costs in [nat]: the axioms of
+    the time cost model, as one signature, over which the analyses are
+    functors. *)
 
-From Complexity Require Export TimeDatatypes TimeLists TimeFix.
+From Complexity Require Export Generic.
 
-(** The layers without lists, options and pairs. The costs of the
-    primitives are constants, parameters of the module types ([c_clo], ...,
-    [c_fix]), left abstract here, as their type and their algebra ([Cost],
-    [cost_alg]): a cost model is a choice of layers, of costs and of
-    constants, fixed with [with Definition]. *)
-Module Type ParamCostModelBase := CostModel.CostModel <+ BasicTimeCostModel
-  <+ CombinatorTimeCostModel <+ BoolTimeCostModel <+ NatTimeCostModel
-  <+ SumTimeCostModel <+ SumGround <+ ZTimeCostModel <+ FixTimeCostModel.
-
-(** The same, with costs in [nat]: time. *)
+(** The generic cost model without lists, options and pairs ([ParamCostModelBase]),
+    with costs in [nat]: time. *)
 Module Type ParamTimeCostModelBase := ParamCostModelBase
-  with Definition Cost := nat with Definition cost_alg := nat_alg.
+  with Definition Cost := nat with Definition cle := le
+  with Definition cnat := fun n : nat => n
+  with Definition czero := 0 with Definition cplus := Nat.add.
 
 (** The same, with the constants of [TimeCostModel]: the analyses that do not
     use lists, options or pairs ([BoolComplexity]) are functors over it. *)
 Module Type TimeCostModelBase := ParamTimeCostModelBase
-  with Definition c_clo := 1 with Definition c_frame := 0
+  with Definition c_clo := 1 with Definition c_frame := 0 with Definition c_pop := 0
   with Definition c_ehd := 1 with Definition c_etl := 1 with Definition c_Lam := 1
-  with Definition c_Kc := 1 with Definition c_Ic := 1 with Definition c_compose := 1
+  with Definition c_Kc := 1 with Definition c_consume := 1 with Definition c_etlc := 1 with Definition c_Ic := 1 with Definition c_compose := 1
   with Definition c_Cc := 1 with Definition c_Sc := 1
   with Definition c_case_bool := 1
   with Definition c_S := 1 with Definition c_case_nat := 1
@@ -34,24 +26,19 @@ Module Type TimeCostModelBase := ParamTimeCostModelBase
   with Definition c_ctor_Z := 1 with Definition c_case_Z := 1
   with Definition c_fix := 1.
 
-(** With lists, options and pairs of any data, functions included; ground
-    data (numbers, pairs of numbers, ...) are those whose complexities
-    carry no information ([IsGround]). Lists are not ground: their
-    complexities have their lengths ([wf_list]). *)
-Module Type ParamCostModel := ParamCostModelBase
-  <+ ListTimeCostModel <+ ListWf <+ OptionTimeCostModel <+ OptionGround
-  <+ ProdTimeCostModel <+ ProdGround.
-
+(** The generic cost model, with costs in [nat]. *)
 Module Type ParamTimeCostModel := ParamCostModel
-  with Definition Cost := nat with Definition cost_alg := nat_alg.
+  with Definition Cost := nat with Definition cle := le
+  with Definition cnat := fun n : nat => n
+  with Definition czero := 0 with Definition cplus := Nat.add.
 
 (** Every constant is [1]: each application is a β-step of L
     ([LInstance]). The analyses of the standard library are proved over
     this model. *)
 Module Type TimeCostModel := ParamTimeCostModel
-  with Definition c_clo := 1 with Definition c_frame := 0
+  with Definition c_clo := 1 with Definition c_frame := 0 with Definition c_pop := 0
   with Definition c_ehd := 1 with Definition c_etl := 1 with Definition c_Lam := 1
-  with Definition c_Kc := 1 with Definition c_Ic := 1 with Definition c_compose := 1
+  with Definition c_Kc := 1 with Definition c_consume := 1 with Definition c_etlc := 1 with Definition c_Ic := 1 with Definition c_compose := 1
   with Definition c_Cc := 1 with Definition c_Sc := 1
   with Definition c_case_bool := 1
   with Definition c_S := 1 with Definition c_case_nat := 1

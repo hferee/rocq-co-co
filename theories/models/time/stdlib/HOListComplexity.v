@@ -17,8 +17,8 @@ Fixpoint lefts {A B} (l : list (A + B)) : list A :=
 Fixpoint rights {A B} (l : list (A + B)) : list B :=
   match l with [] => [] | inl _ :: l => rights l | inr b :: l => b :: rights l end.
 
-(** No timeout in the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 (** ** The elements of a list, with their complexities
 
@@ -121,15 +121,9 @@ End Folds.
   ValueFact (map h (filter p l)) (fun y => list_sum y <= list_sum (map h l)) :=
   list_sum_map_filter_le h p l.
 
-(** The model with the bounds of [orb] and [andb], for [existsb] and
-    [forallb]. *)
-Module Type TimeBool := TimeCostModel.TimeCostModel <+ BoolComplexity.
-
-Module HOListComplexity (Import Time : TimeBool).
-
-  (** ** Tactics
-
-      [simpl_ccombine] rewrites the maps over [ccombine cl] of functions
+(** ** Tactics, over any cost model *)
+Module CcombineTactics (Import CM : ParamCostModel).
+  (** [simpl_ccombine] rewrites the maps over [ccombine cl] of functions
       that ignore the complexities as maps over [val cl], at a well-formed
       input ([Hwf]), and distributes the sums ([simpl_list_sum]). *)
   Ltac simpl_ccombine :=
@@ -180,11 +174,20 @@ Module HOListComplexity (Import Time : TimeBool).
     repeat match goal with E0 : val ?f ?x = _ |- context [val ?f ?x] => rewrite E0 end;
     cbn [hd tl map filter filter_map find fold_right flat_map option_map val pot];
     try unfold cost, res in *; cnorm_types.
+End CcombineTactics.
+
+(** The model with the bounds of [orb] and [andb], for [existsb] and
+    [forallb]. *)
+Module Type TimeBool := TimeCostModel.TimeCostModel <+ BoolComplexity.
+
+Module HOListComplexity (Import Time : TimeBool).
+
+  Include CcombineTactics Time.
 
   (** ** First-order functions, on lists of any data *)
 
   Global Instance length_complexity {A CA} `{Repr A CA} : Time.ComplexityBound (@length A)
-    (fun cl => (16 * length (val cl) + 6) >|).
+    (fun cl => (13 * length (val cl) + 6) >|).
   Proof. cbound. Qed.
 
   (** The complexities of the results below are those of the inputs
@@ -200,7 +203,7 @@ Module HOListComplexity (Import Time : TimeBool).
   (** The complexity of [l ++ m] is that of the elements of [l], then of [m]. *)
   Global Instance app_complexity {A CA} `{Repr A CA} : Time.ComplexityBound (@app A)
     (fun cl : ℂI (list A) (list CA) => 1 +> fun cm : ℂI (list A) (list CA) =>
-       (21 * length (val cl) + 10) +> (pot cl ++ pot cm)).
+       (17 * length (val cl) + 9) +> (pot cl ++ pot cm)).
   Proof. cbound; wf_case; reflexivity. Qed.
 
   (** The tail of the empty list is built, with the complexity [[]]. *)
@@ -210,25 +213,25 @@ Module HOListComplexity (Import Time : TimeBool).
 
   (** [hd d l] at [[]] is [d], with its complexity. *)
   Global Instance hd_complexity {A CA} `{Repr A CA} :
-    Time.ComplexityBound (@hd A) (fun cd => 1 +> fun cl => 6 +> hd (pot cd) (pot cl)).
+    Time.ComplexityBound (@hd A) (fun cd => 1 +> fun cl => 5 +> hd (pot cd) (pot cl)).
   Proof. cbound; wf_case; reflexivity. Qed.
 
   (** [rev] appends each element to the reversed tail: quadratic. *)
   Global Instance rev_complexity {A CA} `{Repr A CA} : Time.ComplexityBound (@rev A)
-    (fun cl => (length (val cl) * (11 * length (val cl) + 23) + 6) +> rev (pot cl)).
+    (fun cl => (length (val cl) * (9 * length (val cl) + 20) + 6) +> rev (pot cl)).
   Proof. cbound; [rewrite length_rev; lia | wf_case; reflexivity ..]. Qed.
 
   (** [firstn], [skipn] and [nth] recurse on the index. *)
   Global Instance firstn_complexity {A CA} `{Repr A CA} : Time.ComplexityBound (@firstn A)
-    (fun cn => 4 +> fun cl => (39 * val cn + 6) +> firstn (val cn) (pot cl)).
+    (fun cn => 4 +> fun cl => (29 * val cn + 5) +> firstn (val cn) (pot cl)).
   Proof. cbound; wf_case; reflexivity. Qed.
 
   Global Instance skipn_complexity {A CA} `{Repr A CA} : Time.ComplexityBound (@skipn A)
-    (fun cn => 4 +> fun cl => (32 * val cn + 6) +> skipn (val cn) (pot cl)).
+    (fun cn => 4 +> fun cl => (23 * val cn + 5) +> skipn (val cn) (pot cl)).
   Proof. cbound; wf_case; reflexivity. Qed.
 
   Global Instance nth_complexity {A CA} `{Repr A CA} : Time.ComplexityBound (@nth A)
-    (fun cn => 4 +> fun cl => 2 +> fun cd => (48 * val cn + 14) +> nth (val cn) (pot cl) (pot cd)).
+    (fun cn => 4 +> fun cl => 2 +> fun cd => (33 * val cn + 10) +> nth (val cn) (pot cl) (pot cd)).
   Proof. cbound; wf_case; reflexivity. Qed.
 
   (** ** Higher-order functions *)
@@ -236,14 +239,14 @@ Module HOListComplexity (Import Time : TimeBool).
   Global Instance map_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@map A B)
       (fun cf : ℂI (A -> B) (ℂI A CA -> ℂO CB) => 1 +> fun cl : ℂI (list A) (list CA) =>
-         (sum_costs (pot cf) (ccombine cl) + 29 * length (val cl) + 6)
+         (sum_costs (pot cf) (ccombine cl) + 22 * length (val cl) + 8)
          +> map (fun x => res (pot cf x)) (ccombine cl)).
   Proof. cbound; ccombine_case; first [reflexivity | lia]. Qed.
 
   Global Instance filter_complexity {A CA} `{Repr A CA} :
     Time.ComplexityBound (@filter A)
       (fun cf : ℂI (A -> bool) (ℂI A CA -> ℂO unit) => 1 +> fun cl : ℂI (list A) (list CA) =>
-         (sum_costs (pot cf) (ccombine cl) + 33 * length (val cl) + 6)
+         (sum_costs (pot cf) (ccombine cl) + 25 * length (val cl) + 8)
          +> filter_map (fun x => if val cf (val x) then Some (pot x) else None) (ccombine cl)).
   Proof. cbound; ccombine_case; first [reflexivity | lia]. Qed.
 
@@ -254,28 +257,28 @@ Module HOListComplexity (Import Time : TimeBool).
          (fold_right
             (fun (x : ℂI A CA) (n : nat) => cost (pot cf x) + (if val cf (val x) then 0 else n))
             0 (ccombine cl)
-          + 26 * fold_right (fun (x : ℂI A CA) (n : nat) => S (if val cf (val x) then 0 else n))
-                   0 (ccombine cl) + 6)
+          + 19 * fold_right (fun (x : ℂI A CA) (n : nat) => S (if val cf (val x) then 0 else n))
+                   0 (ccombine cl) + 8)
          +> option_map pot (find (fun x : ℂI A CA => val cf (val x)) (ccombine cl))).
   Proof. cbound; ccombine_case; first [reflexivity | lia]. Qed.
 
   Global Instance existsb_complexity {A CA} `{Repr A CA} :
     Time.ComplexityBound (@existsb A)
       (fun cf : ℂI (A -> bool) (ℂI A CA -> ℂO unit) => 1 +> fun cl : ℂI (list A) (list CA) =>
-         (sum_costs (pot cf) (ccombine cl) + 32 * length (val cl) + 6) >|).
+         (sum_costs (pot cf) (ccombine cl) + 25 * length (val cl) + 8) >|).
   Proof. cbound; ccombine_case; first [reflexivity | lia]. Qed.
 
   Global Instance forallb_complexity {A CA} `{Repr A CA} :
     Time.ComplexityBound (@forallb A)
       (fun cf : ℂI (A -> bool) (ℂI A CA -> ℂO unit) => 1 +> fun cl : ℂI (list A) (list CA) =>
-         (sum_costs (pot cf) (ccombine cl) + 32 * length (val cl) + 6) >|).
+         (sum_costs (pot cf) (ccombine cl) + 25 * length (val cl) + 8) >|).
   Proof. cbound; ccombine_case; first [reflexivity | lia]. Qed.
 
   Global Instance fold_left_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@fold_left A B)
       (fun cf : ℂI (A -> B -> A) (ℂI A CA -> ℂO (ℂI B CB -> ℂO CA)) => 1 +>
        fun cl : ℂI (list B) (list CB) => 4 +> fun cx : ℂI A CA =>
-         (fold_left_fcost cdefault cf (val cl) (pot cl) cx + 40 * length (val cl) + 6)
+         (fold_left_fcost cdefault cf (val cl) (pot cl) cx + 28 * length (val cl) + 5)
          +> fold_left_pot cdefault cf (val cl) (pot cl) cx).
   Proof. cbound. Qed.
 
@@ -283,7 +286,7 @@ Module HOListComplexity (Import Time : TimeBool).
     Time.ComplexityBound (@fold_right A B)
       (fun cf : ℂI (B -> A -> A) (ℂI B CB -> ℂO (ℂI A CA -> ℂO CA)) => 1 +>
        fun ca0 : ℂI A CA => 2 +> fun cl : ℂI (list B) (list CB) =>
-         (fold_right_fcost cdefault cf ca0 (val cl) (pot cl) + 28 * length (val cl) + 10)
+         (fold_right_fcost cdefault cf ca0 (val cl) (pot cl) + 20 * length (val cl) + 9)
          +> fold_right_pot cdefault cf ca0 (val cl) (pot cl)).
   Proof. cbound. Qed.
 
@@ -293,8 +296,8 @@ Module HOListComplexity (Import Time : TimeBool).
     Time.ComplexityBound (@flat_map A B)
       (fun cf : ℂI (A -> list B) (ℂI A CA -> ℂO (list CB)) => 1 +> fun cl : ℂI (list A) (list CA) =>
          (sum_costs (pot cf) (ccombine cl)
-          + 21 * list_sum (map (fun x => length (val cf (val x))) (ccombine cl))
-          + 38 * length (val cl) + 6)
+          + 17 * list_sum (map (fun x => length (val cf (val x))) (ccombine cl))
+          + 30 * length (val cl) + 8)
          +> flat_map (fun x => res (pot cf x)) (ccombine cl)).
   Proof. cbound; ccombine_case; first [reflexivity | lia]. Qed.
 
@@ -304,12 +307,12 @@ Module HOListComplexity (Import Time : TimeBool).
       An element [inl] costs [27], an element [inr] [22]. *)
   Global Instance lefts_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@lefts A B)
-      (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (27 * length (val cl) + 6)
+      (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (21 * length (val cl) + 6)
                  +> map (@pot A CA) (lefts (map (czip_sum cdefault cdefault) (ccombine cl)))).
   Proof. cbound; ccombine_case; cbn [lefts rights map]; first [reflexivity | lia]. Qed.
   Global Instance rights_complexity {A CA B CB} `{Repr A CA} `{Repr B CB} :
     Time.ComplexityBound (@rights A B)
-      (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (27 * length (val cl) + 6)
+      (fun cl : ℂI (list (A + B)) (list (CA + CB)) => (21 * length (val cl) + 6)
                  +> map (@pot B CB) (rights (map (czip_sum cdefault cdefault) (ccombine cl)))).
   Proof. cbound; ccombine_case; cbn [lefts rights map]; first [reflexivity | lia]. Qed.
 End HOListComplexity.

@@ -1,7 +1,7 @@
 (** * Cost analysis of the ETH algorithm ([ETHAlgorithm])
 
     The functions are analysed as they are written in [ETHAlgorithm], by
-    [cbound] ([TimeFix]): the compiler only replaces terms by
+    [cbound] ([FixCosts]): the compiler only replaces terms by
     convertible ones. The constants are the smallest ones
     for the shape of each bound (see [NatComplexity]). The plan at the end
     states the bounds that remain. *)
@@ -11,8 +11,8 @@ From Stdlib Require Import List ZArith QArith Qreduction Qround.
 Import ListNotations.
 Local Open Scope nat_scope.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 (** ** Facts on the values ([ETHFacts])
 
@@ -40,16 +40,16 @@ Module ETHCost (Import Time : TimeStdlib).
       both arguments. *)
   Global Instance memN_complexity : Time.ComplexityBound memN
     (fun cx => 1 +> fun cl =>
-       (length (val cl) * (28 * val cx + 45) + 6) >|) := _.
+       (length (val cl) * (21 * val cx + 36) + 8) >|) := _.
 
   Global Instance countN_complexity : Time.ComplexityBound countN
     (fun cx => 1 +> fun cl =>
-       (length (val cl) * (28 * val cx + 67) + 6) >|) := _.
+       (length (val cl) * (21 * val cx + 55) + 8) >|) := _.
 
   (** [eqbN a b]: recursive on its first argument, matches the second one. *)
   Global Instance eqbN_complexity : Time.ComplexityBound eqbN
     (fun ca => 4 +> fun cb =>
-       (28 * list_sum (val ca) + 67 * length (val ca) + 8) >|) := _.
+       (21 * list_sum (val ca) + 51 * length (val ca) + 7) >|) := _.
 
   (** [insert_uniq x l]: the recursive call only happens in the last
       branch; its other branches return [l] itself. *)
@@ -69,28 +69,28 @@ Module ETHCost (Import Time : TimeStdlib).
       accumulator, so the bound depends on the values. *)
   Global Instance fold_left_add_complexity : Time.ComplexityBound (fold_left Nat.add)
     (fun cl => 4 +> fun ca =>
-       (length (val cl) * (14 * (val ca + list_sum (val cl)) + 42) + 6) >|) := _.
+       (length (val cl) * (12 * (val ca + list_sum (val cl)) + 33) + 5) >|) := _.
 
   Global Instance sumN_complexity : Time.ComplexityBound sumN
     (fun cl =>
-       (length (val cl) * (14 * list_sum (val cl) + 42) + 13) >|) := _.
+       (length (val cl) * (12 * list_sum (val cl) + 33) + 12) >|) := _.
   (** [indexN x l]: as [memN], it stops at the first occurrence. *)
   Global Instance indexN_complexity : Time.ComplexityBound indexN
-    (fun cx => 1 +> fun cl => (length (val cl) * (28 * val cx + 41) + 6) >|) := _.
+    (fun cx => 1 +> fun cl => (length (val cl) * (21 * val cx + 32) + 8) >|) := _.
 
   (** [lexltbN a b]: each step compares the heads twice ([<?], [=?]),
       whose costs are linear in the head of [a]. *)
   Global Instance lexltbN_complexity : Time.ComplexityBound lexltbN
-    (fun ca => 4 +> fun cb => (56 * list_sum (val ca) + 132 * length (val ca) + 8) >|) := _.
+    (fun ca => 4 +> fun cb => (42 * list_sum (val ca) + 103 * length (val ca) + 7) >|) := _.
 
   (** [fold_left Nat.max]: the cost of [Nat.max acc x] is linear in the
       accumulator, at most its initial value plus the elements. *)
   Global Instance fold_left_max_complexity : Time.ComplexityBound (fold_left Nat.max)
     (fun cl => 4 +> fun ca =>
-       (length (val cl) * (30 * (val ca + list_sum (val cl)) + 41) + 6) >|) := _.
+       (length (val cl) * (23 * (val ca + list_sum (val cl)) + 32) + 5) >|) := _.
 
   Global Instance maxN_complexity : Time.ComplexityBound maxN
-    (fun cl => (length (val cl) * (30 * list_sum (val cl) + 41) + 13) >|) := _.
+    (fun cl => (length (val cl) * (23 * list_sum (val cl) + 32) + 12) >|) := _.
 
   (** [set_nth] and [remove_nth] recurse on the list and the index, and
       stop at the index. *)
@@ -111,11 +111,11 @@ Module ETHCost (Import Time : TimeStdlib).
 
   (** The rounded divisions, logarithms and roots. *)
   Global Instance ceil_div_complexity : Time.ComplexityBound ceil_div
-    (fun ca => 1 +> fun cb => (100 * val ca + 86 * val cb + 77) >|) := _.
+    (fun ca => 1 +> fun cb => (74 * val ca + 62 * val cb + 67) >|) := _.
   Global Instance clog2_complexity : Time.ComplexityBound clog2
-    (fun cn => (116 * val cn + 63) >|) := _.
+    (fun cn => (84 * val cn + 14) >|) := _.
   Global Instance csqrt_complexity : Time.ComplexityBound csqrt
-    (fun cn => (136 * val cn + 64) >|).
+    (fun cn => (105 * val cn + 58) >|).
   Proof.
     cbound.
     all: pose proof (Nat.sqrt_le_lin cn); pose proof (Nat.sqrt_spec cn ltac:(lia)) as [Hs _];
@@ -127,7 +127,7 @@ Module ETHCost (Import Time : TimeStdlib).
       elements, distributed by [simpl_ccombine]. *)
   Global Instance subsetN_complexity : Time.ComplexityBound subsetN
     (fun ca => 1 +> fun cb =>
-       (length (val cb) * (28 * list_sum (val ca) + 45 * length (val ca)) + 46 * length (val ca) + 12) >|).
+       (length (val cb) * (21 * list_sum (val ca) + 36 * length (val ca)) + 40 * length (val ca) + 14) >|).
   Proof. cbound. simpl_ccombine. nia. Qed.
 
   (** Each insertion costs at most the length of the original list
@@ -168,16 +168,16 @@ Module ETHCost (Import Time : TimeStdlib).
 
   (** The codes of the literals: [Nat.div2], [Nat.odd]. *)
   Global Instance code_var_complexity : Time.ComplexityBound code_var
-    (fun cc => (9 * val cc + 9) >|) := _.
+    (fun cc => (8 * val cc + 6) >|) := _.
   Global Instance code_pos_complexity : Time.ComplexityBound code_pos
-    (fun cc => (8 * val cc + 15) >|) := _.
+    (fun cc => (7 * val cc + 12) >|) := _.
   Global Instance code_neg_complexity : Time.ComplexityBound code_neg
-    (fun cc => (36 * val cc + 33) >|) := _.
+    (fun cc => (28 * val cc + 28) >|) := _.
 
   (** [nclause_eval x C]: for each code [c] of [C], [nth (code_var c) x],
       whose cost is linear in [code_var c <= c / 2]. *)
   Global Instance nclause_eval_complexity : Time.ComplexityBound nclause_eval
-    (fun cx => 1 +> fun cC => (41 * list_sum (val cC) + 96 * length (val cC) + 12) >|).
+    (fun cx => 1 +> fun cC => (32 * list_sum (val cC) + 78 * length (val cC) + 14) >|).
   Proof.
     cbound. simpl_ccombine.
     pose proof (list_sum_map_le (fun x => 2 * code_var x) (fun x => x) (val cC) (fun x _ => code_var_le x)).
@@ -188,14 +188,14 @@ Module ETHCost (Import Time : TimeStdlib).
       and in their lengths. *)
   Global Instance ncnf_eval_complexity : Time.ComplexityBound ncnf_eval
     (fun cx => 1 +> fun cF =>
-       (41 * list_sum (map list_sum (val cF)) + 96 * list_sum (map (@length nat) (val cF))
-        + 44 * length (val cF) + 14) >|).
+       (32 * list_sum (map list_sum (val cF)) + 78 * list_sum (map (@length nat) (val cF))
+        + 39 * length (val cF) + 15) >|).
   Proof. cbound. simpl_ccombine. lia. Qed.
 
   (** [tautological C]: [memN (code_neg c) C] for each code [c] of [C]. *)
   Global Instance tautological_complexity : Time.ComplexityBound tautological
-    (fun cC => (length (val cC) * (28 * list_sum (val cC) + 73 * length (val cC))
-                + 36 * list_sum (val cC) + 78 * length (val cC) + 11) >|).
+    (fun cC => (length (val cC) * (21 * list_sum (val cC) + 57 * length (val cC))
+                + 28 * list_sum (val cC) + 68 * length (val cC) + 13) >|).
   Proof.
     cbound. simpl_ccombine.
     pose proof (list_sum_map_le_affine code_neg 1 1 (val cC) (fun x _ => ltac:(add_value_facts; lia))).
@@ -229,13 +229,13 @@ Module ETHCost (Import Time : TimeStdlib).
 
   Global Instance strict_subset_complexity : Time.ComplexityBound strict_subset
     (fun ca => 1 +> fun cb =>
-       (length (val ca) * (28 * list_sum (val cb) + 90 * length (val cb) + 46)
-        + length (val cb) * (28 * list_sum (val ca) + 46) + 46) >|) := _.
+       (length (val ca) * (21 * list_sum (val cb) + 72 * length (val cb) + 40)
+        + length (val cb) * (21 * list_sum (val ca) + 40) + 49) >|) := _.
 
   (** [has_empty_clause F]: the test of each clause is a [match] on it,
       which [cbound] leaves in the sum: its cost is at most [8]. *)
   Global Instance has_empty_clause_complexity : Time.ComplexityBound has_empty_clause
-    (fun cF => (40 * length (val cF) + 6) >|).
+    (fun cF => (33 * length (val cF) + 8) >|).
   Proof.
     cbound. unfold sum_costs. match goal with |- context [list_sum (map ?f ?l)] =>
       pose proof (list_sum_map_le_const f 8 l (fun x _ => ltac:(destruct x as [[|] ?]; cbn; lia))) end.
@@ -301,8 +301,8 @@ Module ETHCost (Import Time : TimeStdlib).
   *)
   (** [max_width F]: [maxN] on the lengths of the clauses. *)
   Global Instance max_width_complexity : Time.ComplexityBound max_width
-    (fun cF => (length (val cF) * (30 * list_sum (map (@length nat) (val cF)) + 76)
-                + 16 * list_sum (map (@length nat) (val cF)) + 22) >|).
+    (fun cF => (length (val cF) * (23 * list_sum (map (@length nat) (val cF)) + 60)
+                + 13 * list_sum (map (@length nat) (val cF)) + 23) >|).
   Proof. cbound. simpl_ccombine. cnorm_types. nia. Qed.
 
   (** The bounds in the sizes of the arguments: polynomial. *)
@@ -358,17 +358,17 @@ Module ETHCost (Import Time : TimeStdlib).
 
   Lemma memN_size_complexity :
     Time.ComplexityBound memN
-      (fun (cx : ℂI nat _) => 1 +> fun (cl : ℂI (list nat) _) => (#|val cl| * (28 * #|val cx| + 17) + 0) >|).
+      (fun (cx : ℂI nat _) => 1 +> fun (cl : ℂI (list nat) _) => (#|val cl| * (21 * #|val cx| + 15) + 0) >|).
   Proof. csize_using memN_complexity. Qed.
 
   Lemma countN_size_complexity :
     Time.ComplexityBound countN
-      (fun (cx : ℂI nat _) => 1 +> fun (cl : ℂI (list nat) _) => (#|val cl| * (28 * #|val cx| + 39) + 0) >|).
+      (fun (cx : ℂI nat _) => 1 +> fun (cl : ℂI (list nat) _) => (#|val cl| * (21 * #|val cx| + 34) + 0) >|).
   Proof. csize_using countN_complexity. Qed.
 
   Lemma eqbN_size_complexity :
     Time.ComplexityBound eqbN
-      (fun (ca : ℂI (list nat) _) => 4 +> fun cb => (2 * #|val ca| + 65 * #|val ca| + 0) >|).
+      (fun (ca : ℂI (list nat) _) => 4 +> fun cb => (51 * #|val ca|) >|).
   Proof. csize_using eqbN_complexity. Qed.
 
   (* Broken by the order on the complexities of lists ([Forall2]):
@@ -387,12 +387,12 @@ Module ETHCost (Import Time : TimeStdlib).
 
   Lemma fold_left_add_size_complexity :
     Time.ComplexityBound (fold_left Nat.add)
-      (fun (cl : ℂI (list nat) _) => 4 +> fun (ca : ℂI nat _) => (#|val cl| * (14 * (#|val ca| + #|val cl|) + 0) + 0) >|).
+      (fun (cl : ℂI (list nat) _) => 4 +> fun (ca : ℂI nat _) => (#|val cl| * (12 * (#|val ca| + #|val cl|) + 0) + 0) >|).
   Proof. csize_using fold_left_add_complexity. Qed.
 
   Lemma sumN_size_complexity :
     Time.ComplexityBound sumN
-      (fun (cl : ℂI (list nat) _) => (#|val cl| * (7 * #|val cl| + 28) + 0) >|).
+      (fun (cl : ℂI (list nat) _) => (#|val cl| * (6 * #|val cl| + 21) + 0) >|).
   Proof. csize_using sumN_complexity. Qed.
 
 End ETHCost.
@@ -417,12 +417,12 @@ Module ETHDataCost (Import Time : TimeStdlib) (Import D : ETHData Time).
   Global Instance clause_size_fact (C : list literal) :
     SizeFact C (list_sum (map lvar C) + length C < size C) | 1 := clause_lt_size C.
   (** *** Bounds *)
-  Global Instance lvar_complexity : Time.ComplexityBound lvar (fun cl => 5 >|) := _.
+  Global Instance lvar_complexity : Time.ComplexityBound lvar (fun cl => 4 >|) := _.
   Global Instance lpos_complexity : Time.ComplexityBound lpos (fun cl => 3 >|) := _.
   Global Instance lvar_constant_bound : Time.ConstantBound lvar := _.
   Global Instance lpos_constant_bound : Time.ConstantBound lpos := _.
   Global Instance lit_code_complexity : Time.ComplexityBound lit_code
-    (fun cl => (56 * lvar (val cl) + 96) >|) := _.
+    (fun cl => (48 * lvar (val cl) + 84) >|) := _.
   Global Instance lit_code_linear_bound : Time.LinearBound lit_code := _.
   (** [norm_clause C] sorts the codes of the literals of [C], at most
       [2 * lvar l + 1] each ([lit_code_le]). *)

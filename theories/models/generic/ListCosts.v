@@ -1,11 +1,11 @@
 (** * Cost model for lists
 
     Lists of any data: the elements of a list may be functions, or other
-    data with complexities. As for the other datatypes ([TimeDatatypes]),
-    the model has three layers: the data, the constructors and the case
+    data with complexities. As for the other datatypes ([DatatypeCosts]),
+    the model has three parts: the data, the constructors and the case
     analysis, compiled to the case combinator [list_case]. *)
 
-From Complexity Require Export TimeCombinators.
+From Complexity Require Export CombinatorCosts.
 From Stdlib Require Import List.
 From Ltac2 Require Import Ltac2.
 Set Default Proof Mode "Classic".
@@ -69,7 +69,6 @@ Section ListOrder.
 End ListOrder.
 
 Module Type ListData (Import CM : CostModel).
-  Local Abbreviation ℂO := (ℂO' Cost).
   #[global] Declare Instance Repr_list : forall {A CA}, Repr A CA -> Repr (list A) (list CA).
 
   #[global] Declare Instance Size_list : forall {A}, Size A -> Size (list A).
@@ -91,7 +90,6 @@ End ListData.
 
 (** The well-formed complexities of the empty and non-empty lists. *)
 Module ListWf (Import CM : CostModel) (Import LD : ListData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
   Lemma wf_nil {A CA} `{Repr A CA} (c : list CA) : wf (@nil A) c -> c = nil.
   Proof. intro Hw. apply wf_list in Hw. inversion Hw. reflexivity. Qed.
 
@@ -111,28 +109,23 @@ End ListWf.
 (** Lists of ground data are ground: their complexities are related index
     by index. *)
 Module ListGround (Import CM : CostModel) (Import LD : ListData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
   Global Instance list_ground {A CA} {R : Repr A CA} {G : IsGround R} : IsGround (Repr_list R) :=
     {| ground_indiscrete := fun c c' => bound_order_list c c' (fun i => ground_order _ _) |}.
 End ListGround.
 *)
 
-Module Type ListCtorTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import LD : ListData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type ListCtorCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM) (Import LD : ListData CM).
   Parameter c_cons : Cost.
   #[global] Hint Unfold c_cons : costs.
 
   #[global] Declare Instance cons_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@cons A) (fun ch => c_clo +> fun ct => c_cons +> (pot ch :: pot ct)).
-End ListCtorTimeCostModel.
+End ListCtorCostModel.
 
-Module Type ListCaseTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import LD : ListData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type ListCaseCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import CB : CombinatorCostModel CM BT) (Import LD : ListData CM).
   Parameter c_case_list : Cost.
   #[global] Hint Unfold c_case_list : costs.
 
@@ -145,15 +138,15 @@ Module Type ListCaseTimeCostModel
        fun cc : ℂI (env (env E X) (list X) -> A)
                    (ℂI (env (env E X) (list X)) ((CE * CX) * list CX) -> ℂO CA) => c_clo +>
        fun cl : ℂI (E -> list X) (ℂI E CE -> ℂO (list CX)) => c_clo +>
-       fun ce : ℂI E CE => c_case_list ⊕ caround c_frame (cost (pot cl ce)) ⊕
+       fun ce : ℂI E CE => c_case_list ⊕ framed (pot cl ce) (fun _ =>
          match val cl (val ce) with
          | cons h t =>
              pot cc (ECons (ECons (val ce) h) t
                        ⋊ ((pot ce, hd cdefault (res (pot cl ce))), tl (res (pot cl ce))))
          | nil => pot cz ce
-         end).
-End ListCaseTimeCostModel.
+         end)).
+End ListCaseCostModel.
 
-Module Type ListTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
-  (CB : CombinatorTimeCostModel CM BT) :=
-  ListData CM <+ ListCtorTimeCostModel CM BT <+ ListCaseTimeCostModel CM BT CB.
+Module Type ListCostModel (CM : CostModel) (BT : BasicCostModel CM)
+  (CB : CombinatorCostModel CM BT) :=
+  ListData CM <+ ListCtorCostModel CM BT <+ ListCaseCostModel CM BT CB.

@@ -6,7 +6,7 @@
     instead. It covers any structural recursion, mutual recursion through
     an indexed function, and fixpoints with free variables. *)
 
-From Complexity Require Export TimeCombinators.
+From Complexity Require Export CombinatorCosts.
 From Ltac2 Require Import Ltac2.
 Set Default Proof Mode "Classic".
 
@@ -20,24 +20,26 @@ Proof. intros H [[e a] [pe pa]]. exact (H (e ⋊ pe) (a ⋊ pa)). Qed.
 
 (** The functional of a recursive function is compiled with the combinators
     ([crec] leaves it to [cbc_found]): this module type depends on their model. As
-    for the combinators, the model of fixpoints ([FixTimeCostModel], at the
+    for the combinators, the model of fixpoints ([FixCostModel], at the
     end) is made of its axioms, of the rules derived from them
     ([FixRules], which its instances include) and of the tactics that they
     justify, in functors ([FixTactics]). *)
-Module Type FixTimeCostAxioms
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
-  (** The cost of an unfolding. Each unfolding must cost at least one unit
-      of progress ([cle ctick c_fix], [1 <= c_fix] in time, a premise of
-      the rules): the recurrence cannot then be
-      satisfied by an unfolding that does not terminate, whereas with free
-      unfoldings every function would have every bound ([UnguardedFix]).
+Module Type FixCostAxioms
+  (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import CB : CombinatorCostModel CM BT).
+  (** The cost of an unfolding. No cost absorbs it ([c_fix +c c] is never
+      below [c]; [1 <= c_fix] in time), a premise of the rules: the
+      recurrence cannot then be satisfied by an unfolding that does not
+      terminate, whereas with free unfoldings every function would have
+      every bound ([UnguardedFix]).
       As a premise rather than an axiom, it keeps the models where [c_fix]
       is [0] consistent: their recursive functions cannot be analysed. *)
   Parameter c_fix : Cost.
   #[global] Hint Unfold c_fix : costs.
+
+  (** The order of the costs is reflexive: a closed recursive function
+      ([fix_closed_complexity]) builds no closure. *)
+  #[global] Declare Instance cle_refl : Reflexive cle.
 
   (** [PwExt R ar]: the representation [R] does not distinguish values that
       are pointwise equal at the arity [ar] ([pw_eq]), the form of the
@@ -71,7 +73,7 @@ Module Type FixTimeCostAxioms
     (F : env E (A -> B) -> A -> B)
     (cF : ℂI (env E (A -> B)) (CE * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
     (cf : ℂI E CE -> ℂO (ℂI A CA -> ℂO CB)),
-    cle ctick c_fix ->
+    (forall c, ~ cle (c_fix +c c) c) ->
     (forall e, is_fixpoint ar (fun g => F (ECons e g)) (f e)) ->
     ComplexityBound F cF ->
     bound_order
@@ -79,14 +81,12 @@ Module Type FixTimeCostAxioms
          c_fix ⊕ pot <$> (F ⋊ cF) · (ECons (val ce) (f (val ce)) ⋊ (pot ce, res (cf ce))) · ca)
       cf ->
     ComplexityBound f cf.
-End FixTimeCostAxioms.
+End FixCostAxioms.
 
 (** The rules derived from the axiom, included in its instances. *)
 Module FixRules
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import FX : FixTimeCostAxioms CM BT CB).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+  (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import CB : CombinatorCostModel CM BT) (Import FX : FixCostAxioms CM BT CB).
   (** ** Closed recursive functions
 
       A closed recursive function [f] is [f' tt], for the function [f']
@@ -97,7 +97,7 @@ Module FixRules
     (ar : Arity B) `{!PwExt RB ar} (f : A -> B) (F : env unit (A -> B) -> A -> B)
     (cF : ℂI (env unit (A -> B)) (unit * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
     (cf : ℂI A CA -> ℂO CB),
-    cle ctick c_fix ->
+    (forall c, ~ cle (c_fix +c c) c) ->
     is_fixpoint ar (fun g => F (ECons tt g)) f ->
     ComplexityBound F cF ->
     bound_order (fun ca : ℂI A CA => c_fix ⊕ pot <$> (F ⋊ cF) · (ECons tt f ⋊ (tt, cf)) · ca) cf ->
@@ -113,15 +113,13 @@ Module FixRules
   Qed.
 End FixRules.
 
-Module Type FixTimeCostRules
-  (CM : CostModel) (BT : BasicTimeCostModel CM) (CB : CombinatorTimeCostModel CM BT) :=
-  FixTimeCostAxioms CM BT CB <+ FixRules CM BT CB.
+Module Type FixCostRules
+  (CM : CostModel) (BT : BasicCostModel CM) (CB : CombinatorCostModel CM BT) :=
+  FixCostAxioms CM BT CB <+ FixRules CM BT CB.
 
 Module FixTactics
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import FX : FixTimeCostRules CM BT CB).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+  (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import CB : CombinatorCostModel CM BT) (Import FX : FixCostRules CM BT CB).
   (** In a goal [ComplexityBound f cf] where [f] is a recursive function,
       [crec] leaves the goals [ComplexityBound F ?cF] (to be solved by
       [cbc_found]) and the recurrence on [cf]. [fix_equation] gives the
@@ -129,13 +127,16 @@ Module FixTactics
       reading it in the environment ([ehd]), beta-reduced, so that each
       recursive call reads it. [crec_mutual] does the same for
       [fun b => if b then f1 else f2], where [f1] and [f2] are mutually
-      recursive. The premise [cle ctick c_fix] is proved by [cfix_pos], from the
-      value of [c_fix] or from a hypothesis. *)
-  Ltac cfix_pos := solve [assumption | cbv [cle ctick cost_alg nat_alg]; autounfold with costs; cbn; lia].
+      recursive. The premise on [c_fix] is proved by [cfix_pos], from the
+      value of [c_fix] or from a hypothesis ([1 <= c_fix] in time). *)
+  Ltac cfix_pos := solve [assumption |
+    let c := fresh "c" in let H := fresh "H" in
+    intros c H; cbv [cle cplus] in H; autounfold with costs in H;
+    try destruct c; cbn in H; lia].
   Ltac crec_with eq :=
     let H := fresh "Hunfold" in
     let Hpos := fresh "Hpos" in
-    eq; intro H; assert (Hpos : cle ctick c_fix) by cfix_pos;
+    eq; intro H; assert (Hpos : forall c, ~ cle (c_fix +c c) c) by cfix_pos;
     lazymatch type of H with
     | is_fixpoint ?ar ?FF ?f =>
         let F := eval cbv beta in (fun eg : env unit _ => FF (ehd eg)) in
@@ -291,7 +292,7 @@ Module FixTactics
         let hu := Fresh.in_goal @Hunfold in
         Std.intro (Some hu) None;
         let hp := Fresh.in_goal @Hpos in
-        ltac1:(hp |- assert (hp : cle ctick c_fix) by cfix_pos) (Ltac1.of_ident hp);
+        ltac1:(hp |- assert (hp : forall c, ~ cle (c_fix +c c) c) by cfix_pos) (Ltac1.of_ident hp);
         let ar := ef.(ef_ar) in
         let f := ef.(ef_f) in
         let fF0 := ef.(ef_F) in
@@ -348,12 +349,12 @@ Module FixTactics
 
   (** ** Proofs of bounds
 
-      [cbound] ([TimeCombinators]) extended to recursive functions: if
+      [cbound] ([CombinatorCosts]) extended to recursive functions: if
       the function is recursive, its functional is compiled and the
       recurrence of [fix_complexity] is reduced to inequalities between
       costs; otherwise, the previous [cbound_start] applies. The extension
       holds in every model with fixpoints, and so in the hint of
-      [TimeCombinators] for bounds without instance. Mutually recursive
+      [CombinatorCosts] for bounds without instance. Mutually recursive
       functions [f1] and [f2] are analysed together, as the function
       [fun b => if b then f1 else f2] ([crec_mutual]); [cproject] then gives
       the bound of each one. [cbound_mutual] is the same, for mutually
@@ -376,7 +377,7 @@ Module FixTactics
   Ltac cbound_mutual := crec_mutual; [cbc_found | cfinish].
 End FixTactics.
 
-Module Type FixTimeCostModel
-  (CM : CostModel) (BT : BasicTimeCostModel CM) (CB : CombinatorTimeCostModel CM BT) :=
-  FixTimeCostAxioms CM BT CB <+ FixRules CM BT CB <+ FixTactics CM BT CB.
+Module Type FixCostModel
+  (CM : CostModel) (BT : BasicCostModel CM) (CB : CombinatorCostModel CM BT) :=
+  FixCostAxioms CM BT CB <+ FixRules CM BT CB <+ FixTactics CM BT CB.
 

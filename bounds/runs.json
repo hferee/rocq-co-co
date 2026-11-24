@@ -1,43 +1,71 @@
 [
- {
-  "name": "thunks",
-  "title": "Old compilation",
-  "source": "commit 3087c87, constants minimised",
-  "description": "A match is compiled to its case combinator applied to one closure per branch (a thunk for a constant constructor) and to the matched value; the closures are built at each evaluation."
- },
- {
-  "name": "env",
-  "parent": "thunks",
-  "title": "Environment combinators",
-  "source": "working tree of 2026-11-12, constants minimised",
-  "description": "The case combinators take the branches and the matched value as code over the environment of the enclosing closure (nat_case z s n e); no closure per evaluation of a match."
- },
- {
-  "name": "selfcase",
-  "parent": "env",
-  "title": "Matched variable as environment",
-  "source": "working tree of 2026-11-12, constants minimised (screened)",
-  "description": "A closed function fun x => match x with ... end is the case combinator itself, with x as its environment, read by Ic."
- },
- {
-  "name": "argenv",
-  "parent": "selfcase",
-  "title": "Argument as environment",
-  "source": "working tree of 2026-11-12, constants minimised (screened)",
-  "description": "Every closed function that is not an eta-reduction is the code of its body with its argument as the environment: no closure step, and the first argument is read with etl alone."
- },
- {
-  "name": "envfix",
-  "parent": "argenv",
-  "title": "Fixpoints with an environment",
-  "source": "working tree of 2026-11-13, constants minimised (goals, then binary search)",
-  "description": "fix_complexity for a recursive function f e of an environment e: its functional runs in ECons e (f e). A closed recursive function reads itself in ECons tt f (2 more per call). The arguments passed unchanged by every recursive call (the second of app, Nat.add, Nat.mul, Pos.mul; the first ones of Nat.pow, rec_pos; the function of fold_left) are in the environment and are not passed again. The bounds of the environment machine have one constant per combinator, the steps of its realiser (all 1 in the models of L)."
- },
- {
-  "name": "asm",
-  "title": "x86-64 instructions",
-  "reference": true,
-  "source": "measured, tools/bounds/asm/measure.py",
-  "description": "x86-64 instructions executed by the functions extracted to OCaml (ocamlopt 5.4, -inline 0, no flambda), counted by single-stepping (tools/bounds/asm). Nat.add and Nat.mul: the second argument of size 3 (Nat.mul: 10 and 20, for its two coefficients); Nat.sub, eqb, leb, ltb: two equal numbers; seq: from 0; app and rev_append: the second list of length 3; Pos.add, Pos.compare and Pos.eqb: two equal numbers of n bits, all 1 (Pos.succ: one, all 1: the carry goes through); Z.add: x and -x, of n bits, all 1 (Z.pos_sub); map: f = fun x => S x; fold_left and fold_right: f = fun a _ => S a (fun _ a => S a), from 0; filter and forallb: f = fun _ => true (the costs of f included); count_acc: from 0. Partial applications: 0 (the calls are saturated). The constants include the call from the measuring program."
- }
+  {
+    "name": "thunks",
+    "title": "Old compilation",
+    "source": "commit 3087c87, constants minimised",
+    "description": "A match is compiled to its case combinator applied to one closure per branch (a thunk for a constant constructor) and to the matched value; the closures are built at each evaluation."
+  },
+  {
+    "name": "env",
+    "parent": "thunks",
+    "title": "Environment combinators",
+    "source": "working tree of 2026-11-12, constants minimised",
+    "description": "The case combinators take the branches and the matched value as code over the environment of the enclosing closure (nat_case z s n e); no closure per evaluation of a match."
+  },
+  {
+    "name": "selfcase",
+    "parent": "env",
+    "title": "Matched variable as environment",
+    "source": "working tree of 2026-11-12, constants minimised (screened)",
+    "description": "A closed function fun x => match x with ... end is the case combinator itself, with x as its environment, read by Ic."
+  },
+  {
+    "name": "argenv",
+    "parent": "selfcase",
+    "title": "Argument as environment",
+    "source": "working tree of 2026-11-12, constants minimised (screened)",
+    "description": "Every closed function that is not an eta-reduction is the code of its body with its argument as the environment: no closure step, and the first argument is read with etl alone."
+  },
+  {
+    "name": "envfix",
+    "parent": "argenv",
+    "title": "Fixpoints with an environment",
+    "source": "working tree of 2026-11-13, constants minimised (goals, then binary search)",
+    "description": "fix_complexity for a recursive function f e of an environment e: its functional runs in ECons e (f e). A closed recursive function reads itself in ECons tt f (2 more per call). The arguments passed unchanged by every recursive call (the second of app, Nat.add, Nat.mul, Pos.mul; the first ones of Nat.pow, rec_pos; the function of fold_left) are in the environment and are not passed again. The bounds of the environment machine have one constant per combinator, the steps of its realiser (all 1 in the models of L)."
+  },
+  {
+    "name": "base",
+    "parent": "envfix",
+    "title": "Before consume",
+    "source": "commit 1aad907 with the compiler of the working tree of 2026-11-23 without consume, constants minimised (screened)",
+    "description": "The compiler of commit 1aad907: the complexity of a list is the list of the complexities of its elements (well-formed); no Ic. The bounds on Z are minimised for the first time, but iter_mul, Z.pow_pos and Z.pow (kept as they were, in both runs)."
+  },
+  {
+    "name": "consume",
+    "parent": "base",
+    "title": "Consuming matches",
+    "source": "working tree of 2026-11-23, constants minimised (screened)",
+    "description": "A match on the top of the environment, when no branch reads the matched value and a branch reads at least two variables below it, is compiled to consume: its branches run in the rest of the environment. It costs c_consume + c_clo + c_Kc instead of c_ehd, and saves c_compose + c_etl on each read below. c_consume is 1 in L, 23 on the environment machine."
+  },
+  {
+    "name": "paths",
+    "parent": "consume",
+    "title": "Reads on one path",
+    "source": "working tree of 2026-11-24 without etlc, constants minimised (screened)",
+    "description": "consume counts the reads of the variables below the matched one on the path of a branch that reads the most (the maximum over the branches of the matches inside it), not their sum: only one branch runs. lefts and rights are no longer consumed; the constant of Pos_add_mutual for its first argument is back to that of base (it is paid by each recursive call). New: map and filter on the environment machine, where consume saves 39 steps per element."
+  },
+  {
+    "name": "etlc",
+    "parent": "paths",
+    "title": "Fused reads",
+    "source": "working tree of 2026-11-24, constants minimised (screened)",
+    "description": "The variable at depth p is read in p + 1 steps instead of 2p + 1, by etlc f e = f (etl e) (compose f etl in one step): c_etlc is 1 in L, 21 on the machine, where compose, its frame and etl cost 26. consume now saves c_etlc on each read of a variable below the matched one, and in L breaks even at 2 reads, the threshold kept. The cost models are also refactored (the operations on costs are parameters of the module types; frames are pushed and popped, c_frame and c_pop), with no change to the time bounds. The peak space model is now calf's resource monoid: the bounds of PeakExamples are profiles (steps, need, ret), no longer (steps, peak, keep), and loop is new."
+  },
+  {
+    "name": "asm",
+    "title": "x86-64 instructions",
+    "reference": true,
+    "source": "measured, tools/bounds/asm/measure.py",
+    "description": "x86-64 instructions executed by the functions extracted to OCaml (ocamlopt 5.4, -inline 0, no flambda), counted by single-stepping (tools/bounds/asm). Nat.add and Nat.mul: the second argument of size 3 (Nat.mul: 10 and 20, for its two coefficients); Nat.sub, eqb, leb, ltb: two equal numbers; seq: from 0; app and rev_append: the second list of length 3; Pos.add, Pos.compare and Pos.eqb: two equal numbers of n bits, all 1 (Pos.succ: one, all 1: the carry goes through); Z.add: x and -x, of n bits, all 1 (Z.pos_sub); map: f = fun x => S x; fold_left and fold_right: f = fun a _ => S a (fun _ a => S a), from 0; filter and forallb: f = fun _ => true (the costs of f included); count_acc: from 0. Partial applications: 0 (the calls are saturated). The constants include the call from the measuring program."
+  }
 ]

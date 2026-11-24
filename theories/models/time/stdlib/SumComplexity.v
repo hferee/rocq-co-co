@@ -8,8 +8,8 @@
 
 From Complexity Require Export TimeCostModel.
 
-(** No timeout in the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 (** ** The functions *)
 
@@ -69,7 +69,7 @@ Module SumComplexity (Import Time : TimeCostModelBase).
       (fun cf : ℂI (A -> C) (ℂI A CA -> ℂO CC) => 1 +>
        fun cg : ℂI (B -> C) (ℂI B CB -> ℂO CC) => 2 +>
        fun cx : ℂI (A + B) (CA + CB) =>
-         10 ⊕ match czip_sum cdefault cdefault cx with inl x => pot cf x | inr y => pot cg y end).
+         8 ⊕ match czip_sum cdefault cdefault cx with inl x => pot cf x | inr y => pot cg y end).
   Proof. cbound. Qed.
 
   Global Instance sum_map_complexity {A CA B CB C CC D CD}
@@ -78,7 +78,7 @@ Module SumComplexity (Import Time : TimeCostModelBase).
       (fun cf : ℂI (A -> C) (ℂI A CA -> ℂO CC) => 1 +>
        fun cg : ℂI (B -> D) (ℂI B CB -> ℂO CD) => 2 +>
        fun cx : ℂI (A + B) (CA + CB) =>
-         12 ⊕ match czip_sum cdefault cdefault cx with
+         10 ⊕ match czip_sum cdefault cdefault cx with
               | inl x => @inl CC CD <$> pot cf x
               | inr y => @inr CC CD <$> pot cg y
               end).

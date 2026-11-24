@@ -7,7 +7,7 @@
     the inductive types, [compile_goal_with] (the replacement of [f] by its
     compiled form), and the unfolding equations of recursive functions
     ([fix_equation], [fix_equation_mutual] and [fix_equation_env]), as
-    required by [fix_complexity] ([TimeFix]). *)
+    required by [fix_complexity] ([FixCosts]). *)
 
 From Ltac2 Require Import Ltac2.
 From Stdlib Require Import Program.Basics PArith NArith ZArith QArith.
@@ -43,7 +43,7 @@ Ltac2 ref_name (r : Std.reference) : string :=
   end.
 
 (** The case combinator of an inductive type [I] is the constant [I_case],
-    defined with the model of [I] ([nat_case] in [TimeDatatypes]). Its
+    defined with the model of [I] ([nat_case] in [DatatypeCosts]). Its
     arguments: the parameters of [I], the types of the environment and of
     the result, the code of the branches (in the order of the constructors),
     the code of the matched value, and the environment. A branch runs in

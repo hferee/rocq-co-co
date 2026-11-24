@@ -12,8 +12,8 @@ From Stdlib Require Import List ZArith QArith.
 From Complexity Require Export TimeCostModel.
 From Undecidability.L Require Import Util.L_facts.
 Import HOAS_Notations.
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 Local Open Scope nat_scope.
 Unset Implicit Arguments.
@@ -314,7 +314,7 @@ Lemma rl_down_ {A CA} {R : LRepr A CA} {k x c s} (k' : nat) :
   rl R k x c s -> k' <= k -> rl R k' x c s.
 Proof. intros H Hk. exact (rl_down Hk H). Qed.
 
-(** Lists ([ListTimeCostModel]): realised by the realisers of their
+(** Lists ([ListCostModel]): realised by the realisers of their
     elements, with their complexities, one for each element. *)
 Fixpoint list_rl {A CA} (P : A -> CA -> term -> Prop) (l : list A) (c : list CA)
   (s : term) : Prop :=
@@ -339,7 +339,7 @@ Lemma list_rl_cons {A CA} {P : A -> CA -> term -> Prop} {x l c s} (d : CA) :
   exists r t, s = lam (lam (app (app (var 0) r) t)) /\ P x (hd d c) r /\ list_rl P l (tl c) t.
 Proof. destruct c as [| a c]; cbn; [intros [] | exact (fun H => H)]. Qed.
 
-(** The order and the well-formed complexities: [Forall2] ([TimeLists]). *)
+(** The order and the well-formed complexities: [Forall2] ([ListCosts]). *)
 Definition list_repr {A CA} (RA : LRepr A CA) : LRepr (list A) (list CA).
 Proof.
   refine {| rl := fun k l c s => list_rl (rl RA k) l c s;
@@ -361,7 +361,7 @@ Proof.
     + destruct H as (r & t & -> & Hr & Ht). constructor; [exact (rl_wf Hr) | exact (IH _ _ Ht)].
 Defined.
 
-(** Options ([OptionTimeCostModel]): realised by the realiser of their
+(** Options ([OptionCostModel]): realised by the realiser of their
     element, with its complexity, or the default one. *)
 Definition option_rl {A CA} (d : CA) (P : A -> CA -> term -> Prop) (o : option A)
   (c : option CA) (s : term) : Prop :=
@@ -387,7 +387,7 @@ Proof.
   - auto.
 Defined.
 
-(** Sums ([SumTimeCostModel]): realised by the realiser of their element,
+(** Sums ([SumCostModel]): realised by the realiser of their element,
     with its complexity, or the default one: [inl x] by [λl. λr. l x],
     [inr y] by [λl. λr. r y]. The default complexity is the one of [inl]. *)
 Definition sum_rl {A CA B CB} (dA : CA) (dB : CB) (P : A -> CA -> term -> Prop)
@@ -438,7 +438,7 @@ Proof.
   - intros k e c s (r1 & r2 & -> & H1 & H2). exact (conj (rl_wf H1) (rl_wf H2)).
 Defined.
 
-(** Pairs ([ProdTimeCostModel]): realised by the realisers of their
+(** Pairs ([ProdCostModel]): realised by the realisers of their
     elements, with their complexities, as the environments. *)
 Definition prod_rl {A CA B CB} (RA : LRepr A CA) (RB : LRepr B CB) (k : nat) (p : A * B)
   (c : CA * CB) (s : term) : Prop :=
@@ -474,7 +474,7 @@ Ltac Lfun :=
     let s := fresh "s" in let Hj := fresh "Hj" in let Ha := fresh "Ha" in
     let Hc := fresh "Hc" in
     intros j a c s Hj Ha Hc; pose proof (rl_proc Ha);
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hc |- *].
+    autounfold with cost_ops in Hc |- *; cbn [cost res pot val fmap] in Hc |- *].
 
 (** Evaluate, check the cost, and leave the realisability of the result. *)
 Ltac Lstep := do 2 eexists; split; [apply evalc_sound; Leval | split; [Llia |]].
@@ -500,11 +500,13 @@ Definition Kc_r := lam (lam (var 1)).
 Definition compose_r := lam (lam (lam (app (var 2) (app (var 1) (var 0))))).
 Definition Cc_r := lam (lam (lam (app (app (var 2) (var 0)) (var 1)))).
 Definition Sc_r := lam (lam (lam (app (app (var 2) (var 0)) (app (var 1) (var 0))))).
+Definition consume_r := lam (lam (app (var 0) (lam (lam (app (app (var 3) (lam (var 1))) (var 1)))))).
+Definition etlc_r := lam (lam (app (var 0) (lam (lam (app (var 3) (var 1)))))).
 Definition ehd_r := lam (app (var 0) (lam (lam (var 0)))).
 Definition etl_r := lam (app (var 0) (lam (lam (var 1)))).
 Definition Lam_r := lam (lam (lam (app (var 2) (lam (app (app (var 0) (var 2)) (var 1)))))).
 
-(** The case combinators in environments ([TimeDatatypes]): [caseE] takes
+(** The case combinators in environments ([DatatypeCosts]): [caseE] takes
     the code of the branches, the code [x] of the matched value and the
     environment [e], evaluates [x e], and applies the value to one handler
     per constructor, then to [Ic_r]. The handler of a constructor with [m]
@@ -533,7 +535,7 @@ Ltac LcaseE3_start := LunfoldE; Lfun; Lstep; Lfun; Lstep; Lfun; Lstep; Lfun; Lst
 Ltac Lscrut x e := match goal with H : evalc _ (app x e) _ |- _ => cbn in H end.
 
 (** The realisers of a representation [R] do not distinguish the values
-    that are pointwise equal at the arity [ar] ([PwExt] of [TimeFix]). *)
+    that are pointwise equal at the arity [ar] ([PwExt] of [FixCosts]). *)
 Definition pw_ext {B CB} (R : LRepr B CB) (ar : Arity B) : Prop :=
   forall k x y c s, pw_eq ar x y -> rl R k y c s -> rl R k x c s.
 
@@ -553,7 +555,9 @@ Qed.
 
 Module LCM <: CostModel.
   Definition Cost := nat.
-  #[global] Instance cost_alg : CostAlg Cost := nat_alg.
+  Definition cle := le.
+  (** The measure of a cost: the cost itself. *)
+  Definition cnat (c : Cost) : nat := c.
   Definition Repr := LRepr.
   Existing Class Repr.
 
@@ -597,9 +601,9 @@ Module LCM <: CostModel.
   Include HOBounds.
 End LCM.
 
-(** The costs of L are in [nat]: the tactics unfold their algebra
-    ([nat_alg]), as defined in [LCM]. *)
-Ltac Lalg := cbv [cseq caround cost_around czero cle ctick cnat cofnat LCM.cost_alg nat_alg] in *.
+(** The costs of L are in [nat]: the tactics unfold their operations
+    ([cost_ops]) and their order. *)
+Ltac Lalg := autounfold with cost_ops in *; cbv [LCM.cle LCM.cnat] in *.
 Ltac Llia ::= unfold K in *; cbn [cost res pot val] in *; Lalg; lia.
 Ltac Lfun ::=
   apply arr_lam; [Lproc |
@@ -607,11 +611,18 @@ Ltac Lfun ::=
     let s := fresh "s" in let Hj := fresh "Hj" in let Ha := fresh "Ha" in
     let Hc := fresh "Hc" in
     intros j a c s Hj Ha Hc; pose proof (rl_proc Ha);
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hc |- *; Lalg].
+    autounfold with cost_ops in Hc |- *; cbn [cost res pot val fmap] in Hc |- *; Lalg].
 
 (** Higher-order primitives. *)
-Module LBT <: BasicTimeCostModel LCM.
+Module LBT <: BasicCostModel LCM.
   Import LCM.
+  (** The costs are added ([+]); a frame costs its push. *)
+  Definition czero := 0.
+  Definition cplus := Nat.add.
+  (** L reduces terms: there is no stack, and no frame to pay. *)
+  Definition c_frame := 0.
+  Definition c_pop := 0.
+  Include CostOps LCM.
   (** Every application is a beta-step: each combinator costs [1]. *)
   Definition c_clo := 1.
   Definition c_ehd := 1.
@@ -622,8 +633,8 @@ Module LBT <: BasicTimeCostModel LCM.
   Definition c_compose := 1.
   Definition c_Cc := 1.
   Definition c_Sc := 1.
-  (** L reduces terms: there is no stack, and no frame to pay. *)
-  Definition c_frame := 0.
+  Definition c_consume := 1.
+  Definition c_etlc := 1.
 
   Lemma id_complexity : forall {A CA} `{Repr A CA},
       ComplexityBound (fun (x : A) => x) (fun ca => (1 +> pot ca) : ℂO CA).
@@ -648,32 +659,6 @@ Module LBT <: BasicTimeCostModel LCM.
     eapply rl_down; [| exact R1]. lia.
   Qed.
 
-  Lemma compose_complexity : forall {A B C CA CB CC}
-      `{Repr A CA} `{Repr B CB} `{Repr C CC}
-      (f : B -> C) (cf : ℂI B CB -> ℂO CC) (g : A -> B) (cg : ℂI A CA -> ℂO CB),
-      ComplexityBound f cf ->
-      ComplexityBound g cg ->
-      ComplexityBound (compose f g : A -> C)
-                      (fun ca => 1 ⊕ pot <$> (f ⋊ cf) · ((g ⋊ cg) · ca)).
-  Proof.
-    intros A B C CA CB CC RA RB RC f cf g cg [sf Hf]%complexity_bound_has
-      [sg Hg]%complexity_bound_has.
-    apply has_complexity_bound.
-    exists (lam (app sf (app sg (var 0)))). intro k.
-    pose proof (rl_proc (Hf 0)). pose proof (rl_proc (Hg 0)).
-    Lfun. Lcall (Hg j) Ha (j - 1). Lcall (Hf j) R (j - 1 - cost (cg (a ⋊ c))).
-    Lstep. Lend R0.
-  Qed.
-
-  Lemma constant_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB} b {cb},
-      ComplexityBound (b : B) (cb : CB) ->
-      ComplexityBound (fun (_ : A) => b) (fun _ => 1 +> cb).
-  Proof.
-    intros A B CA CB RA RB b cb [sb Hb]%complexity_bound_has. apply has_complexity_bound.
-    exists (lam sb). intro k. pose proof (rl_proc (Hb 0)).
-    Lfun. Lstep. apply Hb.
-  Qed.
-
   Global Instance Repr_unit : Repr unit unit :=
     ground_repr (fun _ => unit_enc) (fun _ => unit_enc_proc).
 
@@ -685,7 +670,7 @@ Module LBT <: BasicTimeCostModel LCM.
 End LBT.
 
 (** Combinators. *)
-Module LCB <: CombinatorTimeCostModel LCM LBT.
+Module LCB <: CombinatorCostModel LCM LBT.
   Import LCM LBT.
   Global Instance Repr_env {E CE A CA} (RE : Repr E CE) (RA : Repr A CA) :
     Repr (env E A) (CE * CA) :=
@@ -764,12 +749,40 @@ Module LCB <: CombinatorTimeCostModel LCM LBT.
     Lstep. Lend R1.
   Qed.
 
+  Lemma etlc_complexity : forall {E CE A CA B CB} `{Repr E CE} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@etlc E A B)
+      (fun cf : ℂI (E -> B) (ℂI E CE -> ℂO CB) => 1 +>
+       fun ce : ℂI (env E A) (CE * CA) => 1 ⊕ pot <$> cf · (etl (val ce) ⋊ fst (pot ce))).
+  Proof.
+    intros. apply has_complexity_bound. exists etlc_r. intro k. Lfun. Lstep. Lfun.
+    destruct Ha0 as (r1 & r2 & -> & Hr1 & Hr2). pose proof (rl_proc Hr1). pose proof (rl_proc Hr2).
+    Lcall Ha Hr1 (j0 - 1). Lstep. Lend R.
+  Qed.
+
+  Lemma consume_complexity : forall {E CE I CI A CA} `{Repr E CE} `{Repr I CI} `{Repr A CA},
+    ComplexityBound (@consume E I A)
+      (fun cc : ℂI ((E -> I) -> E -> A) (ℂI (E -> I) (ℂI E CE -> ℂO CI) -> ℂO (ℂI E CE -> ℂO CA)) => 1 +>
+       fun ce : ℂI (env E I) (CE * CI) =>
+         1 ⊕ pot <$> cc · ((fun _ : E => ehd (val ce)) ⋊ (fun _ : ℂI E CE => 1 +> snd (pot ce)))
+                     · (etl (val ce) ⋊ fst (pot ce))).
+  Proof.
+    intros E CE I CI A CA RE RI RA. apply has_complexity_bound. exists consume_r. intro k.
+    Lfun. Lstep. Lfun.
+    destruct Ha0 as (r1 & r2 & -> & Hr1 & Hr2). pose proof (rl_proc Hr1). pose proof (rl_proc Hr2).
+    (* the matched value, as a constant function: one step *)
+    assert (Hm : rl (arr_repr RE RI) j0 (fun _ => ehd a0) (fun _ => 1 +> snd c0) (lam r2)).
+    { apply arr_lam; [Lproc |]. intros j' x cx sx Hj' Hx Hcx. pose proof (rl_proc Hx).
+      Lstep. Lend Hr2. }
+    Lcall Ha Hm (j0 - 1). Lcall R Hr1 (j0 - 1 - cost (c ((fun _ => ehd a0) ⋊ (fun _ => 1 +> snd c0)))).
+    Lstep. Lend R0.
+  Qed.
+
   (** The definitions and tactics of the model ([Found], [cbound], ...). *)
   Include CombinatorTactics LCM LBT.
 End LCB.
 
 (** [nat]. *)
-Module LNT <: NatTimeCostModel LCM LBT LCB.
+Module LNT <: NatCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_S := 1.
   Definition c_case_nat := 1.
@@ -818,7 +831,7 @@ Module LNT <: NatTimeCostModel LCM LBT LCB.
 End LNT.
 
 (** [bool]. *)
-Module LBO <: BoolTimeCostModel LCM LBT LCB.
+Module LBO <: BoolCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_case_bool := 1.
   Global Instance Repr_bool : Repr bool unit := ground_repr bool_enc bool_enc_proc.
@@ -852,7 +865,7 @@ End LBO.
 
 (** Lists. *)
 (** Lists. *)
-Module LLM <: ListTimeCostModel LCM LBT LCB.
+Module LLM <: ListCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_cons := 1.
   Definition c_case_list := 1.
@@ -925,7 +938,7 @@ Module LLM <: ListTimeCostModel LCM LBT LCB.
 End LLM.
 
 (** Options. *)
-Module LOM <: OptionTimeCostModel LCM LBT LCB.
+Module LOM <: OptionCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_Some := 1.
   Definition c_case_option := 1.
@@ -985,7 +998,7 @@ Module LOM <: OptionTimeCostModel LCM LBT LCB.
 End LOM.
 
 (** Pairs. *)
-Module LPM <: ProdTimeCostModel LCM LBT LCB.
+Module LPM <: ProdCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_pair := 1.
   Definition c_case_prod := 1.
@@ -1045,7 +1058,7 @@ Module LPM <: ProdTimeCostModel LCM LBT LCB.
 End LPM.
 
 (** Sums. *)
-Module LSM <: SumTimeCostModel LCM LBT LCB.
+Module LSM <: SumCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_ctor_sum := 1.
   Definition c_case_sum := 1.
@@ -1125,7 +1138,7 @@ Module LSM <: SumTimeCostModel LCM LBT LCB.
 End LSM.
 
 (** [positive], [N], [Z], [comparison] and [Q]. *)
-Module LZM <: ZTimeCostModel LCM LBT LCB.
+Module LZM <: ZCostModel LCM LBT LCB.
   Import LCM LBT LCB.
   Definition c_ctor_Z := 1.
   Definition c_case_Z := 1.
@@ -1378,9 +1391,10 @@ Proof.
   intros HsF Hse. unfold rho, fix_G, r. cbn [subst Nat.eqb]. rewrite (HsF 2 se). reflexivity.
 Qed.
 
-Module LFX <: FixTimeCostModel LCM LBT LCB.
+Module LFX <: FixCostModel LCM LBT LCB.
   Import LCM LBT.
   Definition c_fix := 1.
+  #[global] Instance cle_refl : Reflexive cle := Nat.le_refl.
 
   Definition PwExt {B CB} (R : Repr B CB) (ar : Arity B) : Prop := pw_ext R ar.
   Existing Class PwExt.
@@ -1393,7 +1407,7 @@ Module LFX <: FixTimeCostModel LCM LBT LCB.
       (F : env E (A -> B) -> A -> B)
       (cF : ℂI (env E (A -> B)) (CE * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
       (cf : ℂI E CE -> ℂO (ℂI A CA -> ℂO CB)),
-      1 <= c_fix ->
+      (forall c, ~ c_fix + c <= c) ->
       (forall e, is_fixpoint ar (fun g => F (ECons e g)) (f e)) ->
       ComplexityBound F cF ->
       bound_order
@@ -1407,7 +1421,7 @@ Module LFX <: FixTimeCostModel LCM LBT LCB.
     pose proof (rl_proc (HF 0)) as HpF.
     exists (fix_r sF). intro k. unfold fix_r. Lfun.
     destruct (Hrec (a ⋊ c) (rl_wf Ha)) as [Hcost0 Hcomp0].
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost0, Hcomp0.
+    cbn [cost res pot val LBT.cost_add LBT.capp fmap LBT.ret_I] in Hcost0, Hcomp0.
     set (cfe := res (cf (a ⋊ c))) in *.
     assert (HpG : proc (rho (fix_G sF s)))
       by (split; [apply rho_cls, proc_closed; unfold fix_G; Lproc | apply rho_lambda]).
@@ -1417,7 +1431,7 @@ Module LFX <: FixTimeCostModel LCM LBT LCB.
       apply arr_lam; [exact HpG |]. intros j' x c1 sx Hj' Hx Hc'.
       pose proof (rl_proc Hx).
       destruct (Hcomp0 (x ⋊ c1) (rl_wf Hx)) as [Hcost Hcomp].
-      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost, Hcomp.
+      cbn [cost res pot val LBT.cost_add LBT.capp fmap LBT.ret_I] in Hcost, Hcomp.
       assert (IHj : rl (Repr_arr RA RB) (j' - 1) (f a) cfe (rho (fix_G sF s))) by (apply IH; Llia).
       assert (Hpair : rl (env_repr RE (Repr_arr RA RB)) (j' - 1) (ECons a (f a)) (c, cfe)
                         (lam (app (app (var 0) s) (rho (fix_G sF s))))).
@@ -1451,5 +1465,4 @@ Module L <: TimeCostModel.
   Include LPM. Include ProdGround LCM LPM. Include LSM. Include SumGround LCM LSM.
   Include LZM. Include LFX.
 End L.
-
 

@@ -1,20 +1,20 @@
-(** * The total allocation model
+(** * The allocation cost model
 
-    The memory that a computation allocates, never freed: the layers of the
-    time cost model, with the allocations of the primitives as costs. The
-    peak of the memory in use is [SpaceCostModel]. *)
+    The memory that a computation allocates, never freed: the generic cost
+    model ([Generic]) with costs in [nat], the allocations of the
+    primitives: at least the peak of the memory in use ([SpaceCostModel]). *)
 
 From Complexity Require Export TimeCostModel.
 
-(** Costs are added along a computation ([CostModelCore.app]). Each
+(** Costs are added along a computation ([CostOps.capp]). Each
     constant is at most its value in [TimeCostModel]: every allocation
     happens in a step, so the total allocation is at most the time. *)
-Module Type TotalAllocationModel := ParamTimeCostModel
+Module Type AllocationCostModel := ParamTimeCostModel
   (* a closure and a constructor allocate one cell; the combinators and the
      case analyses only read memory *)
-  with Definition c_clo := 1 with Definition c_frame := 0
+  with Definition c_clo := 1 with Definition c_frame := 0 with Definition c_pop := 0
   with Definition c_ehd := 0 with Definition c_etl := 0 with Definition c_Lam := 0
-  with Definition c_Kc := 0 with Definition c_Ic := 0 with Definition c_compose := 0
+  with Definition c_Kc := 0 with Definition c_consume := 0 with Definition c_etlc := 0 with Definition c_Ic := 0 with Definition c_compose := 0
   with Definition c_Cc := 0 with Definition c_Sc := 0
   with Definition c_case_bool := 0
   with Definition c_S := 1 with Definition c_case_nat := 0

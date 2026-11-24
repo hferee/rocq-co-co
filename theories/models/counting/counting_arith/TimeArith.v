@@ -3,12 +3,12 @@
     Models where [Nat.add] and [Nat.mul] are primitives, for counting the
     operations of interest as in a course, rather than running times. *)
 
-From Complexity Require Export TimeDatatypes TimeLists TimeFix.
+From Complexity Require Export DatatypeCosts ListCosts FixCosts.
 
 (** The costs of [Nat.add] and [Nat.mul] are constants. They are defined as
   parameters so that we can distinguish between both. *)
-Module Type NatArithTimeCostModel (Import CM : CostModel) (Import ND : NatData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
+Module Type NatArithTimeCostModel (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import ND : NatData CM).
   Parameter c_add_clo c_add : Cost.
   Parameter c_mul_clo  c_mul : Cost.
   #[global] Hint Unfold c_add c_mul : costs.
@@ -23,19 +23,21 @@ End NatArithTimeCostModel.
 (** The primitives, the constructor [S], booleans and lists, but no case
     analysis on [nat]: functions on numbers are analysed through [Nat.add]
     and [Nat.mul] only. *)
-Module Type ParamArithTimeCostModel := NatCostModel <+ BasicTimeCostModel
-  <+ CombinatorTimeCostModel <+ BoolTimeCostModel
-  <+ NatData <+ NatCtorTimeCostModel <+ NatArithTimeCostModel
-  <+ ListTimeCostModel <+ ListWf <+ FixTimeCostModel.
+Module Type ParamArithTimeCostModel := CostModel.CostModel <+ BasicCostModel
+  <+ CombinatorCostModel <+ BoolCostModel
+  <+ NatData <+ NatCtorCostModel <+ NatArithTimeCostModel
+  <+ ListCostModel <+ ListWf <+ FixCostModel.
 
 (** Only the arithmetic operations are charged: an addition [c_add], a
     multiplication [c_mul], an unfolding [c_fix]; everything else is free.
     Unfoldings cannot be free: free unfoldings would give every function every 
-    bound ([TimeFix], [UnguardedFix]). *)
+    bound ([FixCosts], [UnguardedFix]). *)
 Module Type ArithOpsTimeCostModel := ParamArithTimeCostModel
-  with Definition c_clo := 0 with Definition c_frame := 0
+  with Definition Cost := nat with Definition cle := le with Definition cnat := fun n : nat => n
+  with Definition czero := 0 with Definition cplus := Nat.add
+  with Definition c_clo := 0 with Definition c_frame := 0 with Definition c_pop := 0
   with Definition c_ehd := 0 with Definition c_etl := 0 with Definition c_Lam := 0
-  with Definition c_Kc := 0 with Definition c_Ic := 0 with Definition c_compose := 0
+  with Definition c_Kc := 0 with Definition c_consume := 0 with Definition c_etlc := 0 with Definition c_Ic := 0 with Definition c_compose := 0
   with Definition c_Cc := 0 with Definition c_Sc := 0
   with Definition c_case_bool := 0 with Definition c_S := 0
   with Definition c_cons := 0 with Definition c_case_list := 0.
@@ -55,7 +57,6 @@ Module Type ArithCountTimeCostModel := ArithOpsTimeCostModel
 From Stdlib Require Import Lia.
 
 Module ArithOpsSuccFree (Import M : ArithOpsTimeCostModel).
-  Local Abbreviation ℂO := (ℂO' Cost).
   Lemma succ_free :
     ~ (forall c : ℂI nat unit -> ℂO unit, ComplexityBound S c -> forall cn, 1 <= cost (c cn)).
   Proof.

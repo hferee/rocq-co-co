@@ -10,8 +10,8 @@ From Complexity Require Import TimeStdlib.
 From Stdlib Require Import List Recdef Lia.
 Import ListNotations.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 Definition slow_id (n : nat) : nat := Nat.iter (2 ^ n) (fun x => x) n.
 
@@ -65,12 +65,12 @@ Module Examples (Import Time : TimeStdlib).
       [tower n x] performs [2 ^ n] compositions. Building [tower n] costs a
       linear number of steps, but applying it costs [3 * 2 ^ n - 1]. *)
   Global Instance tower_complexity : Time.ComplexityBound tower
-    (fun cn => (19 * val cn + 6) +>
+    (fun cn => (17 * val cn + 6) +>
      fun cx => (2 * 2 ^ val cn - 1) >|).
   Proof. cbound. all: assert (2 ^ cn <> 0) by (apply Nat.pow_nonzero; lia); lia. Qed.
 
   Lemma tower_eval_complexity : Time.ComplexityBound tower_eval
-    (fun cn => (19 * val cn + 2 * 2 ^ val cn + 8) >|).
+    (fun cn => (17 * val cn + 2 * 2 ^ val cn + 8) >|).
   Proof. cbound. all: assert (2 ^ cn <> 0) by (apply Nat.pow_nonzero; lia); lia. Qed.
 
   (** ** Local fixpoints
@@ -108,11 +108,11 @@ Module Examples (Import Time : TimeStdlib).
     match l with [] => acc | _ :: t => length_go t (S acc) end.
 
   Global Instance length_go_complexity : Time.ComplexityBound length_go
-    (fun cl => 4 +> fun ca => (28 * length (val cl) + 6) >|).
+    (fun cl => 4 +> fun ca => (21 * length (val cl) + 5) >|).
   Proof. cbound. Qed.
 
   Lemma length_acc_lifted_complexity : Time.ComplexityBound length_acc
-    (fun cl => (28 * length (val cl) + 13) >|).
+    (fun cl => (21 * length (val cl) + 12) >|).
   Proof. change length_acc with (fun l => length_go l 0). cbound. Qed.
 
   (** A worker applied to its initial arguments. *)
@@ -137,11 +137,11 @@ Module Examples (Import Time : TimeStdlib).
 
   Global Instance dbl_complexity : Time.ComplexityBound
     (fix dbl (l : list nat) : nat := match l with [] => 0 | _ :: t => S (S (dbl t)) end)
-    (fun cl => (18 * length (val cl) + 6) >|).
+    (fun cl => (15 * length (val cl) + 6) >|).
   Proof. cbound. Qed.
 
   Lemma double_length_complexity : Time.ComplexityBound double_length
-    (fun cl => (18 * length (val cl) + 10) >|).
+    (fun cl => (15 * length (val cl) + 10) >|).
   Proof. cbound. Qed.
 
   (** A local fixpoint that uses an argument of the function, [n]: it is
@@ -151,7 +151,7 @@ Module Examples (Import Time : TimeStdlib).
     let fix go (l : list nat) := match l with [] => n | _ :: t => S (go t) end in go l.
 
   Lemma count_from_complexity : Time.ComplexityBound count_from
-    (fun cn => 1 +> fun cl => (16 * length (val cl) + 14) >|).
+    (fun cn => 1 +> fun cl => (16 * length (val cl) + 13) >|).
   Proof.
     assert (Hgo : Time.ComplexityBound
       (fun n : nat => fix go (l : list nat) : nat := match l with [] => n | _ :: t => S (go t) end)
@@ -176,6 +176,6 @@ Module Examples (Import Time : TimeStdlib).
   Defined.
 
   Lemma div_complexity : Time.ComplexityBound div
-    (fun cn => 4 +> fun cm => ((val cn + 1) * (28 * val cm + 28 * val cn + 102)) >|).
+    (fun cn => 4 +> fun cm => ((val cn + 1) * (21 * val cm + 21 * val cn + 86)) >|).
   Proof. cbound. Qed.
 End Examples.

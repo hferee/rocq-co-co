@@ -9,8 +9,8 @@ From Complexity Require Import TimeArith.
 From Stdlib Require Import List ZArith.
 Import ListNotations.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 (** ** Matrices as quadtrees
 
@@ -171,8 +171,10 @@ Proof. induction k; cbn [unfs Nat.pow]; [lia | pose proof (qn_closed k); lia]. Q
 
 (** Quadtrees are ground data, with constructors and a case analysis. *)
 Module Type QMatTimeCostModel
-  (Import Time : NatCostModel) (Import BT : BasicTimeCostModel Time)
-  (Import CB : CombinatorTimeCostModel Time BT) (Import ZD : ZData Time).
+  (Import Time : CostModel
+      with Definition Cost := nat with Definition cle := le with Definition cnat := fun n : nat => n)
+  (Import BT : BasicCostModel Time)
+  (Import CB : CombinatorCostModel Time BT) (Import ZD : ZData Time).
 
   #[global] Declare Instance Repr_qmat : Repr qmat unit.
   #[global] Declare Instance qmat_complexity : forall q : qmat, Time.ComplexityBound q tt.
@@ -203,8 +205,10 @@ End QMatTimeCostModel.
     multiplication cost as on numbers ([c_add], [c_mul]), a subtraction
     [c_sub]. *)
 Module Type ZOpsTimeCostModel
-  (Import Time : NatCostModel) (Import BT : BasicTimeCostModel Time) (Import ZD : ZData Time)
-  (Import ND : NatData Time) (Import NA : NatArithTimeCostModel Time ND).
+  (Import Time : CostModel
+      with Definition Cost := nat with Definition cle := le with Definition cnat := fun n : nat => n)
+  (Import BT : BasicCostModel Time) (Import ZD : ZData Time)
+  (Import ND : NatData Time) (Import NA : NatArithTimeCostModel Time BT ND).
 
   Parameter c_sub : nat.
   #[global] Hint Unfold c_sub : costs.
@@ -277,9 +281,13 @@ Module StrassenCount (Import Time : StrassenTimeCostModel).
         end
     end.
 
+  #[local] Hint Unfold qcall : costs.
+  (** Its analysis takes about 5 s, above [ctimeout_lib]. *)
+  #[local] Ltac2 Set ctimeout := 10.
+
   Instance strassen_complexity : Time.ComplexityBound strassen
     (fun cd => c_fix +> fun ca => 0 +> fun cb => strassen_cost (val cd) (val ca) (val cb) >|).
-  Proof. cbound. all: unfold qcall; lia. Qed.
+  Proof. cbound. Qed.
   End Counts.
 
   (** The cost of [strassen d a b] on matrices of size [2^k × 2^k], where
@@ -315,5 +323,8 @@ Module StrassenCount (Import Time : StrassenTimeCostModel).
     intros Hd Ha Hb.
     rewrite (strassen_cost_full k d a b Hd Ha Hb), adds_closed, subs_closed. lia.
   Qed.
+
+  (* TODO: this file is not satisfactory. It should be doable with some help
+  by a bachelor student, and all the tactics should run in less than a few seconds. *)
 
 End StrassenCount.

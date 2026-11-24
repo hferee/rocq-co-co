@@ -128,6 +128,12 @@ Ltac2 counterexample () : ((ident * constr) list * constr * constr) option :=
   | None => None
   | Some test =>
       let hyps := Control.hyps () in
+      (* a variable without small values: the inequality cannot be computed *)
+      if List.exist (fun (id, body, ty) =>
+           match body, small_values ty with
+           | None, None => occurs_var id g
+           | _, _ => false
+           end) hyps then None else
       let vars := List.flat_map
         (fun (id, body, ty) =>
            match body with
@@ -231,13 +237,24 @@ Ltac2 suggestion_message (g : constr) : message :=
   cat [of_string "The inequality "; of_constr g; of_string " has no small counterexample.";
        cat (List.map (fun m => cat [nl (); m]) (suggestions g))].
 
+(** The search of [cadvice_goal] stops after [cadvice_timeout] seconds (2
+    by default; [0] for no limit): it computes in unary numbers. *)
+Ltac2 mutable cadvice_timeout : int := 2.
+
+Ltac2 counterexample_timed () : ((ident * constr) list * constr * constr) option :=
+  if Int.le cadvice_timeout 0 then counterexample () else
+  match Control.case (fun () => Control.timeout cadvice_timeout counterexample) with
+  | Val (r, _) => r
+  | Err _ => None
+  end.
+
 (** [cadvice_goal ()]: the advice on the inequality of the goal (all the
     focused goals). *)
 Ltac2 cadvice_goal () : unit :=
   if Int.equal cadvice_level 0 then () else
   Control.enter (fun () =>
     let g := Control.goal () in
-    match counterexample () with
+    match counterexample_timed () with
     | Some (asg, a, b) => print (counterexample_message g asg a b)
     | None => if Int.le 2 cadvice_level then print (suggestion_message g) else ()
     end).
@@ -260,8 +277,8 @@ Ltac2 cexplain_goal () : unit :=
 <<
       Ltac2 Set ctimeout := 10.
 >>
-    ([#[local] Ltac2 Set] for one file). The library turns it off in its
-    files: their proofs are not interactive.
+    ([#[local] Ltac2 Set] for one file). The files of the library set it
+    to [ctimeout_lib] (5).
 
     [nia] may search for a long time, or forever, on an inequality that it
     does not prove: the tactics give it [cnia_timeout] seconds on each
@@ -273,7 +290,12 @@ Ltac2 cexplain_goal () : unit :=
     The tactics run by typeclass search call [nia] at once ([cnia_now],
     [cundeferred]). *)
 Ltac2 mutable ctimeout : int := 2.
+Ltac2 ctimeout_lib : int := 5.
 Ltac2 mutable cnia_timeout : int := 3.
+
+(** [clia := false]: [nia] at once, without [lia] first, for the
+    inequalities that are not linear, on which [lia] fails slowly. *)
+Ltac2 mutable clia : bool := true.
 
 (** The inequalities that the tactics leave are simplified by
     [ring_simplify], for reading. Its results are unary numbers: with
@@ -385,7 +407,7 @@ Ltac2 ctimed (name : string) (t : Ltac1.t) : unit :=
 Ltac cexplain := ltac2:(cexplain_goal ()).
 
 (** ** Export of the inequalities left ([cexport], [carith] in
-    [TimeCombinators]) *)
+    [CombinatorCosts]) *)
 Ltac2 mutable cexport : bool := false.
 
 Ltac2 rec cexport_numeral (t : constr) : int option :=

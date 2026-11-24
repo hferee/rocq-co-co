@@ -1,11 +1,11 @@
 (** * Cost models for the basic datatypes
 
     Booleans, natural numbers, options, pairs, sums and binary numbers
-    (lists are in [TimeLists]): their representations and sizes, and the
+    (lists are in [ListCosts]): their representations and sizes, and the
     costs of their constructors and case analyses, which are primitive.
-    Recursion is covered by [TimeFix]. *)
+    Recursion is covered by [FixCosts]. *)
 
-From Complexity Require Export TimeCombinators.
+From Complexity Require Export CombinatorCosts.
 From Stdlib Require Import List PArith NArith ZArith QArith.
 Local Open Scope nat_scope.
 
@@ -31,7 +31,6 @@ Definition bool_case {E A : Type} (t f : E -> A) (b : E -> bool) (e : E) : A :=
 
 (** Booleans are ground data. *)
 Module Type BoolData (Import CM : CostModel).
-  Local Abbreviation ℂO := (ℂO' Cost).
   #[global] Declare Instance Repr_bool : Repr bool unit.
 
   #[global] Declare Instance Size_bool : Size bool.
@@ -40,11 +39,9 @@ Module Type BoolData (Import CM : CostModel).
   #[global] Declare Instance bool_complexity : forall b : bool, ComplexityBound b tt.
 End BoolData.
 
-Module Type BoolCaseTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import BD : BoolData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type BoolCaseCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import CB : CombinatorCostModel CM BT) (Import BD : BoolData CM).
   Parameter c_case_bool : Cost.
   #[global] Hint Unfold c_case_bool : costs.
 
@@ -55,21 +52,21 @@ Module Type BoolCaseTimeCostModel
       (fun ct : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cf : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cb : ℂI (E -> bool) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_bool ⊕ caround c_frame (cost (pot cb ce)) ⊕
-         if val cb (val ce) then pot ct ce else pot cf ce).
-End BoolCaseTimeCostModel.
+       fun ce : ℂI E CE => c_case_bool ⊕ framed (pot cb ce) (fun _ =>
+         if val cb (val ce) then pot ct ce else pot cf ce)).
+End BoolCaseCostModel.
 
-Module Type BoolTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
-  (CB : CombinatorTimeCostModel CM BT) :=
-  BoolData CM <+ BoolCaseTimeCostModel CM BT CB.
+Module Type BoolCostModel (CM : CostModel) (BT : BasicCostModel CM)
+  (CB : CombinatorCostModel CM BT) :=
+  BoolData CM <+ BoolCaseCostModel CM BT CB.
 
 (** ** Natural numbers
 
-    Each datatype has up to three layers, so that a cost model can choose
+    Each datatype has up to three parts, so that a cost model can choose
     its primitives: the data ([NatData]: representation, sizes and values,
-    with no cost), the constructors ([NatCtorTimeCostModel]) and the case
-    analysis ([NatCaseTimeCostModel]), which declare their constants. A
-    model without the case layer of [nat] has no cost for the matches on
+    with no cost), the constructors ([NatCtorCostModel]) and the case
+    analysis ([NatCaseCostModel]), which declare their constants. A
+    model without the case analysis of [nat] has no cost for the matches on
     [nat]: [cbound] fails on them. *)
 
 (** Case combinator (see [Combinators]). *)
@@ -88,7 +85,6 @@ Coercion ℂI_nat_inj : nat >-> ℂI.
 
 (** Natural numbers are ground data. *)
 Module Type NatData (Import CM : CostModel).
-  Local Abbreviation ℂO := (ℂO' Cost).
   #[global] Declare Instance Repr_nat : Repr nat unit.
 
   #[global] Declare Instance Size_nat : Size nat.
@@ -98,43 +94,39 @@ Module Type NatData (Import CM : CostModel).
   #[global] Declare Instance nat_complexity : forall n : nat, ComplexityBound n tt.
 End NatData.
 
-Module Type NatCtorTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import ND : NatData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type NatCtorCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM) (Import ND : NatData CM).
   Parameter c_S : Cost.
   #[global] Hint Unfold c_S : costs.
 
   Parameter S_complexity : ComplexityBound S (fun x => c_S >|).
   Existing Instance S_complexity.
-End NatCtorTimeCostModel.
+End NatCtorCostModel.
 
-Module Type NatCaseTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import ND : NatData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type NatCaseCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import CB : CombinatorCostModel CM BT) (Import ND : NatData CM).
   Parameter c_case_nat : Cost.
   #[global] Hint Unfold c_case_nat : costs.
 
   (** [nat_case] is a higher-order constant: matches on any expression, with
       branches using other variables, are compiled to it ([Compile]).
-      Recursion is covered by the generic fixpoint axiom of [TimeFix]. *)
+      Recursion is covered by the generic fixpoint axiom of [FixCosts]. *)
   #[global] Declare Instance nat_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@nat_case E A)
       (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cs : ℂI (env E nat -> A) (ℂI (env E nat) (CE * unit) -> ℂO CA) => c_clo +>
        fun cn : ℂI (E -> nat) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_nat ⊕ caround c_frame (cost (pot cn ce)) ⊕
+       fun ce : ℂI E CE => c_case_nat ⊕ framed (pot cn ce) (fun _ =>
          match val cn (val ce) with
          | O => pot cz ce
          | S k => pot cs (ECons (val ce) k ⋊ (pot ce, tt))
-         end).
-End NatCaseTimeCostModel.
+         end)).
+End NatCaseCostModel.
 
-Module Type NatTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
-  (CB : CombinatorTimeCostModel CM BT) :=
-  NatData CM <+ NatCtorTimeCostModel CM BT <+ NatCaseTimeCostModel CM BT CB.
+Module Type NatCostModel (CM : CostModel) (BT : BasicCostModel CM)
+  (CB : CombinatorCostModel CM BT) :=
+  NatData CM <+ NatCtorCostModel CM BT <+ NatCaseCostModel CM BT CB.
 
 (* See NatComplexity.v for examples. *)
 
@@ -165,7 +157,6 @@ Definition option_case {X E A : Type} (s : env E X -> A) (z : E -> A) (o : E -> 
 Definition option_dflt {C} (d : C) (o : option C) : C := match o with Some x => x | None => d end.
 
 Module Type OptionData (Import CM : CostModel).
-  Local Abbreviation ℂO := (ℂO' Cost).
   #[global] Declare Instance Repr_option : forall {A CA}, Repr A CA -> Repr (option A) (option CA).
 
   #[global] Declare Instance Size_option : forall {A}, Size A -> Size (option A).
@@ -181,28 +172,23 @@ End OptionData.
 
 (** Options of ground data are ground. *)
 Module OptionGround (Import CM : CostModel) (Import OD : OptionData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
   Global Instance option_ground {A CA} {R : Repr A CA} {G : IsGround R} :
     IsGround (Repr_option R) :=
     {| ground_indiscrete := fun c c' => bound_order_option c c' (ground_order _ _) |}.
 End OptionGround.
 
-Module Type OptionCtorTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import OD : OptionData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type OptionCtorCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM) (Import OD : OptionData CM).
   Parameter c_Some : Cost.
   #[global] Hint Unfold c_Some : costs.
 
   #[global] Declare Instance Some_complexity : forall {A CA} `{Repr A CA},
     ComplexityBound (@Some A) (fun ca => c_Some +> Some (pot ca)).
-End OptionCtorTimeCostModel.
+End OptionCtorCostModel.
 
-Module Type OptionCaseTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import OD : OptionData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type OptionCaseCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import CB : CombinatorCostModel CM BT) (Import OD : OptionData CM).
   Parameter c_case_option : Cost.
   #[global] Hint Unfold c_case_option : costs.
 
@@ -214,16 +200,16 @@ Module Type OptionCaseTimeCostModel
       (fun cs : ℂI (env E X -> A) (ℂI (env E X) (CE * CX) -> ℂO CA) => c_clo +>
        fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun co : ℂI (E -> option X) (ℂI E CE -> ℂO (option CX)) => c_clo +>
-       fun ce : ℂI E CE => c_case_option ⊕ caround c_frame (cost (pot co ce)) ⊕
+       fun ce : ℂI E CE => c_case_option ⊕ framed (pot co ce) (fun _ =>
          match val co (val ce) with
          | Some x => pot cs (ECons (val ce) x ⋊ (pot ce, option_dflt cdefault (res (pot co ce))))
          | None => pot cz ce
-         end).
-End OptionCaseTimeCostModel.
+         end)).
+End OptionCaseCostModel.
 
-Module Type OptionTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
-  (CB : CombinatorTimeCostModel CM BT) :=
-  OptionData CM <+ OptionCtorTimeCostModel CM BT <+ OptionCaseTimeCostModel CM BT CB.
+Module Type OptionCostModel (CM : CostModel) (BT : BasicCostModel CM)
+  (CB : CombinatorCostModel CM BT) :=
+  OptionData CM <+ OptionCtorCostModel CM BT <+ OptionCaseCostModel CM BT CB.
 
 (** ** Pairs
 
@@ -247,7 +233,6 @@ Definition prod_case {X Y E A : Type} (f : env (env E X) Y -> A) (p : E -> X * Y
     gives the complexities of the elements to its branch. The order compares
     the elements; a pair of ground data is ground ([ProdGround]). *)
 Module Type ProdData (Import CM : CostModel).
-  Local Abbreviation ℂO := (ℂO' Cost).
   #[global] Declare Instance Repr_prod :
     forall {A CA B CB}, Repr A CA -> Repr B CB -> Repr (A * B) (CA * CB).
 
@@ -266,28 +251,23 @@ End ProdData.
 
 (** Pairs of ground data are ground. *)
 Module ProdGround (Import CM : CostModel) (Import PD : ProdData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
   Global Instance prod_ground {A CA B CB} {RA : Repr A CA} {RB : Repr B CB}
     {GA : IsGround RA} {GB : IsGround RB} : IsGround (Repr_prod RA RB) :=
     {| ground_indiscrete := fun c c' => bound_order_prod c c' (ground_order _ _) (ground_order _ _) |}.
 End ProdGround.
 
-Module Type ProdCtorTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import PD : ProdData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type ProdCtorCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM) (Import PD : ProdData CM).
   Parameter c_pair : Cost.
   #[global] Hint Unfold c_pair : costs.
 
   #[global] Declare Instance pair_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@pair A B) (fun ca => c_clo +> fun cb => c_pair +> (pot ca, pot cb)).
-End ProdCtorTimeCostModel.
+End ProdCtorCostModel.
 
-Module Type ProdCaseTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import PD : ProdData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type ProdCaseCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import CB : CombinatorCostModel CM BT) (Import PD : ProdData CM).
   Parameter c_case_prod : Cost.
   #[global] Hint Unfold c_case_prod : costs.
 
@@ -298,15 +278,15 @@ Module Type ProdCaseTimeCostModel
       (fun cf : ℂI (env (env E X) Y -> A) (ℂI (env (env E X) Y) ((CE * CX) * CY) -> ℂO CA) =>
          c_clo +>
        fun cp : ℂI (E -> X * Y) (ℂI E CE -> ℂO (CX * CY)) => c_clo +>
-       fun ce : ℂI E CE => c_case_prod ⊕ caround c_frame (cost (pot cp ce)) ⊕
+       fun ce : ℂI E CE => c_case_prod ⊕ framed (pot cp ce) (fun _ =>
          let (x, y) := val cp (val ce) in
          let (cx, cy) := res (pot cp ce) in
-         pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, cx), cy))).
-End ProdCaseTimeCostModel.
+         pot cf (ECons (ECons (val ce) x) y ⋊ ((pot ce, cx), cy)))).
+End ProdCaseCostModel.
 
-Module Type ProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
-  (CB : CombinatorTimeCostModel CM BT) :=
-  ProdData CM <+ ProdCtorTimeCostModel CM BT <+ ProdCaseTimeCostModel CM BT CB.
+Module Type ProdCostModel (CM : CostModel) (BT : BasicCostModel CM)
+  (CB : CombinatorCostModel CM BT) :=
+  ProdData CM <+ ProdCtorCostModel CM BT <+ ProdCaseCostModel CM BT CB.
 
 (** ** Sums (of any data)
 
@@ -315,7 +295,7 @@ Module Type ProdTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
     argument of its constructor, in its environment, as the branch of
     [Some] does.
 
-    As for options ([OptionTimeCostModel]), the elements may
+    As for options ([OptionCostModel]), the elements may
     be functions, or other data with complexities: a sum of [A] and [B],
     with complexities [CA] and [CB], has a sum of [CA] and [CB] as its
     complexity, that of its element, both [inl] or both [inr] (in L, the
@@ -341,7 +321,6 @@ Definition sum_left {C D} (d : C) (s : C + D) : C := match s with inl x => x | i
 Definition sum_right {C D} (d : D) (s : C + D) : D := match s with inl _ => d | inr y => y end.
 
 Module Type SumData (Import CM : CostModel).
-  Local Abbreviation ℂO := (ℂO' Cost).
   #[global] Declare Instance Repr_sum :
     forall {A CA B CB}, Repr A CA -> Repr B CB -> Repr (A + B) (CA + CB).
 
@@ -357,7 +336,6 @@ End SumData.
 
 (** Sums of ground data are ground. *)
 Module SumGround (Import CM : CostModel) (Import SD : SumData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
   Global Instance sum_ground {A CA B CB} {RA : Repr A CA} {RB : Repr B CB}
     {GA : IsGround RA} {GB : IsGround RB} : IsGround (Repr_sum RA RB) :=
     {| ground_indiscrete := fun c c' => bound_order_sum c c' (ground_order _ _) (ground_order _ _) |}.
@@ -365,10 +343,8 @@ End SumGround.
 
 (** Both constructors cost [c_ctor_sum], as the constructors of the binary
     numbers cost [c_ctor_Z]. *)
-Module Type SumCtorTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import SD : SumData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type SumCtorCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM) (Import SD : SumData CM).
   Parameter c_ctor_sum : Cost.
   #[global] Hint Unfold c_ctor_sum : costs.
 
@@ -376,13 +352,11 @@ Module Type SumCtorTimeCostModel
     ComplexityBound (@inl A B) (fun ca => c_ctor_sum +> @inl CA CB (pot ca)).
   #[global] Declare Instance inr_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@inr A B) (fun cb => c_ctor_sum +> @inr CA CB (pot cb)).
-End SumCtorTimeCostModel.
+End SumCtorCostModel.
 
-Module Type SumCaseTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import SD : SumData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type SumCaseCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import CB : CombinatorCostModel CM BT) (Import SD : SumData CM).
   Parameter c_case_sum : Cost.
   #[global] Hint Unfold c_case_sum : costs.
 
@@ -394,18 +368,18 @@ Module Type SumCaseTimeCostModel
       (fun cl : ℂI (env E X -> A) (ℂI (env E X) (CE * CX) -> ℂO CA) => c_clo +>
        fun cr : ℂI (env E Y -> A) (ℂI (env E Y) (CE * CY) -> ℂO CA) => c_clo +>
        fun cs : ℂI (E -> X + Y) (ℂI E CE -> ℂO (CX + CY)) => c_clo +>
-       fun ce : ℂI E CE => c_case_sum ⊕ caround c_frame (cost (pot cs ce)) ⊕
+       fun ce : ℂI E CE => c_case_sum ⊕ framed (pot cs ce) (fun _ =>
          match val cs (val ce), res (pot cs ce) with
          | inl x, inl cx => pot cl (ECons (val ce) x ⋊ (pot ce, cx))
          | inl x, inr _ => pot cl (ECons (val ce) x ⋊ (pot ce, cdefault))
          | inr y, inr cy => pot cr (ECons (val ce) y ⋊ (pot ce, cy))
          | inr y, inl _ => pot cr (ECons (val ce) y ⋊ (pot ce, cdefault))
-         end).
-End SumCaseTimeCostModel.
+         end)).
+End SumCaseCostModel.
 
-Module Type SumTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
-  (CB : CombinatorTimeCostModel CM BT) :=
-  SumData CM <+ SumCtorTimeCostModel CM BT <+ SumCaseTimeCostModel CM BT CB.
+Module Type SumCostModel (CM : CostModel) (BT : BasicCostModel CM)
+  (CB : CombinatorCostModel CM BT) :=
+  SumData CM <+ SumCtorCostModel CM BT <+ SumCaseCostModel CM BT CB.
 
 (** ** Binary numbers: [positive], [N], [Z], and [Q] *)
 
@@ -429,7 +403,6 @@ Definition Q_case {E A : Type} (f : env (env E Z) positive -> A) (q : E -> Q) (e
 (** ** Values, constructors, case analysis *)
 
 Module Type ZData (Import CM : CostModel).
-  Local Abbreviation ℂO := (ℂO' Cost).
   #[global] Declare Instance Repr_positive : Repr positive unit.
   #[global] Declare Instance Repr_N : Repr N unit.
   #[global] Declare Instance Repr_Z : Repr Z unit.
@@ -463,10 +436,8 @@ End ZData.
 
 (** One constant for the constructors of all the binary numbers, one for
     their case analyses. *)
-Module Type ZCtorTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM) (Import ZD : ZData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type ZCtorCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM) (Import ZD : ZData CM).
   Parameter c_ctor_Z : Cost.
   #[global] Hint Unfold c_ctor_Z : costs.
 
@@ -477,13 +448,11 @@ Module Type ZCtorTimeCostModel
   #[global] Declare Instance Zneg_complexity : ComplexityBound Zneg (fun _ => c_ctor_Z >|).
   #[global] Declare Instance Qmake_complexity :
     ComplexityBound Qmake (fun _ => c_clo +> fun _ => c_ctor_Z >|).
-End ZCtorTimeCostModel.
+End ZCtorCostModel.
 
-Module Type ZCaseTimeCostModel
-  (Import CM : CostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import ZD : ZData CM).
-  Local Abbreviation ℂO := (ℂO' Cost).
-
+Module Type ZCaseCostModel
+  (Import CM : CostModel) (Import BT : BasicCostModel CM)
+  (Import CB : CombinatorCostModel CM BT) (Import ZD : ZData CM).
   Parameter c_case_Z : Cost.
   #[global] Hint Unfold c_case_Z : costs.
 
@@ -493,23 +462,23 @@ Module Type ZCaseTimeCostModel
        fun cO : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
        fun cH : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cp : ℂI (E -> positive) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_Z ⊕ caround c_frame (cost (pot cp ce)) ⊕
+       fun ce : ℂI E CE => c_case_Z ⊕ framed (pot cp ce) (fun _ =>
          match val cp (val ce) with
          | xI q => pot cI (ECons (val ce) q ⋊ (pot ce, tt))
          | xO q => pot cO (ECons (val ce) q ⋊ (pot ce, tt))
          | xH => pot cH ce
-         end).
+         end)).
 
   #[global] Declare Instance N_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@N_case E A)
       (fun cz : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
        fun cn : ℂI (E -> N) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_Z ⊕ caround c_frame (cost (pot cn ce)) ⊕
+       fun ce : ℂI E CE => c_case_Z ⊕ framed (pot cn ce) (fun _ =>
          match val cn (val ce) with
          | N0 => pot cz ce
          | Npos p => pot cp (ECons (val ce) p ⋊ (pot ce, tt))
-         end).
+         end)).
 
   #[global] Declare Instance Z_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@Z_case E A)
@@ -517,12 +486,12 @@ Module Type ZCaseTimeCostModel
        fun cp : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
        fun cn : ℂI (env E positive -> A) (ℂI (env E positive) (CE * unit) -> ℂO CA) => c_clo +>
        fun cx : ℂI (E -> Z) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_Z ⊕ caround c_frame (cost (pot cx ce)) ⊕
+       fun ce : ℂI E CE => c_case_Z ⊕ framed (pot cx ce) (fun _ =>
          match val cx (val ce) with
          | Z0 => pot cz ce
          | Zpos p => pot cp (ECons (val ce) p ⋊ (pot ce, tt))
          | Zneg p => pot cn (ECons (val ce) p ⋊ (pot ce, tt))
-         end).
+         end)).
 
   #[global] Declare Instance comparison_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@comparison_case E A)
@@ -530,24 +499,24 @@ Module Type ZCaseTimeCostModel
        fun cl : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cg : ℂI (E -> A) (ℂI E CE -> ℂO CA) => c_clo +>
        fun cc : ℂI (E -> comparison) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_Z ⊕ caround c_frame (cost (pot cc ce)) ⊕
+       fun ce : ℂI E CE => c_case_Z ⊕ framed (pot cc ce) (fun _ =>
          match val cc (val ce) with
          | Eq => pot cq ce
          | Lt => pot cl ce
          | Gt => pot cg ce
-         end).
+         end)).
 
   #[global] Declare Instance Q_case_complexity : forall {E CE A CA} `{Repr E CE} `{Repr A CA},
     ComplexityBound (@Q_case E A)
       (fun cf : ℂI (env (env E Z) positive -> A)
                    (ℂI (env (env E Z) positive) ((CE * unit) * unit) -> ℂO CA) => c_clo +>
        fun cq : ℂI (E -> Q) (ℂI E CE -> ℂO unit) => c_clo +>
-       fun ce : ℂI E CE => c_case_Z ⊕ caround c_frame (cost (pot cq ce)) ⊕
+       fun ce : ℂI E CE => c_case_Z ⊕ framed (pot cq ce) (fun _ =>
          match val cq (val ce) with
          | Qmake n d => pot cf (ECons (ECons (val ce) n) d ⋊ ((pot ce, tt), tt))
-         end).
-End ZCaseTimeCostModel.
+         end)).
+End ZCaseCostModel.
 
-Module Type ZTimeCostModel (CM : CostModel) (BT : BasicTimeCostModel CM)
-  (CB : CombinatorTimeCostModel CM BT) :=
-  ZData CM <+ ZCtorTimeCostModel CM BT <+ ZCaseTimeCostModel CM BT CB.
+Module Type ZCostModel (CM : CostModel) (BT : BasicCostModel CM)
+  (CB : CombinatorCostModel CM BT) :=
+  ZData CM <+ ZCtorCostModel CM BT <+ ZCaseCostModel CM BT CB.

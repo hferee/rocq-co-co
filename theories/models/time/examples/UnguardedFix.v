@@ -2,13 +2,17 @@
   should never be free: any function would have any complexity bound ;
   the induced notion of complexity would be pointless. *)
 
-From Complexity Require Import TimeFix.
+From Complexity Require Import FixCosts.
 
 
-Module UnguardedFix (Import CM : NatCostModel) (Import BT : BasicTimeCostModel CM)
-  (Import CB : CombinatorTimeCostModel CM BT) (Import FX : FixTimeCostModel CM BT CB).
+Module UnguardedFix
+  (Import CM : CostModel
+    with Definition Cost := nat with Definition cle := le with Definition cnat := fun n : nat => n)
+  (Import BT : BasicCostModel CM
+     with Definition czero := 0 with Definition cplus := Nat.add)
+  (Import CB : CombinatorCostModel CM BT) (Import FX : FixCostModel CM BT CB).
 
-  (** The rule of [TimeFix], without its premise [1 <= c_fix]. *)
+  (** The rule of [FixCosts], without its premise [1 <= c_fix]. *)
   Definition unguarded_fix : Prop :=
     forall E CE A B CA CB (RE : Repr E CE) (RA : Repr A CA) (RB : Repr B CB)
       (ar : Arity B) (Hpw : PwExt RB ar) (f : E -> A -> B)
@@ -36,7 +40,8 @@ Module UnguardedFix (Import CM : NatCostModel) (Import BT : BasicTimeCostModel C
       - intros e a. exact eq_refl.
       - exact ehd_complexity.
       - apply bound_order_arr. intros ce _. split; [apply Nat.le_refl |].
-        apply bound_order_arr. intros ca _. cbn. rewrite Hc, Hs. split; [lia | reflexivity]. }
+        apply bound_order_arr. intros ca _. cbn. autounfold with costs. rewrite Hc, Hs.
+        split; [lia | reflexivity]. }
     exact (apply_complexity _ tt_complexity H).
   Qed.
 End UnguardedFix.

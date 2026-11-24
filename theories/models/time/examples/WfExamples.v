@@ -15,7 +15,8 @@ From Complexity Require Export ListComplexity.
 From Stdlib Require Import List Lia.
 Import ListNotations.
 
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 Module WfExamples (Import Time : TimeNatLists).
 

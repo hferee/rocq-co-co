@@ -17,7 +17,10 @@ Unset Implicit Arguments.
     [succ_not_free]: whatever its bound, an application of [S] costs at
     least [1], on every argument. *)
 
-Module Type SuccAxiom (Import CM : NatCostModel) (Import ND : NatData CM).
+Module Type SuccAxiom
+  (Import CM : CostModel
+    with Definition Cost := nat with Definition cle := le with Definition cnat := fun n : nat => n)
+  (Import ND : NatData CM).
   Parameter succ_not_free : forall c : ℂI nat unit -> ℂO unit,
     ComplexityBound S c -> forall cn, 1 <= cost (c cn).
 End SuccAxiom.
@@ -25,7 +28,10 @@ End SuccAxiom.
 (** [nat_growth]: the size of the output exceeds the size of the input by
     at most [a * (1 + cost)], for a constant [a] of the function (it cannot
     be the same for all the functions, [L_no_uniform_growth]). *)
-Module Type NatGrowthAxiom (Import CM : NatCostModel) (Import ND : NatData CM).
+Module Type NatGrowthAxiom
+  (Import CM : CostModel
+    with Definition Cost := nat with Definition cle := le with Definition cnat := fun n : nat => n)
+  (Import ND : NatData CM).
   Parameter nat_growth : forall (f : nat -> nat) (c : ℂI nat unit -> ℂO unit),
     ComplexityBound f c ->
     exists a, forall cn, size (f (val cn)) <= size (val cn) + a * (1 + cost (c cn)).
@@ -111,6 +117,7 @@ Module NatLowerBounds (Import M : NatLowerTimeCostModel).
     intros [p [Hd (c & Hb & Hs)]]. destruct (nat_growth_diff _ _ Hb) as [a Ha].
     set (k := peval p [0]). set (n := S (a * (1 + k))).
     specialize (Ha (n ⋊ tt)). destruct (Hs (n ⋊ tt)) as [Hc _]. cbn in Ha, Hc.
+    autounfold with measures in Hc.
     rewrite (peval_deg0 p _ [0] Hd) in Hc. fold k in Hc.
     assert (a * (1 + cost (c (n ⋊ tt))) <= a * (1 + k)) by (apply Nat.mul_le_mono_l; lia).
     unfold n in *. lia.
@@ -121,7 +128,8 @@ Module NatLowerBounds (Import M : NatLowerTimeCostModel).
     intros [p [Hd (c & Hb & Hs)]]. destruct (nat_growth_diff _ _ Hb) as [a Ha].
     destruct (peval_deg1 p Hd) as [k Hk].
     set (n := a * k + a * (1 + 2 * k) + 2).
-    specialize (Ha (n ⋊ tt)). destruct (Hs (n ⋊ tt)) as [Hc _]. cbn in Ha, Hc. rewrite size_nat in Hc.
+    specialize (Ha (n ⋊ tt)). destruct (Hs (n ⋊ tt)) as [Hc _]. cbn in Ha, Hc.
+    autounfold with measures in Hc. rewrite size_nat in Hc.
     assert (a * (1 + cost (c (n ⋊ tt))) <= a * (1 + peval p [S n])) by (apply Nat.mul_le_mono_l; lia).
     specialize (Hk (S n)).
     assert (a * (1 + peval p [S n]) <= a * (1 + k * (1 + S n))) by (apply Nat.mul_le_mono_l; lia).

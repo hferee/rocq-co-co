@@ -2,7 +2,7 @@
 
     The algorithm ([ETHAlgorithm]) defines its own data types, which come
     with their own axioms, as those of the standard library
-    ([TimeDatatypes]): [literal] has all of them, the other types their
+    ([DatatypeCosts]): [literal] has all of them, the other types their
     representations and sizes only. *)
 
 From Complexity Require Export TimeStdlib ETHAlgorithm.

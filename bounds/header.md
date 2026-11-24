@@ -13,6 +13,10 @@ The full descriptions are in `bounds/runs.json` (tooltips of the column titles i
 - `selfcase`: a closed `fun x => match x with … end` is the case combinator itself.
 - `argenv`: a closed function is the code of its body, with its argument as environment.
 - `envfix`: fixpoints with an environment; the arguments passed unchanged stay in it.
+- `base`: the compiler of commit 1aad907 (lists as lists of complexities; no `Ic`), the reference for `consume`. The bounds on `Z` are minimised for the first time, but `iter_mul`, `Z.pow_pos` and `Z.pow`.
+- `consume`: a `match` on the top of the environment whose branches read the variables below it runs them in the rest of the environment (`consume`).
+- `paths`: `consume` counts the reads below the matched value on one run of a branch, not over all of them. New: `map` and `filter` on the environment machine.
+- `etlc`: the variable at depth `p` is read in `p + 1` steps instead of `2p + 1`, by `etlc f e = f (etl e)` (`compose f etl` in one step). The bounds of `PeakExamples` are now profiles `(steps, need, ret)` of calf's resource monoid, no longer `(steps, peak, keep)`.
 - `asm` (reference, not compared): x86-64 instructions of the functions extracted to OCaml (`make bounds-asm`).
 
 The section **Environment machine for L** counts the steps of an environment machine (`MachineCostModel`).

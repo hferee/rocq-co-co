@@ -64,7 +64,7 @@ From the root of the repository, with the library built:
 values of its tunable literals, as one does by hand:
 
 1. The literals become variables `κ0`, `κ1`, ..., and the proof is run in
-   export mode (`Ltac2 Set cexport := true`, `TimeCombinators`): instead of
+   export mode (`Ltac2 Set cexport := true`, `CombinatorCosts`): instead of
    calling `lia`, `cbound` prints the inequalities it leaves, with their
    arithmetic hypotheses, and admits them. One compilation.
 2. `goals.py` solves them. For fixed values of the other atoms (values and

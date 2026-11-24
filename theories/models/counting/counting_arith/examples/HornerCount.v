@@ -11,8 +11,8 @@ From Complexity Require Import TimeArith.
 From Stdlib Require Import List.
 Import ListNotations.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 (** A polynomial, as written and in Horner's form. *)
 Example poly_example (x : nat) : nat := x * x + 3 * x + 1.

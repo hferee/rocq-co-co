@@ -13,8 +13,8 @@
 From Complexity Require Import TimeCostModel.
 From Stdlib Require Import PArith.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 (** [cbound] with bracket abstraction in this file ([ccompiler], [Compile]):
     the analyses are those of [cbound], with the same functionals for the

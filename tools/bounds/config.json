@@ -5,11 +5,8 @@
     "math/",
     "lower/",
     "models/core/",
-    "models/time/TimeCombinators.v",
+    "models/generic/",
     "models/time/TimeCostModel.v",
-    "models/time/TimeDatatypes.v",
-    "models/time/TimeFix.v",
-    "models/time/TimeLists.v",
     "models/counting/counting_arith/TimeArith.v",
     "models/time/examples/Tutorial.v",
     "models/time/examples/Limitations.v",
@@ -54,7 +51,11 @@
     ],
     [
       "^space/SpaceExamples\\.v$",
-      "models/space/examples/SpaceExamples.v"
+      "models/space/examples/AllocationExamples.v"
+    ],
+    [
+      "^models/space/examples/SpaceExamples\\.v$",
+      "models/space/examples/AllocationExamples.v"
     ],
     [
       "^space/",
@@ -117,7 +118,7 @@
       "models/counting/counting_arith/"
     ],
     [
-      "Space: total allocation (models/space)",
+      "Space: allocation and peak (models/space)",
       "models/space/"
     ],
     [
@@ -128,7 +129,7 @@
   "notes": {
     "complexity_ext": "for f pointwise equal to g, from the bound cg of g",
     "horner_complexity": "when 1 <= c_fix, in the counting model of the file",
-    "map_space": "when f allocates at most c",
+    "map_alloc": "when f allocates at most c",
     "models/time/stdlib/ListComplexity.v#fold_left_const_complexity": "when f costs at most c1 +> c2"
   },
   "names": {
@@ -142,11 +143,11 @@
   "order": [
     "models/time/stdlib/NatComplexity.v",
     "models/time/stdlib/BoolComplexity.v",
-    "models/time/stdlib/ListComplexity.v",
+    "models/time/stdlib/SumComplexity.v",
     "models/time/stdlib/HOListComplexity.v",
+    "models/time/stdlib/ListComplexity.v",
     "models/time/stdlib/PosComplexity.v",
     "models/time/stdlib/ZComplexity.v",
-    "models/time/stdlib/SumComplexity.v",
     "bff/BFFComplexity.v",
     "bff/BFFFeasibility.v",
     "bff/Type3Example.v",
@@ -155,7 +156,7 @@
     "models/counting/counting_arith/examples/HornerCount.v",
     "models/counting/counting_arith/examples/StrassenCount.v",
     "models/time/examples/eth/ETHCost.v",
-    "models/space/examples/SpaceExamples.v",
+    "models/space/examples/AllocationExamples.v",
     "models/time/machine/examples/MachineExamples.v"
   ],
   "groups": [
@@ -170,6 +171,10 @@
       "selfcase",
       "argenv",
       "envfix",
+      "base",
+      "consume",
+      "paths",
+      "etlc",
       "asm"
     ],
     "header": "bounds/header.md",

@@ -5,8 +5,8 @@
 
 From Complexity Require Import TimeStdlib.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 Module Limitations (Import Time : TimeStdlib).
 

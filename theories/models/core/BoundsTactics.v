@@ -12,12 +12,13 @@ Import ListNotations.
 From Ltac2 Require Import Ltac2.
 Set Default Proof Mode "Classic".
 
-(** The constants of the costs, declared by the layers of the models
-    ([c_S], [c_cons], ...), and the functions that costs use ([czip_option]): the
-    tactics unfold them ([autounfold with costs]), so that a constant fixed
-    by a model becomes a number, and an abstract one stays an atom for
-    [lia]. The bounds themselves are instances of [ComplexityBound]. *)
-Create HintDb costs.
+(** The constants of the costs, declared by the generic cost model
+    ([c_S], [c_cons], ...), their order and operations ([cle], [cplus],
+    ...), and the functions that costs use ([czip_option]): the tactics
+    unfold them ([autounfold with costs], created in [CostModelCore]), so
+    that a constant fixed by a model becomes a number, and an abstract one
+    stays an atom for [lia]. The bounds themselves are instances of
+    [ComplexityBound]. *)
 
 (** ** One form per atom
 
@@ -27,7 +28,7 @@ Create HintDb costs.
     sizes with their instances, the type aliases in the arguments of the
     functions ([@length clause l] and [@length (list nat) l]), and runs
     [cnorm_hook], which the libraries extend with the forms of their own
-    functions ([TimeLists] for the sums of lists). *)
+    functions ([ListCosts] for the sums of lists). *)
 
 (** A size is normalised with its instance. *)
 Ltac cnorm_size T S x :=
@@ -95,13 +96,14 @@ Ltac2 cnorm_aliases () :=
 
 Ltac2 mutable cnorm_hook : unit -> unit := fun () => ().
 
+(** The facts that the proofs of a file give to the arithmetic of [cbound],
+    after those on the values: none by default. *)
+Ltac2 mutable cfacts_hook : unit -> unit := fun () => ().
+
 Ltac cnorm_types :=
   try unfold val in *; try unfold pot in *;
-  (* the measure of costs in [nat] is the cost itself *)
-  repeat match goal with
-  | |- context [@cnat ?K ?I ?x] => progress change (@cnat K I x) with x
-  | H : context [@cnat ?K ?I ?x] |- _ => progress change (@cnat K I x) with x in H
-  end;
+  (* the measure of costs: in [nat], the cost itself *)
+  try autounfold with measures in *;
   repeat match goal with
   | |- context [@size ?T ?S ?x] => cnorm_size T S x
   | _ : context [@size ?T ?S ?x] |- _ => cnorm_size T S x
@@ -394,7 +396,7 @@ Ltac2 polynomial_constants () :=
 
 
 (** The tactics that use the definitions of [Bounds]. *)
-Module Type BoundsModel := GroundCostModel <+ Bounds.
+Module Type BoundsModel := GroundCostModel <+ CostSizes <+ Bounds.
 
 Module BoundsTactics (Import CM : BoundsModel).
   (** ** Proofs of bounds
@@ -427,7 +429,9 @@ Module BoundsTactics (Import CM : BoundsModel).
         let w := fresh "Hwf" in intro w;
         split
     | |- @bound_order _ _ _ _ _ => solve [apply ground_order]
-    end.
+    end;
+    (* the order of the costs: [le] in time *)
+    try unfold cle.
 
   (** The inputs of ground data ([IsGround], found by typeclass search) are
       replaced by their values, which keep the names of the inputs: their
@@ -457,7 +461,7 @@ Module BoundsTactics (Import CM : BoundsModel).
     unfold FirstOrderBound; cbn [fo_repr];
     eexists; split; [tac | sc_split];
     destr_inputs;
-    cbv beta iota zeta delta [cost res val pot cseq caround cost_around czero cle ctick cnat cofnat cost_alg nat_alg]; autounfold with costs;
+    cbv beta iota zeta delta [cost res val pot cle cnat]; autounfold with costs;
     cbn -[Nat.mul size]; add_size_facts.
   Ltac cost_split := cost_split_by ltac:(typeclasses eauto).
 

@@ -9,8 +9,8 @@ From Complexity Require Export NatComplexity HOListComplexity.
 From Stdlib Require Import List.
 Import ListNotations.
 
-(** No timeout in the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 (** The lengths of [firstn] and [skipn] ([ValueFact]). *)
 #[global] Instance firstn_value_fact {A} n (l : list A) :

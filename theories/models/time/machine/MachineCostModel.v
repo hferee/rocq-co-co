@@ -9,11 +9,11 @@ From Complexity Require Export TimeCostModel.
 Module Type MachineTimeCostModel := ParamTimeCostModel
   (* a partial application allocates a closure; an evaluation in non-tail
      position pushes and pops a frame *)
-  with Definition c_clo := 1 with Definition c_frame := 2
-  (* a combinator: the reads of its variables and its β-steps; the
-     projections of an environment, a Scott-encoded pair, are the dearest *)
+  with Definition c_clo := 1 with Definition c_frame := 2 with Definition c_pop := 0
+  (* a combinator: the reads of its variables and its β-steps; those that
+     project an environment, a Scott-encoded pair, are the dearest *)
   with Definition c_ehd := 15 with Definition c_etl := 16 with Definition c_Lam := 5
-  with Definition c_Kc := 2 with Definition c_Ic := 1 with Definition c_compose := 8
+  with Definition c_Kc := 2 with Definition c_consume := 23 with Definition c_etlc := 21 with Definition c_Ic := 1 with Definition c_compose := 8
   with Definition c_Cc := 8 with Definition c_Sc := 10
   (* a case analysis builds the environment of its branch; a constructor
      allocates a closure *)

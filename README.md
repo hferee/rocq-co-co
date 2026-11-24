@@ -4,26 +4,32 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
 ## Layout (`theories/`, logical path `Complexity`)
 
 - `models/`: the cost models, each with its results and an `examples/`
-  folder.
+  folder. The three main ones share the generic cost model (`generic/`) and differ by
+  their costs: time (`TimeCostModel`, costs in `nat`), allocations
+  (`AllocationCostModel`, costs in `nat`, most of them `0`) and peak space
+  (`SpaceCostModel`, calf's resource monoid).
   - `core/`: the cost model, independent of the resource: complexities,
     representations, `ComplexityBound` (`CostModelCore`), and bounds in the
     sizes of the inputs (`Bounds`, with their tactics in `BoundsTactics`),
     and at higher types: majorizations, higher-order polynomial bounds,
     sizes of functionals (`HOBounds`), together in `CostModel`.
-  - `time/`: the time cost model, as one signature gathering the costs of
-    application and of the combinators (`TimeCombinators`), of the
-    datatypes (`TimeDatatypes`, with separate layers for the data, the
-    constructors and the case analysis of each datatype; lists in
-    `TimeLists`) and of fixpoints (`TimeFix`). The data are of any type:
-    the complexity of a list is the list of the complexities of its
-    elements, one for each (it is well-formed, `wf`); ground data (numbers,
-    pairs of numbers, ...) are those whose complexities carry no
-    information (`IsGround`), and a bound with a ground result ends with
-    `>|`. The costs are constants: `ParamTimeCostModel` leaves them
-    abstract, `TimeCostModel` sets them all to 1. The size of a value is
-    the length of its binary encoding, its number of constructors (exact
-    equations: `size (S n) = 1 + size n`, ...).
-    - `stdlib/`: analyses of the standard library, as layers over
+  - `generic/`: the generic cost model, shared by the cost models, over an abstract
+    algebra of costs (`czero`, `cplus`, frames): the operations on costs,
+    application and the combinators (`CombinatorCosts`), the datatypes
+    (`DatatypeCosts`, with separate parts for the data, the constructors
+    and the case analysis of each datatype; lists in `ListCosts`) and
+    fixpoints (`FixCosts`), as one signature (`ParamCostModel`, `Generic`).
+    The data are of any type: the complexity of a list is the list of the
+    complexities of its elements, one for each (it is well-formed, `wf`);
+    ground data (numbers, pairs of numbers, ...) are those whose
+    complexities carry no information (`IsGround`), and a bound with a
+    ground result ends with `>|`. The size of a value is the length of its
+    binary encoding, its number of constructors (exact equations:
+    `size (S n) = 1 + size n`, ...).
+  - `time/`: the time cost model: the generic cost model with costs in `nat`, the
+    constants left abstract (`ParamTimeCostModel`) or all set to 1
+    (`TimeCostModel`).
+    - `stdlib/`: analyses of the standard library, as modules over
       `TimeCostModel` (`TimeBoolPair`, `TimeNat`, `TimePos`, `TimeStdlib`;
       booleans and pairs first, then numbers and lists: the first-order
       functions of lists and the higher-order ones on lists of numbers
@@ -31,7 +37,7 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
       lists of any data (`option_map`, `HOOptionComplexity`; `map`,
       `filter`, `find`, the folds, `lefts` and `rights` on lists of sums,
       ..., `HOListComplexity`), and the usual functions on sums
-      (`SumComplexity`)).
+      (`SumComplexity`)). The bounds on `Z` (`ZComplexity`) are apart.
     - `machine/`: the cost model of an environment machine for L
       (`MachineCostModel`: closures, variables read in a linked
       environment, frames for the evaluations in non-tail position, so that
@@ -57,17 +63,22 @@ Experiments in around reasoning on the complexity of Rocq in Rocq
     - `counting_comparisons/`: comparisons of an abstract type as the only
       primitive charged (`CmpCount`); `examples/`: van der Weegen and
       McKinna's quicksort, with its exact comparison count (`QuickSort`).
-  - `space/`: the total allocation (`TotalAllocationModel`): the layers of
-    the time cost model, with the allocations of the primitives as costs (a
-    closure, a constructor or a frame allocates a cell; an application or a
-    case analysis allocates nothing), never freed.
-    `AllocCostModel` adds an experimental axiom relating allocations to the
-    sizes of functionals. `examples/SpaceExamples` bounds the allocations of
-    standard functions (`Nat.add`, `Nat.mul`, `app`, `rev`, `rev_append`,
-    `map`, ...).
-    The peak space (`SpaceCostModel`): costs are profiles (unfoldings, peak,
-    memory kept by the result) composed in max-plus, frames being freed
-    after their evaluation; `examples/PeakExamples`.
+  - `space/`: the two memory models.
+    - The allocation cost model (`AllocationCostModel`): the generic cost model with
+      costs in `nat`, the allocations of the primitives (a
+      closure or a constructor allocates a cell; an application or a case
+      analysis allocates nothing), never freed: the maximum memory without
+      a garbage collector. `SizedAllocationCostModel` adds an experimental axiom
+      relating allocations to the sizes of functionals.
+      `examples/AllocationExamples` bounds the allocations of standard functions
+      (`Nat.add`, `Nat.mul`, `app`, `rev`, `rev_append`, `map`, ...).
+    - The peak space (`SpaceCostModel`): costs are profiles (unfoldings,
+      memory needed, memory returned), composed in the resource monoid of
+      Hoffmann and Hofmann (calf's `ResourceMonoid`), where a cost may free
+      memory; a frame is allocated, then freed (`c_frame`, `c_pop`). Its
+      axioms add releases (`PeakSpace`): a scope returning ground
+      data frees its environment, and a loop (`while_unfold`) runs its
+      iterations in sequence; `examples/PeakExamples`.
 - `compiler/`: the compilers of Gallina terms to the combinators
   (`math/Combinators`): closure conversion (`ClosureCompile`, the default)
   and bracket abstraction (`BracketCompile`), over common tools

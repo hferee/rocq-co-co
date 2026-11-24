@@ -5,7 +5,7 @@
     closer to an implementation: an environment machine for the same
     terms, whose values are closures. It proves the whole time cost model,
     with the constants of the machine ([MachineTimeCostModel]); [LM] gathers
-    the layers. *)
+    the parts of the generic cost model. *)
 
 From Stdlib Require Import List Lia PeanoNat PArith NArith ZArith QArith.
 From Complexity Require Export MachineCostModel.
@@ -140,7 +140,7 @@ Ltac Mfun :=
   let w := fresh "w" in let Hj := fresh "Hj" in let Ha := fresh "Ha" in
   let Hc := fresh "Hc" in let u := fresh "wu" in let E := fresh "wE" in
   intros j a c w Hj Ha Hc; destruct w as [u E];
-  cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hc |- *.
+  autounfold with cost_ops in Hc |- *; cbn [cost res pot val fmap] in Hc |- *.
 
 (** Apply the realiser [Hf] of a function to the realiser [Ha] of an
     argument, with the budget [J]. *)
@@ -193,7 +193,9 @@ Defined.
 
 Module MCM <: CostModel.
   Definition Cost := nat.
-  #[global] Instance cost_alg : CostAlg Cost := nat_alg.
+  Definition cle := le.
+  (** The measure of a cost: the cost itself. *)
+  Definition cnat (c : Cost) : nat := c.
   Definition Repr := MRepr.
   Existing Class Repr.
 
@@ -229,19 +231,25 @@ Module MCM <: CostModel.
   Include HOBounds.
 End MCM.
 
-(** The costs of the machine are in [nat]: the tactics unfold their algebra
-    ([nat_alg]), as defined in [MCM]. *)
-Ltac Malg := cbv [cseq caround cost_around czero cle ctick cnat cofnat MCM.cost_alg nat_alg] in *.
+(** The costs of the machine are in [nat]: the tactics unfold their operations
+    ([cost_ops]) and their order. *)
+Ltac Malg := autounfold with cost_ops in *; cbv [MCM.cle MCM.cnat] in *.
 Ltac Mfun ::=
   let j := fresh "j" in let a := fresh "a" in let c := fresh "c" in
   let w := fresh "w" in let Hj := fresh "Hj" in let Ha := fresh "Ha" in
   let Hc := fresh "Hc" in let u := fresh "wu" in let E := fresh "wE" in
   intros j a c w Hj Ha Hc; destruct w as [u E];
-  cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hc |- *; Malg.
+  autounfold with cost_ops in Hc |- *; cbn [cost res pot val fmap] in Hc |- *; Malg.
 Ltac Mend H ::= eapply rl_down; [| exact H]; cbn [cost res pot val] in *; Malg; lia.
 
-Module MBT <: BasicTimeCostModel MCM.
+Module MBT <: BasicCostModel MCM.
   Import MCM.
+  (** The costs are added ([+]); a frame costs its push. *)
+  Definition czero := 0.
+  Definition cplus := Nat.add.
+  Definition c_frame := 2.
+  Definition c_pop := 0.
+  Include CostOps MCM.
   (** A partial application of a combinator allocates a closure; a full
       application costs the steps of its realiser, below: the reads of its
       variables, its β-steps, and for [Lam] the closure of the environment;
@@ -255,7 +263,8 @@ Module MBT <: BasicTimeCostModel MCM.
   Definition c_compose := 8.
   Definition c_Cc := 8.
   Definition c_Sc := 10.
-  Definition c_frame := 2.
+  Definition c_consume := 23.
+  Definition c_etlc := 21.
 
   Lemma id_complexity : forall {A CA} `{Repr A CA},
       ComplexityBound (fun (x : A) => x) (fun ca => (1 +> pot ca) : ℂO CA).
@@ -281,32 +290,6 @@ Module MBT <: BasicTimeCostModel MCM.
     eapply rl_down; [| exact R1]. lia.
   Qed.
 
-  Lemma compose_complexity : forall {A B C CA CB CC}
-      `{Repr A CA} `{Repr B CB} `{Repr C CC}
-      (f : B -> C) (cf : ℂI B CB -> ℂO CC) (g : A -> B) (cg : ℂI A CA -> ℂO CB),
-      ComplexityBound f cf ->
-      ComplexityBound g cg ->
-      ComplexityBound (compose f g : A -> C)
-                      (fun ca => 8 ⊕ pot <$> (f ⋊ cf) · (2 ⊕ (g ⋊ cg) · ca)).
-  Proof.
-    intros A B C CA CB CC RA RB RC f cf g cg [sf Hf]%complexity_bound_has
-      [sg Hg]%complexity_bound_has.
-    apply has_complexity_bound.
-    destruct sf as [uf Ef], sg as [ug Eg].
-    exists (clos (app (var 2) (app (var 1) (var 0))) [clos ug Eg; clos uf Ef]). intro k. Mfun.
-    Mcall (Hg j) Ha (j - 8).
-    Mcall (Hf j) R (j - 8 - 2 - cost (cg (a ⋊ c))).
-    Mstep. Mend R0.
-  Qed.
-
-  Lemma constant_complexity : forall {A B CA CB} `{Repr A CA} `{Repr B CB} b {cb},
-      ComplexityBound (b : B) (cb : CB) ->
-      ComplexityBound (fun (_ : A) => b) (fun _ => 2 +> cb).
-  Proof.
-    intros A B CA CB RA RB b cb [sb Hb]%complexity_bound_has. apply has_complexity_bound.
-    exists (clos (var 1) [sb]). intro k. Mfun. Mstep. apply Hb.
-  Qed.
-
   Global Instance Repr_unit : Repr unit unit := ground_repr (fun _ => unit_enc).
 
   Lemma tt_complexity : ComplexityBound tt tt.
@@ -316,10 +299,10 @@ End MBT.
 (** ** Combinators
 
     Each combinator costs the steps of its realiser, from [c_Ic = 1] to
-    [c_etl = 16]: the projections of the environments, Scott-encoded pairs,
-    are the dearest. *)
+    [c_consume = 23]: those that project an environment, a Scott-encoded
+    pair, are the dearest. *)
 
-Module MCB <: CombinatorTimeCostModel MCM MBT.
+Module MCB <: CombinatorCostModel MCM MBT.
   Import MCM MBT.
   Global Instance Repr_env {E CE A CA} (RE : Repr E CE) (RA : Repr A CA) :
     Repr (env E A) (CE * CA) := env_repr RE RA.
@@ -411,6 +394,40 @@ Module MCB <: CombinatorTimeCostModel MCM MBT.
     Mstep. Mend R1.
   Qed.
 
+  (** [f] is called in tail position, with the first component of the
+      pair: no frame. *)
+  Lemma etlc_complexity : forall {E CE A CA B CB} `{Repr E CE} `{Repr A CA} `{Repr B CB},
+    ComplexityBound (@etlc E A B)
+      (fun cf : ℂI (E -> B) (ℂI E CE -> ℂO CB) => 1 +>
+       fun ce : ℂI (env E A) (CE * CA) => 21 ⊕ pot <$> cf · (etl (val ce) ⋊ fst (pot ce))).
+  Proof.
+    intros. apply has_complexity_bound.
+    exists (clos (lam (app (var 0) (lam (lam (app (var 3) (var 1)))))) []). intro k.
+    Mfun. Mstep. Mfun.
+    destruct Ha0 as (r1 & r2 & rest & Ep & Hr1 & Hr2). injection Ep as -> ->.
+    Mcall Ha Hr1 (j0 - 21). Mstep. Mend R.
+  Qed.
+
+  Lemma consume_complexity : forall {E CE I CI A CA} `{Repr E CE} `{Repr I CI} `{Repr A CA},
+    ComplexityBound (@consume E I A)
+      (fun cc : ℂI ((E -> I) -> E -> A) (ℂI (E -> I) (ℂI E CE -> ℂO CI) -> ℂO (ℂI E CE -> ℂO CA)) => 1 +>
+       fun ce : ℂI (env E I) (CE * CI) =>
+         23 ⊕ pot <$> (2 ⊕ cc · ((fun _ : E => ehd (val ce)) ⋊ (fun _ : ℂI E CE => 2 +> snd (pot ce))))
+                      · (etl (val ce) ⋊ fst (pot ce))).
+  Proof.
+    intros E CE I CI A CA RE RI RA. apply has_complexity_bound.
+    exists (clos (lam (app (var 0) (lam (lam (app (app (var 3) (lam (var 1))) (var 1)))))) []). intro k.
+    Mfun. Mstep. Mfun.
+    destruct Ha0 as (r1 & r2 & rest & Ep & Hr1 & Hr2). injection Ep as -> ->.
+    (* the matched value: a closure that returns it, in [2] steps *)
+    assert (Hm : rl (arr_repr RE RI) j0 (fun _ => ehd a0) (fun _ => 2 +> snd c0)
+                   (clos (var 1) [r2; r1; clos pair_body (r2 :: r1 :: rest); clos wu wE])).
+    { intros j' x cx w Hj' Hx Hcx. Mstep. Mend Hr2. }
+    Mcall Ha Hm (j0 - 23). destruct r as [ur Er].
+    Mcall R Hr1 (j0 - 23 - 2 - cost (c ((fun _ => ehd a0) ⋊ (fun _ => 2 +> snd c0)))).
+    Mstep. Mend R0.
+  Qed.
+
   Include CombinatorTactics MCM MBT.
 End MCB.
 
@@ -454,12 +471,11 @@ Definition case3_body (h1 h2 h3 : term) : term :=
 
 Definition list_cons_body : term := lam (app (app (var 0) (var 3)) (var 2)).
 
-
 Ltac Mcase_start := intro k; Mfun; Mstep; Mfun; Mstep; Mfun; Mstep; Mfun.
 Ltac Mcase1_start := intro k; Mfun; Mstep; Mfun; Mstep; Mfun.
 Ltac Mcase3_start := intro k; Mfun; Mstep; Mfun; Mstep; Mfun; Mstep; Mfun; Mstep; Mfun.
 
-Module MBO <: BoolTimeCostModel MCM MBT MCB.
+Module MBO <: BoolCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_case_bool := 25.
   Global Instance Repr_bool : Repr bool unit := ground_repr bool_enc.
@@ -488,7 +504,7 @@ Module MBO <: BoolTimeCostModel MCM MBT MCB.
   Qed.
 End MBO.
 
-Module MNT <: NatTimeCostModel MCM MBT MCB.
+Module MNT <: NatCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_S := 1.
   Definition c_case_nat := 33.
@@ -534,9 +550,7 @@ Module MNT <: NatTimeCostModel MCM MBT MCB.
   Qed.
 End MNT.
 
-
 (** ** Sums, pairs and binary numbers *)
-
 
 (** Sums: realised by the realiser of their element, with
     its complexity, as in [LInstance]. *)
@@ -562,8 +576,7 @@ Proof.
   - auto.
 Defined.
 
-
-(** Pairs of any data ([ProdTimeCostModel]): as the ground pairs, with
+(** Pairs of any data ([ProdCostModel]): as the ground pairs, with
     the complexities of their elements. *)
 Definition prod_rl {A CA B CB} (RA : MRepr A CA) (RB : MRepr B CB) (k : nat) (p : A * B)
   (c : CA * CB) (v : value) : Prop :=
@@ -608,10 +621,8 @@ Definition comp_enc (c : comparison) : value :=
   end.
 Definition Q_enc (q : Q) : value := clos pair_body [pos_enc (Qden q); Z_enc (Qnum q)].
 
-
-
 (** Pairs. *)
-Module MPM <: ProdTimeCostModel MCM MBT MCB.
+Module MPM <: ProdCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_pair := 1.
   Definition c_case_prod := 39.
@@ -673,7 +684,7 @@ Module MPM <: ProdTimeCostModel MCM MBT MCB.
 End MPM.
 
 (** Sums. The case analysis costs as the one of options. *)
-Module MSM <: SumTimeCostModel MCM MBT MCB.
+Module MSM <: SumCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_ctor_sum := 1.
   Definition c_case_sum := 35.
@@ -693,7 +704,6 @@ Module MSM <: SumTimeCostModel MCM MBT MCB.
     bound_order (sum_left cdefault c) (sum_left cdefault c') ->
     bound_order (sum_right cdefault c) (sum_right cdefault c') -> bound_order c c'.
   Proof. intros A CA B CB RA RB c c' H1 H2. exact (conj H1 H2). Qed.
-
 
   Lemma inl_complexity : forall {A CA B CB} `{Repr A CA} `{Repr B CB},
     ComplexityBound (@inl A B) (fun ca => 1 +> @inl CA CB (pot ca)).
@@ -758,7 +768,7 @@ Module MSM <: SumTimeCostModel MCM MBT MCB.
   Qed.
 End MSM.
 
-Module MZM <: ZTimeCostModel MCM MBT MCB.
+Module MZM <: ZCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_ctor_Z := 1.
   Definition c_case_Z := 43.
@@ -1027,7 +1037,7 @@ Proof.
   - auto.
 Defined.
 
-Module MLM <: ListTimeCostModel MCM MBT MCB.
+Module MLM <: ListCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_cons := 1.
   Definition c_case_list := 46.
@@ -1097,7 +1107,7 @@ Module MLM <: ListTimeCostModel MCM MBT MCB.
   Qed.
 End MLM.
 
-Module MOM <: OptionTimeCostModel MCM MBT MCB.
+Module MOM <: OptionCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_Some := 1.
   Definition c_case_option := 35.
@@ -1172,7 +1182,7 @@ Definition BODY1 : term := app (app (lam WB) (lam WB)) (var 0).
 (** The unfolding equation of [fix_complexity] is pointwise: the realisers
     of a function only observe it through its applications, so that
     pointwise-equal functions have the same realisers ([PwExt] of
-    [TimeFix]), without functional extensionality. *)
+    [FixCosts]), without functional extensionality. *)
 Definition pw_ext {B CB} (R : MRepr B CB) (ar : Arity B) : Prop :=
   forall k x y c v, pw_eq ar x y -> rl R k y c v -> rl R k x c v.
 
@@ -1186,9 +1196,10 @@ Proof.
   exists r, n. split; [exact Hv | split; [exact Hn | exact (HB _ _ _ _ _ (E a) Hr)]].
 Qed.
 
-Module MFX <: FixTimeCostModel MCM MBT MCB.
+Module MFX <: FixCostModel MCM MBT MCB.
   Import MCM MBT MCB.
   Definition c_fix := 36.
+  #[global] Instance cle_refl : Reflexive cle := Nat.le_refl.
 
   Definition PwExt {B CB} (R : Repr B CB) (ar : Arity B) : Prop := pw_ext R ar.
   Existing Class PwExt.
@@ -1201,7 +1212,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
       (F : env E (A -> B) -> A -> B)
       (cF : ℂI (env E (A -> B)) (CE * (ℂI A CA -> ℂO CB)) -> ℂO (ℂI A CA -> ℂO CB))
       (cf : ℂI E CE -> ℂO (ℂI A CA -> ℂO CB)),
-      1 <= c_fix ->
+      (forall c, ~ c_fix + c <= c) ->
       (forall e, is_fixpoint ar (fun g => F (ECons e g)) (f e)) ->
       ComplexityBound F cF ->
       bound_order
@@ -1215,7 +1226,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
     destruct sF as [uF EF].
     exists (clos (lam BODY1) [clos uF EF]). intro k. Mfun.
     destruct (Hrec (a ⋊ c) (rl_wf Ha)) as [Hcost0 Hcomp0].
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost0, Hcomp0; Malg.
+    cbn [cost res pot val MBT.cost_add MBT.capp fmap MBT.ret_I] in Hcost0, Hcomp0; Malg.
     set (cfe := res (cf (a ⋊ c))) in *.
     set (e := clos wu wE) in *. set (sF := clos uF EF) in *.
     (* the closures of the recursive function of [e], at every budget up to [j] *)
@@ -1224,7 +1235,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
     { intro k'. induction k' as [k' IH] using (well_founded_induction lt_wf).
       intros Hk' x0 y0. Mfun.
       destruct (Hcomp0 (a0 ⋊ c0) (rl_wf Ha0)) as [Hcost Hcomp].
-      cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost, Hcomp; Malg.
+      cbn [cost res pot val MBT.cost_add MBT.capp fmap MBT.ret_I] in Hcost, Hcomp; Malg.
       set (x := clos wu0 wE0) in *. set (w := clos WB [y0; e; sF]).
       set (eta := clos ETAB [x; w; y0; e; sF]).
       assert (He : rl (env_repr RE (Repr_arr RA RB)) (j0 - 36) (ECons a (f a)) (c, cfe)
@@ -1241,7 +1252,7 @@ Module MFX <: FixTimeCostModel MCM MBT MCB.
     do 2 eexists; split; [cbn [call]; apply ev_lam | split; [lia |]].
     Mfun.
     destruct (Hcomp0 (a0 ⋊ c0) (rl_wf Ha0)) as [Hcost Hcomp].
-    cbn [cost res pot val cost_add CostModelCore.app fmap ret_I] in Hcost, Hcomp; Malg.
+    cbn [cost res pot val MBT.cost_add MBT.capp fmap MBT.ret_I] in Hcost, Hcomp; Malg.
     set (x := clos wu0 wE0) in *. set (w := clos WB [x; e; sF]).
     set (eta := clos ETAB [x; w; x; e; sF]).
     assert (He : rl (env_repr RE (Repr_arr RA RB)) (j0 - 36) (ECons a (f a)) (c, cfe)

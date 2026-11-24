@@ -25,11 +25,11 @@ Module Tutorial (Import Time : TimeStdlib).
       boolean, a list, ...) has nothing more to bound: [k >|] reads "the cost
       [k], and nothing after it". For example,
 <<
-      Time.ComplexityBound Nat.add (fun cn => 1 +> fun cm => 14 * val cn + 10 >|)
+      Time.ComplexityBound Nat.add (fun cn => 1 +> fun cm => 12 * val cn + 9 >|)
 >>
       says that applying [Nat.add] to [n] costs 1 step (it builds the
       closure [Nat.add n]), and applying [Nat.add n] to [m] at most
-      [14 n + 10] steps.
+      [12 n + 9] steps.
 
       The method:
       1. Start from the bound with 0s.
@@ -49,23 +49,21 @@ Module Tutorial (Import Time : TimeStdlib).
   (** What [cbound] does, step by step (a worked example, not an exercise):
       1. [eapply ComplexityBound_mono]: prove some bound [?found], then
          compare it with the claimed one;
-      2. [compile_goal]: [succ2] becomes [compose S (compose S Ic)];
-      3. one cost axiom per combinator: [compose_complexity] (B),
-         [S_complexity], [Ic_complexity] (reads the argument);
-      4. [csimpl]: compute [?found]; [bo_split]: compare its cost, [5], with
+      2. [compile_goal]: [succ2] becomes [compose S S];
+      3. one cost rule per combinator: [compose_complexity] (B, from the
+         axiom [compose_hcomplexity]) and [S_complexity];
+      4. [csimpl]: compute [?found]; [bo_split]: compare its cost, [3], with
          the claimed one. *)
   Definition succ2 (n : nat) : nat := S (S n).
 
-  Lemma succ2_complexity : Time.ComplexityBound succ2 (fun cn => 5 >|).
+  Lemma succ2_complexity : Time.ComplexityBound succ2 (fun cn => 3 >|).
   Proof.
     eapply ComplexityBound_mono; cycle 1.
     - unfold succ2. compile_goal.
       (* now, this is showing what [cbc_found] does. *)
       eapply compose_complexity.
       + exact S_complexity.
-      + eapply compose_complexity.
-        * exact S_complexity.
-        * exact id_complexity.
+      + exact S_complexity.
     - (* now prove that the claimed bound satisfies the constraints. *)
       csimpl. bo_split.
       (* a bound is valid if it is well shaped (trivial for int) *)
@@ -130,16 +128,16 @@ Module Tutorial (Import Time : TimeStdlib).
       { cbound. }
 >>
       leaves [6 <= b] for the empty list, and
-      [a * length cl + b + 16 <= a * length cl + a + b] for a list whose
-      tail is [cl]: the bound is [16 * length (val cl) + 6]. To check the
+      [a * length cl + b + 13 <= a * length cl + a + b] for a list whose
+      tail is [cl]: the bound is [13 * length (val cl) + 6]. To check the
       values, give them to the unknowns:
-      [instantiate (a := 16). instantiate (b := 6). all: subst a b; lia.] *)
+      [instantiate (a := 13). instantiate (b := 6). all: subst a b; lia.] *)
 
   Fixpoint double (n : nat) : nat := match n with O => O | S k => S (S (double k)) end.
 
 (* Let's see how cbound works on recursive functions.*)
   Lemma double_complexity : Time.ComplexityBound double
-    (fun cn => (16 * val cn + 6) >|).
+    (fun cn => (14 * val cn + 6) >|).
   Proof.
     (* cbound would do the trick here. *)
     crec.
@@ -154,8 +152,8 @@ Module Tutorial (Import Time : TimeStdlib).
         eapply compose_complexity; [exact S_complexity |].
         eapply apply_complexity; [exact ehd_complexity |].
         eapply apply_complexity; [| exact Sc_complexity].
-        eapply compose_complexity; [exact ehd_complexity |].
-        eapply compose_complexity; exact etl_complexity.
+        eapply apply_complexity; [| exact etlc_complexity].
+        eapply apply_complexity; [exact ehd_complexity | exact etlc_complexity].
       + (* branch O: Kc 0 *)
         eapply apply_complexity; [exact (nat_complexity 0) | exact Kc_complexity].
     - (* show that the complexity satisfies the recurrence inequation. *)

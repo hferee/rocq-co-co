@@ -18,9 +18,18 @@ Notation "#| x |" := (size x) (at level 0, x at level 99, format "#| x |").
 Lemma size_tt : size tt = 1.
 Proof. reflexivity. Qed.
 
-Module Bounds (Import CM : CostModelCore).
-  Local Abbreviation ℂO := (ℂO' Cost).
+(** ** Measures of costs
 
+    [cnat c]: the measure of a cost, which the bounds compare to functions
+    of the sizes. Fixed by the model. Time: the cost itself; peak space:
+    the peak ([SpaceCostModel]). The tactics unfold it ([measures]). *)
+Create HintDb measures.
+Module Type CostSizes (Import CM : CostModelAxioms).
+  Parameter cnat : Cost -> nat.
+  #[global] Hint Unfold cnat : measures.
+End CostSizes.
+
+Module Bounds (Import CM : CostModelCore) (Import CS : CostSizes CM).
   (** ** First-order functions
 
       [FirstOrder A CA]: [A] is a type of first-order functions, whose
@@ -50,22 +59,6 @@ Module Bounds (Import CM : CostModelCore).
         cnat (cost (c ca)) <= g (ss ++ [size (Size := SA) (val ca)]) /\
         size_costs fo g (ss ++ [size (Size := SA) (val ca)]) (res (c ca))
     end.
-
-  (** [size_bound fo g ss]: the complexity whose costs are [g], with the
-      default complexities for the results. *)
-  Fixpoint size_bound {A CA} (fo : FirstOrder A CA) (g : list nat -> nat) (ss : list nat) : CA :=
-    match fo in FirstOrder A CA return CA with
-    | fo_res RB _ => @cdefault _ _ RB
-    | fo_arg _ SA fo => fun ca =>
-        cofnat (g (ss ++ [size (Size := SA) (val ca)])) +>
-        size_bound fo g (ss ++ [size (Size := SA) (val ca)])
-    end.
-
-  Lemma size_bound_costs {A CA} (fo : FirstOrder A CA) g ss : size_costs fo g ss (size_bound fo g ss).
-  Proof.
-    revert ss. induction fo as [B CB RB SB | A CA B CB RA SA fo IH]; intro ss; cbn; [exact I|].
-    intro ca. split; [rewrite cnat_cofnat; apply le_n | apply IH].
-  Qed.
 
   (** ** Bounds
 
@@ -107,4 +100,4 @@ Module Bounds (Import CM : CostModelCore).
 End Bounds.
 
 (** The cost model with the bounds in the sizes. *)
-Module Type BoundsCore := CostModelCore.CostModelCore <+ Bounds.
+Module Type BoundsCore := CostModelCore.CostModelCore <+ CostSizes <+ Bounds.

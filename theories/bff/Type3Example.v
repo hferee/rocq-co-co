@@ -22,8 +22,8 @@ From Stdlib Require Import PArith NArith NArithRing.
 From Stdlib Require List.
 Import List.ListNotations.
 
-(** No timeout for the tactics in the proofs of the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 (** ** Definitions
 
@@ -215,12 +215,12 @@ Qed.
     ([W_a], [W_b], [W_c]) and [W_maj], [W_poly], [W_cost_sized],
     [W_cost_paid]; [V_clo] and [W_clo], the costs of the applications of
     [V] and [W] to [F]. *)
-Abbreviation C_a := 14 (only parsing).
-Abbreviation C_b := 39 (only parsing).
-Abbreviation C_c := 15 (only parsing).
-Abbreviation V_a := 28 (only parsing).
-Abbreviation V_b := 30 (only parsing).
-Abbreviation W_a := 72 (only parsing).
+Abbreviation C_a := 12 (only parsing).
+Abbreviation C_b := 28 (only parsing).
+Abbreviation C_c := 13 (only parsing).
+Abbreviation V_a := 21 (only parsing).
+Abbreviation V_b := 28 (only parsing).
+Abbreviation W_a := 56 (only parsing).
 Abbreviation W_b := 4 (only parsing).
 Abbreviation W_c := 0 (only parsing).
 Abbreviation V_clo := 1 (only parsing).
@@ -299,7 +299,7 @@ Module Type3Complexity (Import Time : TimePos).
         CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) f s.
       Proof.
         intros H [y cy] _. exists ([tt], tt). split; [split; [constructor; [exact I | constructor] | exact I]|].
-        cbn. split; [specialize (H y); lia|].
+        cbn. autounfold with measures. split; [specialize (H y); lia|].
         intros [y' cy'] _ (_ & Hq & _). inversion_clear Hq as [|? ? Hy _]. cbn in *. now rewrite Hy.
       Qed.
 
@@ -309,7 +309,7 @@ Module Type3Complexity (Import Time : TimePos).
         CSized (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (fun _ => n) s.
       Proof.
         intros H [y cy] _. exists ([], tt). split; [split; [constructor | exact I]|].
-        cbn. split; [specialize (H y); lia | reflexivity].
+        cbn. autounfold with measures. split; [specialize (H y); lia | reflexivity].
       Qed.
 
       (** At type [(A → B) → D]: a functional [F] of size [cF] answers on a
@@ -330,14 +330,14 @@ Module Type3Complexity (Import Time : TimePos).
         destruct (HF (f ⋊ cf, tt) (conj Hf I)) as ([qs []] & _ & Hw & Hm).
         exists (map (fun zs => fst zs) qs). split.
         - cbn [answer gsize cweight recv dcost fst snd val pot] in Hw.
-          cbv [cnat cost_alg nat_alg] in Hw. rewrite !map_map.
+          cbv [cnat] in Hw. rewrite !map_map.
           match goal with |- context [list_sum (map ?w qs)] =>
             replace (map w qs) with (map (qweight (ho_arr (ho_ground RA sA) (ho_ground RB sB)) (f ⋊ cf)) qs)
           end.
           + match type of Hw with context [list_max ?l] =>
             match goal with |- context [list_max ?l'] => change l' with l end end.
             lia.
-          + apply map_ext. intros [[y cy] []]. unfold qweight. cbn. lia.
+          + apply map_ext. intros [[y cy] []]. unfold qweight. cbn. autounfold with measures. lia.
         - intros g Hg Hgf. apply (Hm (g ⋊ cf, tt) (conj Hg I)).
           split; [reflexivity|]. split; [|exact I].
           apply Forall_forall. intros zs Hin. cbn [answer val fst].
@@ -445,23 +445,23 @@ Module Type3Complexity (Import Time : TimePos).
 
   (** [zeros p q] makes [2 p - 1] calls. *)
   Global Instance zeros_complexity : Time.ComplexityBound zeros
-    (fun cp => 4 +> fun cq => (36 * (2 * Pos.to_nat (val cp) - 1)) >|).
+    (fun cp => 4 +> fun cq => (28 * (2 * Pos.to_nat (val cp) - 1)) >|).
   Proof. cbound. all: pose proof (Pos2Nat.is_pos cp); lia. Qed.
 
   Global Instance pow2_complexity : Time.ComplexityBound pow2
-    (fun cx => (72 * N.to_nat (val cx) + 3) >|) := _.
+    (fun cx => (56 * N.to_nat (val cx) + 3) >|) := _.
 
   Global Instance pred_N_complexity : Time.ComplexityBound Pos.pred_N
-    (fun cp => (14 * Pos.size_nat (val cp)) >|) := _.
+    (fun cp => (12 * Pos.size_nat (val cp)) >|) := _.
 
   Global Instance N_pred_complexity : Time.ComplexityBound N.pred
-    (fun cx => (14 * N.size_nat (val cx) + 4) >|) := _.
+    (fun cx => (12 * N.size_nat (val cx) + 4) >|) := _.
 
   Global Instance N_eqb_complexity : Time.ComplexityBound N.eqb
-    (fun cx => 1 +> fun cy => (28 * N.size_nat (val cx) + 17) >|) := _.
+    (fun cx => 1 +> fun cy => (21 * N.size_nat (val cx) + 15) >|) := _.
 
   Global Instance pow2_eq_pos_complexity : Time.ComplexityBound pow2_eq_pos
-    (fun cx => 4 +> fun cp => (Pos.size_nat (val cp) * (14 * N.size_nat (val cx) + 39)) >|).
+    (fun cx => 4 +> fun cp => (Pos.size_nat (val cp) * (12 * N.size_nat (val cx) + 28)) >|).
   Proof.
     cbound.
     all: match goal with |- context [Pos.pred_N ?p] => pose proof (size_nat_pred (Npos p)) as H end;
@@ -509,10 +509,10 @@ Module Type3Complexity (Import Time : TimePos).
     pose proof (Nat.pow_le_mono_r 2 (size p) (size (Npos p)) ltac:(lia) ltac:(lia)). cbn [N.to_nat]. lia.
   Qed.
 
-  Lemma zeros_size_bound : Time.FirstOrderBound zeros (fun ss => 72 * 2 ^ List.nth 0 ss 0).
+  Lemma zeros_size_bound : Time.FirstOrderBound zeros (fun ss => 56 * 2 ^ List.nth 0 ss 0).
   Proof. cost_split. all: pose proof (pos_to_nat_le_pow_size ca); lia. Qed.
 
-  Lemma pow2_size_bound : Time.FirstOrderBound pow2 (fun ss => 72 * 2 ^ List.nth 0 ss 0 + 3).
+  Lemma pow2_size_bound : Time.FirstOrderBound pow2 (fun ss => 56 * 2 ^ List.nth 0 ss 0 + 3).
   Proof. cost_split. pose proof (N_to_nat_le_pow_size ca). lia. Qed.
 
   (** ** Higher-order polynomial bounds ([BFFFeasibility]) *)

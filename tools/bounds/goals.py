@@ -3,7 +3,7 @@
 This is what one does by hand: write the bound with unknown constants, run
 [cbound], and read the inequalities that it leaves. The minimiser
 (minimise.py) makes the tunable constants of a bound variables [κ0], [κ1],
-..., and runs its proof in export mode ([cexport], TimeCombinators): the
+..., and runs its proof in export mode ([cexport], CombinatorCosts): the
 inequalities left are printed instead of being given to [lia]. This module
 reads them and finds the constants.
 

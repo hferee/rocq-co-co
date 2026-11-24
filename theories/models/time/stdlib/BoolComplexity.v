@@ -6,8 +6,8 @@
 
 From Complexity Require Export TimeCostModel.
 
-(** No timeout in the library ([ctimeout]). *)
-#[local] Ltac2 Set ctimeout := 0.
+(** The timeout of the library ([ctimeout_lib]). *)
+#[local] Ltac2 Set ctimeout := ctimeout_lib.
 
 Module BoolComplexity (Import Time : TimeCostModelBase).
 
